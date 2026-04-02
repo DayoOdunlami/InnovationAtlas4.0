@@ -286,8 +286,13 @@ def parse_args() -> argparse.Namespace:
             f"Use 2 to skip pass 1 (transport). Valid range: 1..{len(SEARCH_PASSES)}."
         ),
     )
+    p.add_argument(
+        "--skip-all",
+        action="store_true",
+        help="Exit immediately with code 0 — corpus is complete, no API calls needed.",
+    )
     args = p.parse_args()
-    if args.start_pass < 1 or args.start_pass > len(SEARCH_PASSES):
+    if not args.skip_all and (args.start_pass < 1 or args.start_pass > len(SEARCH_PASSES)):
         raise SystemExit(
             f"--start-pass must be between 1 and {len(SEARCH_PASSES)}; got {args.start_pass}"
         )
@@ -296,6 +301,11 @@ def parse_args() -> argparse.Namespace:
 
 def main():
     args = parse_args()
+
+    if args.skip_all:
+        print("--skip-all: corpus is complete, skipping ingestion.", flush=True)
+        return
+
     start_idx = args.start_pass - 1
     passes_to_run = SEARCH_PASSES[start_idx:]
     total_passes = len(SEARCH_PASSES)

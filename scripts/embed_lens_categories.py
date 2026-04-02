@@ -53,7 +53,7 @@ def store_embedding(conn, category_id: str, embedding: list[float]) -> None:
 
 def main():
     print("Connecting to Supabase Postgres...", flush=True)
-    conn = psycopg2.connect(DB_URL)
+    conn = psycopg2.connect(DB_URL, sslmode="require")
     conn.autocommit = False
     print("Connected.", flush=True)
 

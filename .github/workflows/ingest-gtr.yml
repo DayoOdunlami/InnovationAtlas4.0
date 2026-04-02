@@ -1,6 +1,7 @@
 # Manual GtR -> atlas.projects ingestion (no schedule).
 # Secrets required: DATABASE_URL, OPENAI_API_KEY
-# DATABASE_URL = Supabase transaction pooler URI (port 6543)
+# DATABASE_URL = Supabase SESSION pooler URI — use port 5432, NOT 6543
+# Format: postgresql://postgres.afysgjiczzptubonbuxs:[PASSWORD]@aws-1-eu-west-1.pooler.supabase.com:5432/postgres
 
 name: GtR Atlas Ingestion
 

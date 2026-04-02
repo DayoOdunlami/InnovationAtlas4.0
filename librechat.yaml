@@ -1,0 +1,9 @@
+version: 1.1.5
+cache: true
+
+mcpServers:
+  supabase:
+    type: sse
+    url: https://mcp.supabase.com/mcp?project_ref=afysgjiczzptubonbuxs
+    headers:
+      Authorization: "Bearer ${SUPABASE_SERVICE_KEY}"

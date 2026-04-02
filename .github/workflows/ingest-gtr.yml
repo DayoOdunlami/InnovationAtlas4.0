@@ -1,0 +1,61 @@
+# Manual GtR -> atlas.projects ingestion (no schedule).
+# Secrets required: DATABASE_URL, OPENAI_API_KEY
+# DATABASE_URL = Supabase transaction pooler URI (port 6543)
+
+name: GtR Atlas Ingestion
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_pass:
+        description: "First pass to run (1-35). Use 2 to skip transport dedup replay."
+        required: false
+        default: "1"
+        type: string
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements-atlas.txt
+
+      - name: Run GtR ingestion
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/ingest_gtr.py --start-pass ${{ github.event.inputs.start_pass }}
+
+  embed:
+    needs: ingest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements-atlas.txt
+
+      - name: Embed projects
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/embed_atlas.py
+
+      - name: Embed lens categories
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/embed_lens_categories.py

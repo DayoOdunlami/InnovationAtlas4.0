@@ -1,225 +1,446 @@
-<p align="center">
-  <a href="https://librechat.ai">
-    <img src="client/public/assets/logo.svg" height="256">
-  </a>
-  <h1 align="center">
-    <a href="https://librechat.ai">LibreChat</a>
-  </h1>
-</p>
+> [!WARNING] 
+> The author of this project has paused development until February, however, I (@brrock) will try and address vulnerabilities and issues. If you are contributing, you might have to wait until development continues.
+<img width="1184" height="576" alt="thumbnail" loading="lazy" src="https://github.com/user-attachments/assets/d6ba80ff-a62a-4920-b266-85c4a89d6076" />
 
-<p align="center">
-  <strong>English</strong> ·
-  <a href="README.zh.md">中文</a>
-</p>
+[![MCP Supported](https://img.shields.io/badge/MCP-Supported-00c853)](https://modelcontextprotocol.io/introduction)
+[![Local First](https://img.shields.io/badge/Local-First-blue)](https://localfirstweb.dev/)
+[![Discord](https://img.shields.io/discord/1374047276074537103?label=Discord&logo=discord&color=5865F2)](https://discord.gg/gCRu69Upnp)
 
-<p align="center">
-  <a href="https://discord.librechat.ai"> 
-    <img
-      src="https://img.shields.io/discord/1086345563026489514?label=&logo=discord&style=for-the-badge&logoWidth=20&logoColor=white&labelColor=000000&color=blueviolet">
-  </a>
-  <a href="https://www.youtube.com/@LibreChat"> 
-    <img
-      src="https://img.shields.io/badge/YOUTUBE-red.svg?style=for-the-badge&logo=youtube&logoColor=white&labelColor=000000&logoWidth=20">
-  </a>
-  <a href="https://docs.librechat.ai"> 
-    <img
-      src="https://img.shields.io/badge/DOCS-blue.svg?style=for-the-badge&logo=read-the-docs&logoColor=white&labelColor=000000&logoWidth=20">
-  </a>
-  <a aria-label="Sponsors" href="https://github.com/sponsors/danny-avila">
-    <img
-      src="https://img.shields.io/badge/SPONSORS-brightgreen.svg?style=for-the-badge&logo=github-sponsors&logoColor=white&labelColor=000000&logoWidth=20">
-  </a>
-</p>
+[![Deploy with Vercel](https://vercel.com/button)](<https://vercel.com/new/clone?repository-url=https://github.com/cgoinglove/better-chatbot&env=BETTER_AUTH_SECRET&env=OPENAI_API_KEY&env=GOOGLE_GENERATIVE_AI_API_KEY&env=ANTHROPIC_API_KEY&envDescription=BETTER_AUTH_SECRET+is+required+(enter+any+secret+value).+At+least+one+LLM+provider+API+key+(OpenAI,+Claude,+or+Google)+is+required,+but+you+can+add+all+of+them.+See+the+link+below+for+details.&envLink=https://github.com/cgoinglove/better-chatbot/blob/main/.env.example&demo-title=better-chatbot&demo-description=An+Open-Source+Chatbot+Template+Built+With+Next.js+and+the+AI+SDK+by+Vercel.&products=[{"type":"integration","protocol":"storage","productSlug":"neon","integrationSlug":"neon"},{"type":"integration","protocol":"storage","productSlug":"upstash-kv","integrationSlug":"upstash"},{"type":"blob"}]>)
 
-<p align="center">
-<a href="https://railway.com/deploy/librechat-official?referralCode=HI9hWz&utm_medium=integration&utm_source=readme&utm_campaign=librechat">
-  <img src="https://railway.com/button.svg" alt="Deploy on Railway" height="30">
-</a>
-<a href="https://zeabur.com/templates/0X2ZY8">
-  <img src="https://zeabur.com/button.svg" alt="Deploy on Zeabur" height="30"/>
-</a>
-<a href="https://template.cloud.sealos.io/deploy?templateName=librechat">
-  <img src="https://raw.githubusercontent.com/labring-actions/templates/main/Deploy-on-Sealos.svg" alt="Deploy on Sealos" height="30">
-</a>
-</p>
+🚀 **[Live Demo](https://better-chatbot-demo.vercel.app/)** | See the experience in action in the [preview](#preview) below!
 
-<p align="center">
-  <a href="https://www.librechat.ai/docs/translation">
-    <img 
-      src="https://img.shields.io/badge/dynamic/json.svg?style=for-the-badge&color=2096F3&label=locize&query=%24.translatedPercentage&url=https://api.locize.app/badgedata/4cb2598b-ed4d-469c-9b04-2ed531a8cb45&suffix=%+translated" 
-      alt="Translation Progress">
-  </a>
-</p>
+#### Demo Chats
 
+- **MCP Tools Demo:** [Chat with Tools](https://better-chatbot-demo.vercel.app/export/a4820921-8012-496b-8a5d-13757050bafe)
+- **Image Generation Demo:** [Chat with Image Generation](https://better-chatbot-demo.vercel.app/export/452ad745-9efb-49ae-9114-10db15f1b827)
 
-# ✨ Features
+## Quick Start 🚀
 
-- 🖥️ **UI & Experience** inspired by ChatGPT with enhanced design and features
+> **Get your app running in minutes! No installation or payment required.**
 
-- 🤖 **AI Model Selection**:  
-  - Anthropic (Claude), AWS Bedrock, OpenAI, Azure OpenAI, Google, Vertex AI, OpenAI Responses API (incl. Azure)
-  - [Custom Endpoints](https://www.librechat.ai/docs/quick_start/custom_endpoints): Use any OpenAI-compatible API with LibreChat, no proxy required
-  - Compatible with [Local & Remote AI Providers](https://www.librechat.ai/docs/configuration/librechat_yaml/ai_endpoints):
-    - Ollama, groq, Cohere, Mistral AI, Apple MLX, koboldcpp, together.ai,
-    - OpenRouter, Helicone, Perplexity, ShuttleAI, Deepseek, Qwen, and more
+You only need **one AI Provider API Key** (OpenAI, Claude, Gemini, etc.). Everything else runs on free tiers - database, file storage, and hosting.
 
-- 🔧 **[Code Interpreter API](https://www.librechat.ai/docs/features/code_interpreter)**: 
-  - Secure, Sandboxed Execution in Python, Node.js (JS/TS), Go, C/C++, Java, PHP, Rust, and Fortran
-  - Seamless File Handling: Upload, process, and download files directly
-  - No Privacy Concerns: Fully isolated and secure execution
-
-- 🔦 **Agents & Tools Integration**:  
-  - **[LibreChat Agents](https://www.librechat.ai/docs/features/agents)**:
-    - No-Code Custom Assistants: Build specialized, AI-driven helpers
-    - Agent Marketplace: Discover and deploy community-built agents
-    - Collaborative Sharing: Share agents with specific users and groups
-    - Flexible & Extensible: Use MCP Servers, tools, file search, code execution, and more
-    - Compatible with Custom Endpoints, OpenAI, Azure, Anthropic, AWS Bedrock, Google, Vertex AI, Responses API, and more
-    - [Model Context Protocol (MCP) Support](https://modelcontextprotocol.io/clients#librechat) for Tools
-
-- 🔍 **Web Search**:  
-  - Search the internet and retrieve relevant information to enhance your AI context
-  - Combines search providers, content scrapers, and result rerankers for optimal results
-  - **Customizable Jina Reranking**: Configure custom Jina API URLs for reranking services
-  - **[Learn More →](https://www.librechat.ai/docs/features/web_search)**
-
-- 🪄 **Generative UI with Code Artifacts**:  
-  - [Code Artifacts](https://youtu.be/GfTj7O4gmd0?si=WJbdnemZpJzBrJo3) allow creation of React, HTML, and Mermaid diagrams directly in chat
-
-- 🎨 **Image Generation & Editing**
-  - Text-to-image and image-to-image with [GPT-Image-1](https://www.librechat.ai/docs/features/image_gen#1--openai-image-tools-recommended)
-  - Text-to-image with [DALL-E (3/2)](https://www.librechat.ai/docs/features/image_gen#2--dalle-legacy), [Stable Diffusion](https://www.librechat.ai/docs/features/image_gen#3--stable-diffusion-local), [Flux](https://www.librechat.ai/docs/features/image_gen#4--flux), or any [MCP server](https://www.librechat.ai/docs/features/image_gen#5--model-context-protocol-mcp)
-  - Produce stunning visuals from prompts or refine existing images with a single instruction
-
-- 💾 **Presets & Context Management**:  
-  - Create, Save, & Share Custom Presets  
-  - Switch between AI Endpoints and Presets mid-chat
-  - Edit, Resubmit, and Continue Messages with Conversation branching  
-  - Create and share prompts with specific users and groups
-  - [Fork Messages & Conversations](https://www.librechat.ai/docs/features/fork) for Advanced Context control
-
-- 💬 **Multimodal & File Interactions**:  
-  - Upload and analyze images with Claude 3, GPT-4.5, GPT-4o, o1, Llama-Vision, and Gemini 📸  
-  - Chat with Files using Custom Endpoints, OpenAI, Azure, Anthropic, AWS Bedrock, & Google 🗃️
-
-- 🌎 **Multilingual UI**:
-  - English, 中文 (简体), 中文 (繁體), العربية, Deutsch, Español, Français, Italiano
-  - Polski, Português (PT), Português (BR), Русский, 日本語, Svenska, 한국어, Tiếng Việt
-  - Türkçe, Nederlands, עברית, Català, Čeština, Dansk, Eesti, فارسی
-  - Suomi, Magyar, Հայերեն, Bahasa Indonesia, ქართული, Latviešu, ไทย, ئۇيغۇرچە
-
-- 🧠 **Reasoning UI**:  
-  - Dynamic Reasoning UI for Chain-of-Thought/Reasoning AI models like DeepSeek-R1
-
-- 🎨 **Customizable Interface**:  
-  - Customizable Dropdown & Interface that adapts to both power users and newcomers
-
-- 🌊 **[Resumable Streams](https://www.librechat.ai/docs/features/resumable_streams)**:  
-  - Never lose a response: AI responses automatically reconnect and resume if your connection drops
-  - Multi-Tab & Multi-Device Sync: Open the same chat in multiple tabs or pick up on another device
-  - Production-Ready: Works from single-server setups to horizontally scaled deployments with Redis
-
-- 🗣️ **Speech & Audio**:  
-  - Chat hands-free with Speech-to-Text and Text-to-Speech  
-  - Automatically send and play Audio  
-  - Supports OpenAI, Azure OpenAI, and Elevenlabs
-
-- 📥 **Import & Export Conversations**:  
-  - Import Conversations from LibreChat, ChatGPT, Chatbot UI  
-  - Export conversations as screenshots, markdown, text, json
-
-- 🔍 **Search & Discovery**:  
-  - Search all messages/conversations
-
-- 👥 **Multi-User & Secure Access**:
-  - Multi-User, Secure Authentication with OAuth2, LDAP, & Email Login Support
-  - Built-in Moderation, and Token spend tools
-
-- ⚙️ **Configuration & Deployment**:  
-  - Configure Proxy, Reverse Proxy, Docker, & many Deployment options  
-  - Use completely local or deploy on the cloud
-
-- 📖 **Open-Source & Community**:  
-  - Completely Open-Source & Built in Public  
-  - Community-driven development, support, and feedback
-
-[For a thorough review of our features, see our docs here](https://docs.librechat.ai/) 📚
-
-## 🪶 All-In-One AI Conversations with LibreChat
-
-LibreChat is a self-hosted AI chat platform that unifies all major AI providers in a single, privacy-focused interface.
-
-Beyond chat, LibreChat provides AI Agents, Model Context Protocol (MCP) support, Artifacts, Code Interpreter, custom actions, conversation search, and enterprise-ready multi-user authentication.
-
-Open source, actively developed, and built for anyone who values control over their AI infrastructure.
+👉 **[Click this guide to deploy your site with just a few clicks](docs/tips-guides/vercel.md)**
 
 ---
 
-## 🌐 Resources
+**Better Chatbot** - A better open-source AI chatbot for individuals and teams, inspired by ChatGPT, Claude, Grok, and Gemini.
 
-**GitHub Repo:**
-  - **RAG API:** [github.com/danny-avila/rag_api](https://github.com/danny-avila/rag_api)
-  - **Website:** [github.com/LibreChat-AI/librechat.ai](https://github.com/LibreChat-AI/librechat.ai)
+• **Multi-AI Support** - Integrates all major LLMs: OpenAI, Anthropic, Google, xAI, Ollama, and more  
+• **Powerful Tools** - MCP protocol, web search, JS/Python code execution, data visualization  
+• **Image Generation** - Create and edit images with AI models (OpenAI, Google Gemini, xAI)  
+• **Automation** - Custom agents, visual workflows, artifact generation  
+• **Collaboration** - Share agents, workflows, and MCP configurations with your team  
+• **Voice Assistant** - Realtime voice chat with full MCP tool integration  
+• **Intuitive UX** - Instantly invoke any feature with `@mention`  
+• **Quick Start** - Deploy free with Vercel Deploy button
 
-**Other:**
-  - **Website:** [librechat.ai](https://librechat.ai)
-  - **Documentation:** [librechat.ai/docs](https://librechat.ai/docs)
-  - **Blog:** [librechat.ai/blog](https://librechat.ai/blog)
+Built with Vercel AI SDK and Next.js, combining the best features of leading AI services into one platform.
 
----
+## Table of Contents
 
-## 📝 Changelog
+- [Table of Contents](#table-of-contents)
+- [Preview](#preview)
+  - [🧩 Browser Automation with Playwright MCP](#-browser-automation-with-playwright-mcp)
+  - [🔗 Visual Workflows as Custom Tools](#-visual-workflows-as-custom-tools)
+  - [🤖 Custom Agents](#-custom-agents)
+  - [🎙️ Realtime Voice Assistant + MCP Tools](#️-realtime-voice-assistant--mcp-tools)
+  - [⚡️ Quick Tool Mentions (`@`) \& Presets](#️-quick-tool-mentions---presets)
+  - [🧭 Tool Choice Mode](#-tool-choice-mode)
+  - [🛠️ Default Tools](#️-default-tools)
+    - [🌐 Web Search](#-web-search)
+    - [⚡️ JS,PYTHON Executor](#️-jspython-executor)
+    - [📊 Data Visualization Tools](#-data-visualization-tools)
+- [Getting Started](#getting-started)
+  - [Quick Start (Docker Compose Version) 🐳](#quick-start-docker-compose-version-)
+  - [Quick Start (Local Version) 🚀](#quick-start-local-version-)
+  - [Environment Variables](#environment-variables)
+- [📘 Guides](#-guides)
+  - [🔌 MCP Server Setup \& Tool Testing](#-mcp-server-setup--tool-testing)
+  - [🐳 Docker Hosting Guide](#-docker-hosting-guide)
+  - [▲ Vercel Hosting Guide](#-vercel-hosting-guide)
+  - [🗂️ File Storage Drivers](#️-file-storage-drivers)
+  - [🎯 System Prompts \& Chat Customization](#-system-prompts--chat-customization)
+  - [🔐 OAuth Sign-In Setup](#-oauth-sign-in-setup)
+  - [🕵🏿 Adding openAI like providers](#-adding-openai-like-providers)
+  - [🧪 E2E Testing Guide](#-e2e-testing-guide)
+- [💡 Tips](#-tips)
+  - [💬 Temporary Chat Windows](#-temporary-chat-windows)
+- [🗺️ Roadmap](#️-roadmap)
+- [🙌 Contributing](#-contributing)
+- [💬 Join Our Discord](#-join-our-discord)
 
-Keep up with the latest updates by visiting the releases page and notes:
-- [Releases](https://github.com/danny-avila/LibreChat/releases)
-- [Changelog](https://www.librechat.ai/changelog) 
+> This project is evolving at lightning speed! ⚡️ We're constantly shipping new features and smashing bugs. **Star this repo** to join the ride and stay in the loop with the latest updates!
 
-**⚠️ Please consult the [changelog](https://www.librechat.ai/changelog) for breaking changes before updating.**
+## Preview
 
----
+Get a feel for the UX — here's a quick look at what's possible.
 
-## ⭐ Star History
+### 🧩 Browser Automation with Playwright MCP
+
+![preview](https://github.com/user-attachments/assets/e4febb04-26d5-45da-a7bb-f7d452d333c2)
+
+**Example:** Control a web browser using Microsoft's [playwright-mcp](https://github.com/microsoft/playwright-mcp) tool.
+
+- The LLM autonomously decides how to use tools from the MCP server, calling them multiple times to complete a multi-step task and return a final message.
+
+Sample prompt:
+
+```prompt
+1. Use the @tool('web-search') to look up information about “modelcontetprotocol.”
+
+2. Then, using : @mcp("playwright")
+   - navigate Google (https://www.google.com)
+   - Click the “Login” button
+   - Enter my email address (neo.cgoing@gmail.com)
+   - Clock the "Next"  button
+   - Close the browser
+```
+
+<br/>
+
+### 🔗 Visual Workflows as Custom Tools
+
+<img width="1912" height="953" alt="workflow" loading="lazy" src="https://github.com/user-attachments/assets/e69e72e8-595c-480e-b519-4531f4c6331f" />
+
+<img width="1567" alt="workflow-mention" loading="lazy" src="https://github.com/user-attachments/assets/cf3e1339-ee44-4615-a71d-f6b46833e41f" />
+
+**Example:** Create custom workflows that become callable tools in your chat conversations.
+
+- Build visual workflows by connecting LLM nodes (for AI reasoning) and Tool nodes (for MCP tool execution)
+- Publish workflows to make them available as `@workflow_name` tools in chat
+- Chain complex multi-step processes into reusable, automated sequences
+
+<br/>
+
+### 🤖 Custom Agents
+
+<img width="1567" alt="agent-example" loading="lazy" src="https://github.com/user-attachments/assets/d0a325c0-ff1e-4038-b6bf-fcf57659a5c1" />
+
+**Example:** Create specialized AI agents with custom instructions and tool access.
+
+- Define custom agents with specific system prompts and available tools
+- Easily invoke agents in chat using `@agent_name`
+- Build task-specific assistants like a GitHub Manager agent with issue/PR tools and project context
+
+For instance, create a GitHub Manager agent by:
+
+- Providing GitHub tools (issue/PR creation, comments, queries)
+- Adding project details to the system prompt
+- Calling it with `@github_manager` to manage your repository
+
+<br/>
+
+### 🎙️ Realtime Voice Assistant + MCP Tools
 
 <p align="center">
-  <a href="https://star-history.com/#danny-avila/LibreChat&Date">
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=danny-avila/LibreChat&type=Date&theme=dark" onerror="this.src='https://api.star-history.com/svg?repos=danny-avila/LibreChat&type=Date'" />
-  </a>
-</p>
-<p align="center">
-  <a href="https://trendshift.io/repositories/4685" target="_blank" style="padding: 10px;">
-    <img src="https://trendshift.io/api/badge/repositories/4685" alt="danny-avila%2FLibreChat | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/>
-  </a>
-  <a href="https://runacap.com/ross-index/q1-24/" target="_blank" rel="noopener" style="margin-left: 20px;">
-    <img style="width: 260px; height: 56px" src="https://runacap.com/wp-content/uploads/2024/04/ROSS_badge_white_Q1_2024.svg" alt="ROSS Index - Fastest Growing Open-Source Startups in Q1 2024 | Runa Capital" width="260" height="56"/>
-  </a>
+  <video src="https://github.com/user-attachments/assets/e2657b8c-ce0b-40dd-80b6-755324024973" width="100%" />
 </p>
 
----
+This demo showcases a **realtime voice-based chatbot assistant** built with OpenAI's new Realtime API — now extended with full **MCP tool integration**.
+Talk to the assistant naturally, and watch it execute tools in real time.
 
-## ✨ Contributions
+### ⚡️ Quick Tool Mentions (`@`) & Presets
 
-Contributions, suggestions, bug reports and fixes are welcome!
+<img width="1225" alt="image" src="https://github.com/user-attachments/assets/dfe76b3b-c3d8-436e-8a7c-7b23292e234c" loading="lazy"/>
 
-For new features, components, or extensions, please open an issue and discuss before sending a PR.
+Quickly call tool during chat by typing `@toolname`.
+No need to memorize — just type `@` and pick from the list!
 
-If you'd like to help translate LibreChat into your language, we'd love your contribution! Improving our translations not only makes LibreChat more accessible to users around the world but also enhances the overall user experience. Please check out our [Translation Guide](https://www.librechat.ai/docs/translation).
+**Tool Selection vs. Mentions (`@`) — When to Use What:**
 
----
+- **Tool Selection**: Make frequently used tools always available to the LLM across all chats. Great for convenience and maintaining consistent context over time.
+- **Mentions (`@`)**: Temporarily bind only the mentioned tools for that specific response. Since only the mentioned tools are sent to the LLM, this saves tokens and can improve speed and accuracy.
 
-## 💖 This project exists in its current state thanks to all the people who contribute
+Each method has its own strengths — use them together to balance efficiency and performance.
 
-<a href="https://github.com/danny-avila/LibreChat/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=danny-avila/LibreChat" />
-</a>
+You can also create **tool presets** by selecting only the MCP servers or tools you need.
+Switch between presets instantly with a click — perfect for organizing tools by task or workflow.
 
----
+### 🧭 Tool Choice Mode
 
-## 🎉 Special Thanks
+<img width="1225" alt="image" src="https://github.com/user-attachments/assets/8fc64c6a-30c9-41a4-a5e5-4e8804f73473" loading="lazy"/>
 
-We thank [Locize](https://locize.com) for their translation management tools that support multiple languages in LibreChat.
+Control how tools are used in each chat with **Tool Choice Mode** — switch anytime with `⌘P`.
 
-<p align="center">
-  <a href="https://locize.com" target="_blank" rel="noopener noreferrer">
-    <img src="https://github.com/user-attachments/assets/d6b70894-6064-475e-bb65-92a9e23e0077" alt="Locize Logo" height="50">
-  </a>
-</p>
+- **Auto:** The model automatically calls tools when needed.
+- **Manual:** The model will ask for your permission before calling a tool.
+- **None:** Tool usage is disabled completely.
+
+This lets you flexibly choose between autonomous, guided, or tool-free interaction depending on the situation.
+
+### 🛠️ Default Tools
+
+#### 🌐 Web Search
+
+<img width="1034" height="940" alt="web-search" src="https://github.com/user-attachments/assets/261037d9-e1a7-44ad-b45e-43780390a94e" />
+
+Built-in web search powered by [Exa AI](https://exa.ai). Search the web with semantic AI and extract content from URLs directly in your chats.
+
+- **Optional:** Add `EXA_API_KEY` to `.env` to enable web search
+- **Free Tier:** 1,000 requests/month at no cost, no credit card required
+- **Easy Setup:** Get your API key instantly at [dashboard.exa.ai](https://dashboard.exa.ai)
+
+#### 🎨 Image Generation
+
+<img width="1034" height="940" loading="lazy" alt="image-generation" src="https://github.com/user-attachments/assets/b081c837-8948-4f4d-a2f4-c8630cf0eaa2" />
+
+Built-in image generation and editing capabilities powered by AI models. Create, edit, and modify images directly in your chats.
+
+- **Supported Operations:** Image generation, editing, and composition
+- **Current Models:** Gemini Nano Banana, OpenAI
+
+#### ⚡️ JS,PYTHON Executor
+
+<img width="1225" alt="js-executor-preview" src="https://github.com/user-attachments/assets/7deed824-e70b-46d4-a294-de20ed4dc869" loading="lazy"/>
+
+It is a simple JS execution tool.
+
+#### 📊 Data Visualization Tools
+
+**Interactive Tables**: Create feature-rich data tables with advanced functionality:
+
+- **Sorting & Filtering**: Sort by any column, filter data in real-time
+- **Search & Highlighting**: Global search with automatic text highlighting
+- **Export Options**: Export to CSV or Excel format with lazy-loaded libraries
+- **Column Management**: Show/hide columns with visibility controls
+- **Pagination**: Handle large datasets with built-in pagination
+- **Data Type Support**: Proper formatting for strings, numbers, dates, and booleans
+
+**Chart Generation**: Visualize data with various chart types (bar, line, pie charts)
+
+> Additionally, many other tools are provided, such as an HTTP client for API requests and more.
+
+<br/>
+
+…and there's even more waiting for you.
+Try it out and see what else it can do!
+
+<br/>
+
+## Getting Started
+
+> This project uses [pnpm](https://pnpm.io/) as the recommended package manager.
+
+```bash
+# If you don't have pnpm:
+npm install -g pnpm
+```
+
+### Quick Start (Docker Compose Version) 🐳
+
+```bash
+# 1. Install dependencies
+pnpm i
+
+# 2. Enter only the LLM PROVIDER API key(s) you want to use in the .env file at the project root.
+# Example: The app works with just OPENAI_API_KEY filled in.
+# (The .env file is automatically created when you run pnpm i.)
+
+# 3. Build and start all services (including PostgreSQL) with Docker Compose
+pnpm docker-compose:up
+
+```
+
+### Quick Start (Local Version) 🚀
+
+```bash
+pnpm i
+
+#(Optional) Start a local PostgreSQL instance
+# If you already have your own PostgreSQL running, you can skip this step.
+# In that case, make sure to update the PostgreSQL URL in your .env file.
+pnpm docker:pg
+
+# Enter required information in the .env file
+# The .env file is created automatically. Just fill in the required values.
+# For the fastest setup, provide at least one LLM provider's API key (e.g., OPENAI_API_KEY, CLAUDE_API_KEY, GEMINI_API_KEY, etc.) and the PostgreSQL URL you want to use.
+
+pnpm build:local && pnpm start
+
+# (Recommended for most cases. Ensures correct cookie settings.)
+# For development mode with hot-reloading and debugging, you can use:
+# pnpm dev
+```
+
+Alternative: Use Docker Compose for DB only (run app via pnpm)
+
+```bash
+# Start Postgres only via compose
+# Ensure your .env includes: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB matching POSTGRES_URL
+docker compose -f docker/compose.yml up -d postgres
+
+# Apply migrations
+pnpm db:migrate
+
+
+# Run app locally
+pnpm dev   # or: pnpm build && pnpm start
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser to get started.
+
+### Environment Variables
+
+The `pnpm i` command generates a `.env` file. Add your API keys there.
+
+```dotenv
+# === LLM Provider API Keys ===
+# You only need to enter the keys for the providers you plan to use
+GOOGLE_GENERATIVE_AI_API_KEY=****
+OPENAI_API_KEY=****
+XAI_API_KEY=****
+ANTHROPIC_API_KEY=****
+OPENROUTER_API_KEY=****
+OLLAMA_BASE_URL=http://localhost:11434/api
+
+
+
+# Secret for Better Auth (generate with: npx @better-auth/cli@latest secret)
+BETTER_AUTH_SECRET=****
+
+# (Optional)
+# URL for Better Auth (the URL you access the app from)
+BETTER_AUTH_URL=
+
+# === Database ===
+# If you don't have PostgreSQL running locally, start it with: pnpm docker:pg
+POSTGRES_URL=postgres://your_username:your_password@localhost:5432/your_database_name
+
+# (Optional)
+# === Tools ===
+# Exa AI for web search and content extraction (optional, but recommended for @web and research features)
+EXA_API_KEY=your_exa_api_key_here
+
+
+# Whether to use file-based MCP config (default: false)
+FILE_BASED_MCP_CONFIG=false
+
+# === File Storage ===
+# Vercel Blob is the default storage driver (works in both local dev and production)
+# Pull the token locally with `vercel env pull`
+FILE_STORAGE_TYPE=vercel-blob
+FILE_STORAGE_PREFIX=uploads
+BLOB_READ_WRITE_TOKEN=
+
+# -- S3 (coming soon) --
+# FILE_STORAGE_TYPE=s3
+# FILE_STORAGE_PREFIX=uploads
+# FILE_STORAGE_S3_BUCKET=
+# FILE_STORAGE_S3_REGION=
+
+# (Optional)
+# === OAuth Settings ===
+# Fill in these values only if you want to enable Google/GitHub/Microsoft login
+
+#GitHub
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+#Google
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+# Set to 1 to force account selection
+GOOGLE_FORCE_ACCOUNT_SELECTION=
+
+
+# Microsoft
+MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=
+# Optional Tenant Id
+MICROSOFT_TENANT_ID=
+# Set to 1 to force account selection
+MICROSOFT_FORCE_ACCOUNT_SELECTION=
+
+# Set this to 1 to disable user sign-ups.
+DISABLE_SIGN_UP=
+
+# Set this to 1 to disallow adding MCP servers.
+NOT_ALLOW_ADD_MCP_SERVERS=
+```
+
+<br/>
+
+## 📘 Guides
+
+Step-by-step setup guides for running and configuring better-chatbot.
+
+#### [🔌 MCP Server Setup & Tool Testing](./docs/tips-guides/mcp-server-setup-and-tool-testing.md)
+
+- How to add and configure MCP servers in your environment
+
+#### [🐳 Docker Hosting Guide](./docs/tips-guides/docker.md)
+
+- How to self-host the chatbot using Docker, including environment configuration.
+
+#### [▲ Vercel Hosting Guide](./docs/tips-guides/vercel.md)
+
+- Deploy the chatbot to Vercel with simple setup steps for production use.
+
+#### [🗂️ File Storage Drivers](./docs/tips-guides/file-storage.md)
+
+- Cloud-based file storage with Vercel Blob (default) for seamless uploads in both development and production. S3 support coming soon.
+
+#### [🎯 System Prompts & Chat Customization](./docs/tips-guides/system-prompts-and-customization.md)
+
+- Personalize your chatbot experience with custom system prompts, user preferences, and MCP tool instructions
+
+#### [🔐 OAuth Sign-In Setup](./docs/tips-guides/oauth.md)
+
+- Configure Google, GitHub, and Microsoft OAuth for secure user login support.
+
+#### [🕵🏿 Adding openAI like providers](docs/tips-guides/adding-openAI-like-providers.md)
+
+- Adding openAI like ai providers
+
+#### [🧪 E2E Testing Guide](./docs/tips-guides/e2e-testing-guide.md)
+
+- Comprehensive end-to-end testing with Playwright including multi-user scenarios, agent visibility testing, and CI/CD integration
+  <br/>
+
+## 💡 Tips
+
+#### [💬 Temporary Chat Windows](./docs/tips-guides/temporary_chat.md)
+
+- Open lightweight popup chats for quick side questions or testing — separate from your main thread.
+
+## 🗺️ Roadmap
+
+Planned features coming soon to better-chatbot:
+
+- [x] **File Upload & Storage** (Vercel Blob integration)
+- [x] **Image Generation**
+- [ ] **Collaborative Document Editing** (like OpenAI Canvas: user & assistant co-editing)
+- [ ] **RAG (Retrieval-Augmented Generation)**
+- [ ] **Web-based Compute** (with [WebContainers](https://webcontainers.io) integration)
+
+💡 If you have suggestions or need specific features, please create an [issue](https://github.com/cgoinglove/better-chatbot/issues)!
+
+## 💖 Support
+
+If this project has been helpful to you, please consider supporting its development:
+
+- ⭐ **Star** this repository
+- 🐛 **Report** bugs and suggest features
+- 💰 **[Become a sponsor](https://github.com/sponsors/cgoinglove)** to support ongoing development
+
+Your support helps maintain and improve this project. Thank you! 🙏
+
+## 🙌 Contributing
+
+We welcome all contributions! Bug reports, feature ideas, code improvements — everything helps us build the best local AI assistant.
+
+> **⚠️ Please read our [Contributing Guide](./CONTRIBUTING.md) before submitting any Pull Requests or Issues.** This helps us work together more effectively and saves time for everyone.
+
+**For detailed contribution guidelines**, please see our [Contributing Guide](./CONTRIBUTING.md).
+
+**Language Translations:** Help us make the chatbot accessible to more users by adding new language translations. See [language.md](./messages/language.md) for instructions on how to contribute translations.
+
+Let's build it together 🚀
+
+## 💬 Join Our Discord
+
+[![Discord](https://img.shields.io/discord/1374047276074537103?label=Discord&logo=discord&color=5865F2)](https://discord.gg/gCRu69Upnp)
+
+Connect with the community, ask questions, and get support on our official Discord server!

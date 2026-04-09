@@ -17,6 +17,7 @@ const {
 const { verify2FAWithTempToken } = require('~/server/controllers/auth/TwoFactorAuthController');
 const { logoutController } = require('~/server/controllers/auth/LogoutController');
 const { loginController } = require('~/server/controllers/auth/LoginController');
+const { devAdminBypassController } = require('~/server/controllers/auth/DevAdminBypassController');
 const { findBalanceByUser, upsertBalanceFields } = require('~/models');
 const { getAppConfig } = require('~/server/services/Config');
 const middleware = require('~/server/middleware');
@@ -30,6 +31,20 @@ const setBalanceConfig = createSetBalanceConfig({
 const router = express.Router();
 
 const ldapAuth = !!process.env.LDAP_URL && !!process.env.LDAP_USER_SEARCH_BASE;
+
+if ((process.env.DEV_ADMIN_BYPASS_PASSWORD || '').trim().length > 0) {
+  const { logger } = require('@librechat/data-schemas');
+  logger.warn(
+    '[auth] DEV_ADMIN_BYPASS_PASSWORD is set — dev admin bypass is enabled; unset for production',
+  );
+  router.post(
+    '/dev-admin-bypass',
+    middleware.logHeaders,
+    middleware.loginLimiter,
+    devAdminBypassController,
+  );
+}
+
 //Local
 router.post('/logout', middleware.requireJwtAuth, logoutController);
 router.post(

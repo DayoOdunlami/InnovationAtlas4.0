@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { extractEnvVariable } from 'librechat-data-provider';
 import { logger } from '@librechat/data-schemas';
 import { fetch as undiciFetch, Agent } from 'undici';
 import {
@@ -513,8 +514,8 @@ export class MCPConnection extends EventEmitter {
             throw new Error('Invalid options for stdio transport.');
           }
           return new StdioClientTransport({
-            command: options.command,
-            args: options.args,
+            command: extractEnvVariable(options.command),
+            args: options.args.map((arg) => extractEnvVariable(arg)),
             // workaround bug of mcp sdk that can't pass env:
             // https://github.com/modelcontextprotocol/typescript-sdk/issues/216
             env: { ...getDefaultEnvironment(), ...(options.env ?? {}) },

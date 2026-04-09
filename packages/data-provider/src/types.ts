@@ -426,6 +426,10 @@ export type TLoginResponse = {
   tempToken?: string;
 };
 
+export type TDevAdminBypassRequest = {
+  password: string;
+};
+
 /** Shared payload for any operation that requires OTP or backup-code verification. */
 export type TOTPVerificationPayload = {
   token?: string;

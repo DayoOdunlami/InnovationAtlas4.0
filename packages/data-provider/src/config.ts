@@ -805,6 +805,8 @@ export type TStartupConfig = {
   };
   serverDomain: string;
   emailLoginEnabled: boolean;
+  /** True when server has DEV_ADMIN_BYPASS_PASSWORD set (development bypass UI). */
+  devAdminBypassEnabled?: boolean;
   registrationEnabled: boolean;
   socialLoginEnabled: boolean;
   passwordResetEnabled: boolean;

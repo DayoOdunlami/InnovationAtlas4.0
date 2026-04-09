@@ -19,6 +19,7 @@ import {
 import type * as t from 'librechat-data-provider';
 import type { ReactNode } from 'react';
 import {
+  useDevAdminBypassMutation,
   useGetRole,
   useGetUserQuery,
   useLoginUserMutation,
@@ -89,29 +90,38 @@ const AuthContextProvider = ({
   );
   const doSetError = useTimeout({ callback: (error) => setError(error as string | undefined) });
 
+  const handleLoginSuccess = (data: t.TLoginResponse) => {
+    const { user, token, twoFAPending, tempToken } = data;
+    if (twoFAPending) {
+      navigate(`/login/2fa?tempToken=${tempToken}`, { replace: true });
+      return;
+    }
+    setError(undefined);
+    setUserContext({ token, isAuthenticated: true, user, redirect: '/c/new' });
+  };
+
+  const handleLoginError = (error: TResError | unknown) => {
+    const resError = error as TResError;
+    doSetError(resError.message);
+    // Preserve a valid redirect_to across login failures so the deep link survives retries.
+    // Cannot use buildLoginRedirectUrl() here — it reads the current pathname (already /login)
+    // and would return plain /login, dropping the redirect_to destination.
+    const redirectTo = new URLSearchParams(window.location.search).get('redirect_to');
+    const loginPath =
+      redirectTo && isSafeRedirect(redirectTo)
+        ? `/login?redirect_to=${encodeURIComponent(redirectTo)}`
+        : '/login';
+    navigate(loginPath, { replace: true });
+  };
+
   const loginUser = useLoginUserMutation({
-    onSuccess: (data: t.TLoginResponse) => {
-      const { user, token, twoFAPending, tempToken } = data;
-      if (twoFAPending) {
-        navigate(`/login/2fa?tempToken=${tempToken}`, { replace: true });
-        return;
-      }
-      setError(undefined);
-      setUserContext({ token, isAuthenticated: true, user, redirect: '/c/new' });
-    },
-    onError: (error: TResError | unknown) => {
-      const resError = error as TResError;
-      doSetError(resError.message);
-      // Preserve a valid redirect_to across login failures so the deep link survives retries.
-      // Cannot use buildLoginRedirectUrl() here — it reads the current pathname (already /login)
-      // and would return plain /login, dropping the redirect_to destination.
-      const redirectTo = new URLSearchParams(window.location.search).get('redirect_to');
-      const loginPath =
-        redirectTo && isSafeRedirect(redirectTo)
-          ? `/login?redirect_to=${encodeURIComponent(redirectTo)}`
-          : '/login';
-      navigate(loginPath, { replace: true });
-    },
+    onSuccess: handleLoginSuccess,
+    onError: handleLoginError,
+  });
+
+  const devAdminBypassUser = useDevAdminBypassMutation({
+    onSuccess: handleLoginSuccess,
+    onError: handleLoginError,
   });
   const logoutUser = useLogoutUserMutation({
     onSuccess: (data) => {
@@ -156,9 +166,19 @@ const AuthContextProvider = ({
 
   const userQuery = useGetUserQuery({ enabled: !!(token ?? '') });
 
-  const login = (data: t.TLoginUser) => {
-    loginUser.mutate(data);
-  };
+  const login = useCallback(
+    (data: t.TLoginUser) => {
+      loginUser.mutate(data);
+    },
+    [loginUser],
+  );
+
+  const devAdminBypass = useCallback(
+    (password: string) => {
+      devAdminBypassUser.mutate({ password });
+    },
+    [devAdminBypassUser],
+  );
 
   const silentRefresh = useCallback(() => {
     if (authConfig?.test === true) {
@@ -262,6 +282,8 @@ const AuthContextProvider = ({
       token,
       error,
       login,
+      devAdminBypass,
+      devAdminBypassIsPending: devAdminBypassUser.isPending,
       logout,
       setError,
       roles: {
@@ -271,7 +293,17 @@ const AuthContextProvider = ({
       isAuthenticated,
     }),
 
-    [user, error, isAuthenticated, token, userRole, adminRole],
+    [
+      user,
+      error,
+      isAuthenticated,
+      token,
+      userRole,
+      adminRole,
+      login,
+      devAdminBypass,
+      devAdminBypassUser.isPending,
+    ],
   );
 
   return <AuthContext.Provider value={memoedValue}>{children}</AuthContext.Provider>;

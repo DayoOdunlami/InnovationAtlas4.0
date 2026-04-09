@@ -470,6 +470,8 @@ export type TAuthContext = {
   isAuthenticated: boolean;
   error: string | undefined;
   login: (data: t.TLoginUser) => void;
+  devAdminBypass: (password: string) => void;
+  devAdminBypassIsPending: boolean;
   logout: (redirect?: string) => void;
   setError: React.Dispatch<React.SetStateAction<string | undefined>>;
   roles?: Record<string, t.TRole | null | undefined>;

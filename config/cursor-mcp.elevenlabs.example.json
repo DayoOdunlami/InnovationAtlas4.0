@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "elevenlabs": {
+      "command": "C:\\Users\\YOUR_USERNAME\\.local\\bin\\uvx.exe",
+      "args": ["elevenlabs-mcp"],
+      "env": {
+        "ELEVENLABS_API_KEY": "your-elevenlabs-api-key",
+        "ELEVENLABS_MCP_OUTPUT_MODE": "files",
+        "ELEVENLABS_MCP_BASE_PATH": "C:\\Dev\\InnovationAtlas4.0\\data\\elevenlabs-mcp"
+      }
+    }
+  }
+}

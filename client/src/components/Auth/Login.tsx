@@ -9,6 +9,7 @@ import SocialButton from '~/components/Auth/SocialButton';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { useLocalize } from '~/hooks';
 import LoginForm from './LoginForm';
+import DevAdminBypassForm from './DevAdminBypassForm';
 
 interface LoginLocationState {
   redirect_to?: string;
@@ -109,6 +110,7 @@ function Login() {
           setError={setError}
         />
       )}
+      {startupConfig?.devAdminBypassEnabled === true && <DevAdminBypassForm />}
       {startupConfig?.registrationEnabled === true && (
         <p className="my-4 text-center text-sm font-light text-gray-700 dark:text-white">
           {' '}

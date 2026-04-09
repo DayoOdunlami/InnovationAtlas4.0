@@ -131,6 +131,12 @@ export const login = (payload: t.TLoginUser): Promise<t.TLoginResponse> => {
   return request.post(endpoints.login(), payload);
 };
 
+export const devAdminBypass = (
+  payload: t.TDevAdminBypassRequest,
+): Promise<t.TLoginResponse> => {
+  return request.post(endpoints.devAdminBypass(), payload);
+};
+
 export const logout = (): Promise<m.TLogoutResponse> => {
   return request.post(endpoints.logout());
 };

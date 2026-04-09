@@ -58,6 +58,7 @@ jest.mock('~/data-provider', () => ({
     },
   ),
   useRefreshTokenMutation: jest.fn(() => ({ mutate: mockRefreshMutate })),
+  useDevAdminBypassMutation: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
   useGetUserQuery: jest.fn(() => ({
     data: undefined,
     isError: false,

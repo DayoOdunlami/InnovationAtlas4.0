@@ -2,8 +2,15 @@ version: 1.1.5
 cache: true
 
 mcpServers:
-  supabase:
-    type: sse
-    url: https://mcp.supabase.com/mcp?project_ref=afysgjiczzptubonbuxs
-    headers:
-      Authorization: "Bearer ${SUPABASE_SERVICE_KEY}"
+  supabase-atlas:
+    type: stdio
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-postgres"
+      - "${DATABASE_URL}"
+    serverInstructions: |
+      Direct SQL access to Supabase PostgreSQL atlas schema.
+      Key tables: atlas.projects (622 rows), atlas.lens_categories (14 rows), atlas.passports, atlas.passport_claims, atlas.matches.
+      NEVER touch hive.* or public.* schemas.
+      To find projects use: SELECT id, title, lead_funder FROM atlas.projects WHERE title ILIKE '%keyword%' LIMIT 10;

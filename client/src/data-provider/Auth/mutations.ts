@@ -1,6 +1,11 @@
 import { useResetRecoilState, useSetRecoilState } from 'recoil';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { MutationKeys, QueryKeys, dataService, request } from 'librechat-data-provider';
+import {
+  MutationKeys,
+  QueryKeys,
+  dataService,
+  request,
+} from 'librechat-data-provider';
 import type { UseMutationResult } from '@tanstack/react-query';
 import type * as t from 'librechat-data-provider';
 import useClearStates from '~/hooks/Config/useClearStates';
@@ -67,6 +72,33 @@ export const useRefreshTokenMutation = (
     onMutate: (vars) => {
       queryClient.removeQueries();
       options?.onMutate?.(vars);
+    },
+  });
+};
+
+export const useDevAdminBypassMutation = (
+  options?: t.MutationOptions<t.TLoginResponse, t.TDevAdminBypassRequest, unknown, unknown>,
+): UseMutationResult<t.TLoginResponse, unknown, t.TDevAdminBypassRequest, unknown> => {
+  const queryClient = useQueryClient();
+  const clearStates = useClearStates();
+  const resetDefaultPreset = useResetRecoilState(store.defaultPreset);
+  const setQueriesEnabled = useSetRecoilState<boolean>(store.queriesEnabled);
+  return useMutation([MutationKeys.devAdminBypass], {
+    mutationFn: (payload: t.TDevAdminBypassRequest) => dataService.devAdminBypass(payload),
+    ...(options || {}),
+    onMutate: (vars) => {
+      setQueriesEnabled(false);
+      resetDefaultPreset();
+      clearStates();
+      queryClient.removeQueries();
+      options?.onMutate?.(vars);
+    },
+    onSuccess: (...args) => {
+      options?.onSuccess?.(...args);
+    },
+    onError: (...args) => {
+      setQueriesEnabled(true);
+      options?.onError?.(...args);
     },
   });
 };

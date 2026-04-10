@@ -12,6 +12,9 @@ import { showClaimExtractionTool } from "./passport/claim-extraction-tool";
 import { showMatchListTool } from "./passport/match-list-tool";
 import { showGapAnalysisTool } from "./passport/gap-analysis-tool";
 import { createDraftPitchTool } from "./passport/draft-pitch-tool";
+import { extractClaimsPreviewTool } from "./passport/extract-claims-preview-tool";
+import { listPassportsTool } from "./passport/list-passports-tool";
+import { saveClaimsToPassportTool } from "./passport/save-claims-to-passport-tool";
 
 export const APP_DEFAULT_TOOL_KIT: Record<
   AppDefaultToolkit,
@@ -39,5 +42,8 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     [DefaultToolName.ShowMatchList]: showMatchListTool,
     [DefaultToolName.ShowGapAnalysis]: showGapAnalysisTool,
     [DefaultToolName.CreateDraftPitch]: createDraftPitchTool,
+    [DefaultToolName.ExtractClaimsPreview]: extractClaimsPreviewTool,
+    [DefaultToolName.ListPassports]: listPassportsTool,
+    [DefaultToolName.SaveClaimsToPassport]: saveClaimsToPassportTool,
   },
 };

@@ -21,6 +21,10 @@ export enum DefaultToolName {
   ShowMatchList = "showMatchList",
   ShowGapAnalysis = "showGapAnalysis",
   CreateDraftPitch = "createDraftPitch",
+  // Passport selection flow
+  ExtractClaimsPreview = "extractClaimsPreview",
+  ListPassports = "listPassports",
+  SaveClaimsToPassport = "saveClaimsToPassport",
 }
 
 export const SequentialThinkingToolName = "sequential-thinking";

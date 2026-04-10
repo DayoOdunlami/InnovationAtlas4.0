@@ -4,8 +4,11 @@ export type PassportRow = {
   id: string;
   passport_type: string | null;
   title: string | null;
+  project_name: string | null;
+  project_description: string | null;
   owner_org: string | null;
   owner_name: string | null;
+  user_id: string | null;
   summary: string | null;
   context: string | null;
   trl_level: number | null;
@@ -16,8 +19,19 @@ export type PassportRow = {
   approval_ref: string | null;
   approval_date: string | null;
   valid_conditions: string | null;
+  trial_date_start: string | null;
+  trial_date_end: string | null;
+  tags: string[];
+  is_archived: boolean | null;
   created_at: string;
   updated_at: string;
+};
+
+/** Passport row with computed claim/document counts from queries. */
+export type PassportSummary = PassportRow & {
+  claim_count: number;
+  document_count: number;
+  verified_count: number;
 };
 
 export type PassportDocumentRow = {

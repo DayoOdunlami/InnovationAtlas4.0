@@ -758,6 +758,14 @@ const DraftPitchCard = dynamic(
   { ssr: false, loading },
 );
 
+const ClaimPreviewCard = dynamic(
+  () =>
+    import("./tool-invocation/claim-preview-card").then(
+      (mod) => mod.ClaimPreviewCard,
+    ),
+  { ssr: false, loading },
+);
+
 // Local shortcuts for tool invocation approval/rejection
 const approveToolInvocationShortcut: Shortcut = {
   description: "approveToolInvocation",
@@ -935,6 +943,10 @@ export const ToolMessagePart = memo(
       }
 
       // Passport pipeline artefacts — render on input-available or output-available
+      if (toolName === DefaultToolName.ExtractClaimsPreview) {
+        return <ClaimPreviewCard key={toolCallId} part={part} />;
+      }
+
       if (
         toolName === DefaultToolName.ShowClaimExtraction ||
         toolName === DefaultToolName.ShowMatchList ||

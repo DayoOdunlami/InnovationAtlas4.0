@@ -8,6 +8,8 @@ import {
   Loader2,
   Building2,
   PoundSterling,
+  Calendar,
+  Radio,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +41,7 @@ function formatAmount(amount: number | null): string {
 function MatchItem({ match, rank }: { match: MatchRow; rank: number }) {
   const pct = Math.round(match.match_score * 100);
   const hasGaps = Array.isArray(match.gaps) && match.gaps.length > 0;
+  const isLiveCall = match.match_type === "live_call";
 
   return (
     <div className="flex gap-3 py-3 border-b last:border-b-0">
@@ -61,9 +64,20 @@ function MatchItem({ match, rank }: { match: MatchRow; rank: number }) {
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold leading-snug line-clamp-2">
-          {match.title}
-        </p>
+        <div className="flex items-start gap-2">
+          <p className="text-sm font-semibold leading-snug line-clamp-2 flex-1">
+            {match.title}
+          </p>
+          {isLiveCall && (
+            <Badge
+              variant="outline"
+              className="shrink-0 text-xs border-emerald-500 text-emerald-600 dark:text-emerald-400 flex items-center gap-1"
+            >
+              <Radio className="size-2.5" />
+              Live Call
+            </Badge>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2 mt-1">
           {match.lead_funder && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -71,10 +85,17 @@ function MatchItem({ match, rank }: { match: MatchRow; rank: number }) {
               {match.lead_funder}
             </span>
           )}
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <PoundSterling className="size-3" />
-            {formatAmount(match.funding_amount)}
-          </span>
+          {isLiveCall && match.deadline ? (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Calendar className="size-3" />
+              Deadline: {match.deadline}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <PoundSterling className="size-3" />
+              {formatAmount(match.funding_amount)}
+            </span>
+          )}
         </div>
         {match.match_summary && (
           <p className="text-xs text-foreground/70 mt-1 leading-relaxed line-clamp-3">

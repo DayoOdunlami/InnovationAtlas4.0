@@ -15,6 +15,9 @@ import { createDraftPitchTool } from "./passport/draft-pitch-tool";
 import { extractClaimsPreviewTool } from "./passport/extract-claims-preview-tool";
 import { listPassportsTool } from "./passport/list-passports-tool";
 import { saveClaimsToPassportTool } from "./passport/save-claims-to-passport-tool";
+import { addEvidenceToPassportTool } from "./passport/add-evidence-to-passport-tool";
+import { rejectClaimByDescriptionTool } from "./passport/reject-claim-by-description-tool";
+import { runMatchingTool } from "./passport/run-matching-tool";
 
 export const APP_DEFAULT_TOOL_KIT: Record<
   AppDefaultToolkit,
@@ -45,5 +48,8 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     [DefaultToolName.ExtractClaimsPreview]: extractClaimsPreviewTool,
     [DefaultToolName.ListPassports]: listPassportsTool,
     [DefaultToolName.SaveClaimsToPassport]: saveClaimsToPassportTool,
+    [DefaultToolName.AddEvidenceToPassport]: addEvidenceToPassportTool,
+    [DefaultToolName.RejectClaimByDescription]: rejectClaimByDescriptionTool,
+    [DefaultToolName.RunMatching]: runMatchingTool,
   },
 };

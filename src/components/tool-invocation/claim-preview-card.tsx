@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { SaveToPassportDialog } from "@/components/passport/save-to-passport-dialog";
 import type { ClaimsPreviewOutput } from "lib/ai/tools/passport/extract-claims-preview-tool";
-import type { ExtractedClaim } from "lib/ai/tools/passport/extract-claims-preview-tool";
+import type { ExtractedClaim } from "@/lib/passport/claim-extractor";
 
 // Re-export for tool-kit usage
 export type { ClaimsPreviewOutput };

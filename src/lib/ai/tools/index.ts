@@ -25,6 +25,10 @@ export enum DefaultToolName {
   ExtractClaimsPreview = "extractClaimsPreview",
   ListPassports = "listPassports",
   SaveClaimsToPassport = "saveClaimsToPassport",
+  AddEvidenceToPassport = "addEvidenceToPassport",
+  RejectClaimByDescription = "rejectClaimByDescription",
+  // Matching engine
+  RunMatching = "runMatching",
 }
 
 export const SequentialThinkingToolName = "sequential-thinking";

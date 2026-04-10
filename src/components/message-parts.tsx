@@ -950,12 +950,16 @@ export const ToolMessagePart = memo(
       if (
         toolName === DefaultToolName.ShowClaimExtraction ||
         toolName === DefaultToolName.ShowMatchList ||
+        toolName === DefaultToolName.RunMatching ||
         toolName === DefaultToolName.ShowGapAnalysis
       ) {
         if (toolName === DefaultToolName.ShowClaimExtraction) {
           return <ClaimExtractionCard key={toolCallId} part={part} />;
         }
-        if (toolName === DefaultToolName.ShowMatchList) {
+        if (
+          toolName === DefaultToolName.ShowMatchList ||
+          toolName === DefaultToolName.RunMatching
+        ) {
           return <MatchListCard key={toolCallId} part={part} />;
         }
         if (toolName === DefaultToolName.ShowGapAnalysis) {

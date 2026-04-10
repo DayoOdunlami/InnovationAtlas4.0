@@ -47,6 +47,7 @@ const staticModels = {
     "gemini-2.5-pro": google("gemini-2.5-pro"),
   },
   anthropic: {
+    "sonnet-4-6": anthropic("claude-sonnet-4-6"),
     "sonnet-4.5": anthropic("claude-sonnet-4-5"),
     "haiku-4.5": anthropic("claude-haiku-4-5"),
     "opus-4.5": anthropic("claude-opus-4-5"),

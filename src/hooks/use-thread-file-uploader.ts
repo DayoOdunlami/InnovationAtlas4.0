@@ -6,6 +6,33 @@ import { useFileUpload } from "@/hooks/use-presigned-upload";
 import { generateUUID } from "@/lib/utils";
 import { toast } from "sonner";
 
+/** Silently registers a PDF with the passport pipeline (fire-and-forget). */
+async function registerPassportDocument(
+  file: File,
+  threadId: string,
+): Promise<void> {
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("threadId", threadId);
+    const res = await fetch("/api/passport/upload", {
+      method: "POST",
+      body: fd,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.warn("[passport/upload]", body.error ?? res.statusText);
+    } else {
+      const data = await res.json();
+      console.info(
+        `[passport] Document registered — passport: ${data.passportId}, doc: ${data.documentId}`,
+      );
+    }
+  } catch (err) {
+    console.warn("[passport/upload] fire-and-forget failed", err);
+  }
+}
+
 export function useThreadFileUploader(threadId?: string) {
   const appStoreMutate = appStore((s) => s.mutate);
   const { upload } = useFileUpload();
@@ -45,6 +72,11 @@ export function useThreadFileUploader(threadId?: string) {
             [threadId]: [...(prev.threadFiles[threadId] ?? []), uploadingFile],
           },
         }));
+
+        // PDF → also register with passport pipeline (fire-and-forget)
+        if (file.type === "application/pdf" && threadId) {
+          registerPassportDocument(file, threadId);
+        }
 
         try {
           const uploaded = await upload(file);

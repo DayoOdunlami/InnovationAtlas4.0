@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { useObjectState } from "@/hooks/use-object-state";
 
-import { Loader } from "lucide-react";
+import { Loader, ShieldCheck, UserRound } from "lucide-react";
 import { safe } from "ts-safe";
 import { authClient } from "auth/client";
 import { toast } from "sonner";
@@ -23,6 +23,87 @@ import { GoogleIcon } from "ui/google-icon";
 import { useTranslations } from "next-intl";
 import { MicrosoftIcon } from "ui/microsoft-icon";
 import { SocialAuthenticationProvider } from "app-types/authentication";
+
+const IS_DEV = process.env.NODE_ENV !== "production";
+
+function DevQuickLogin() {
+  const [loadingRole, setLoadingRole] = useState<"admin" | "guest" | null>(
+    null,
+  );
+  const [password, setPassword] = useState("");
+
+  const handleBypass = async (role: "admin" | "guest") => {
+    setLoadingRole(role);
+    try {
+      const res = await fetch("/api/auth/dev-bypass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, password }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error ?? "Wrong password");
+        return;
+      }
+      window.location.href = "/";
+    } catch {
+      toast.error("Dev bypass failed");
+    } finally {
+      setLoadingRole(null);
+    }
+  };
+
+  return (
+    <div className="mt-6 rounded-lg border border-dashed border-amber-500/50 bg-amber-50/30 dark:bg-amber-950/20 p-4 flex flex-col gap-3">
+      <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 text-center uppercase tracking-wide">
+        Dev access only
+      </p>
+      <Input
+        type="password"
+        placeholder="bypass password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleBypass("admin");
+        }}
+        className="h-8 text-sm"
+      />
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 border-amber-500/60 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+          onClick={() => handleBypass("admin")}
+          disabled={loadingRole !== null}
+        >
+          {loadingRole === "admin" ? (
+            <Loader className="size-3 animate-spin" />
+          ) : (
+            <ShieldCheck className="size-3" />
+          )}
+          Admin
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 border-amber-500/60 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+          onClick={() => handleBypass("guest")}
+          disabled={loadingRole !== null}
+        >
+          {loadingRole === "guest" ? (
+            <Loader className="size-3 animate-spin" />
+          ) : (
+            <UserRound className="size-3" />
+          )}
+          Guest
+        </Button>
+      </div>
+      <p className="text-xs text-amber-600/70 dark:text-amber-500/60 text-center">
+        Admin: <code>12345</code> · Guest: <code>1234</code>
+      </p>
+    </div>
+  );
+}
 
 export default function SignIn({
   emailAndPasswordEnabled,
@@ -182,6 +263,7 @@ export default function SignIn({
               </Link>
             </div>
           )}
+          {IS_DEV && <DevQuickLogin />}
         </CardContent>
       </Card>
     </div>

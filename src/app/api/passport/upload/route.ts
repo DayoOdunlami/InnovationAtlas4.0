@@ -32,9 +32,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    if (file.type !== "application/pdf") {
+    const SUPPORTED_TYPES = new Set([
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "text/csv",
+      "application/csv",
+      "text/plain",
+    ]);
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const SUPPORTED_EXTS = new Set([
+      "pdf",
+      "docx",
+      "xlsx",
+      "xls",
+      "csv",
+      "txt",
+    ]);
+
+    if (!SUPPORTED_TYPES.has(file.type) && !SUPPORTED_EXTS.has(ext)) {
       return NextResponse.json(
-        { error: "Only PDF files are supported" },
+        {
+          error: "Unsupported file type. Supported: PDF, DOCX, TXT, XLSX, CSV.",
+        },
         { status: 400 },
       );
     }
@@ -73,14 +94,38 @@ export async function POST(request: Request) {
       }
 
       // Create passport_documents row
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "pdf";
       const docResult = await pool.query(
         `INSERT INTO atlas.passport_documents
            (passport_id, filename, document_type, storage_path, processing_status)
-         VALUES ($1, $2, 'pdf', $3, 'pending')
+         VALUES ($1, $2, $3, $4, 'pending')
          RETURNING id`,
-        [passportId, file.name, storagePath],
+        [passportId, file.name, ext, storagePath],
       );
       const documentId = docResult.rows[0].id as string;
+
+      // Trigger claim extraction asynchronously (fire-and-forget).
+      // The extract route runs server-side; we don't await so the upload
+      // returns immediately while extraction proceeds in the background.
+      const extractUrl = new URL(
+        "/api/passport/extract",
+        process.env.BETTER_AUTH_URL || "http://localhost:3000",
+      );
+      fetch(extractUrl.toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Forward auth cookie so getSession() works inside the extract route
+          cookie: request.headers.get("cookie") ?? "",
+        },
+        body: JSON.stringify({
+          passport_id: passportId,
+          document_id: documentId,
+          storage_path: storagePath,
+        }),
+      }).catch((err) =>
+        console.error("[passport/upload] Failed to trigger extract:", err),
+      );
 
       return NextResponse.json({
         success: true,
@@ -89,6 +134,7 @@ export async function POST(request: Request) {
         storagePath,
         filename: file.name,
         processingStatus: "pending",
+        message: "File uploaded. Claim extraction running in background.",
       });
     } finally {
       await pool.end();

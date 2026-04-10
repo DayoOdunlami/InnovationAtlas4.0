@@ -14,12 +14,17 @@ Requires DATABASE_URL in .env (Supabase Postgres).
 from __future__ import annotations
 
 import os
+import pickle
 import sys
+from pathlib import Path
 
 import numpy as np
 import psycopg2
 from dotenv import load_dotenv
 from psycopg2.extras import execute_batch
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+UMAP_MODEL_PATH = SCRIPT_DIR / "umap_model.pkl"
 
 load_dotenv()
 
@@ -107,8 +112,29 @@ def main() -> None:
         flush=True,
     )
 
+    raw_x_min = float(coords[:, 0].min())
+    raw_x_max = float(coords[:, 0].max())
+    raw_y_min = float(coords[:, 1].min())
+    raw_y_max = float(coords[:, 1].max())
+
     viz_x = normalise(coords[:, 0])
     viz_y = normalise(coords[:, 1])
+
+    print("Saving UMAP model + raw bounds to umap_model.pkl...", flush=True)
+    with open(UMAP_MODEL_PATH, "wb") as f:
+        pickle.dump(
+            {
+                "reducer": reducer,
+                "raw_bounds": {
+                    "x_min": raw_x_min,
+                    "x_max": raw_x_max,
+                    "y_min": raw_y_min,
+                    "y_max": raw_y_max,
+                },
+            },
+            f,
+        )
+    print(f"Saved to {UMAP_MODEL_PATH}", flush=True)
 
     print("Adding viz_x, viz_y columns if needed...", flush=True)
     cur.execute(

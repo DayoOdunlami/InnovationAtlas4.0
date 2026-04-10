@@ -19,6 +19,7 @@ import { useTranslations } from "next-intl";
 import { MCPIcon } from "ui/mcp-icon";
 import { WriteIcon } from "ui/write-icon";
 import {
+  FileBadge2,
   FolderOpenIcon,
   FolderSearchIcon,
   Map,
@@ -97,6 +98,18 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 <SidebarMenuButton className="font-semibold">
                   <Waypoints className="size-4" />
                   {t("Layout.workflow")}
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <Link href="/passport">
+                <SidebarMenuButton className="font-semibold">
+                  <FileBadge2 className="size-4" />
+                  Passports
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>

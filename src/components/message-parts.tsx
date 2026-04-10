@@ -726,6 +726,38 @@ const ImageGeneratorToolInvocation = dynamic(
   },
 );
 
+const ClaimExtractionCard = dynamic(
+  () =>
+    import("./tool-invocation/claim-extraction-card").then(
+      (mod) => mod.ClaimExtractionCard,
+    ),
+  { ssr: false, loading },
+);
+
+const MatchListCard = dynamic(
+  () =>
+    import("./tool-invocation/match-list-card").then(
+      (mod) => mod.MatchListCard,
+    ),
+  { ssr: false, loading },
+);
+
+const GapAnalysisCard = dynamic(
+  () =>
+    import("./tool-invocation/gap-analysis-card").then(
+      (mod) => mod.GapAnalysisCard,
+    ),
+  { ssr: false, loading },
+);
+
+const DraftPitchCard = dynamic(
+  () =>
+    import("./tool-invocation/draft-pitch-card").then(
+      (mod) => mod.DraftPitchCard,
+    ),
+  { ssr: false, loading },
+);
+
 // Local shortcuts for tool invocation approval/rejection
 const approveToolInvocationShortcut: Shortcut = {
   description: "approveToolInvocation",
@@ -902,7 +934,28 @@ export const ToolMessagePart = memo(
         );
       }
 
+      // Passport pipeline artefacts — render on input-available or output-available
+      if (
+        toolName === DefaultToolName.ShowClaimExtraction ||
+        toolName === DefaultToolName.ShowMatchList ||
+        toolName === DefaultToolName.ShowGapAnalysis
+      ) {
+        if (toolName === DefaultToolName.ShowClaimExtraction) {
+          return <ClaimExtractionCard key={toolCallId} part={part} />;
+        }
+        if (toolName === DefaultToolName.ShowMatchList) {
+          return <MatchListCard key={toolCallId} part={part} />;
+        }
+        if (toolName === DefaultToolName.ShowGapAnalysis) {
+          return <GapAnalysisCard key={toolCallId} part={part} />;
+        }
+      }
+
       if (state === "output-available") {
+        if (toolName === DefaultToolName.CreateDraftPitch) {
+          return <DraftPitchCard key={toolCallId} part={part} />;
+        }
+
         switch (toolName) {
           case DefaultToolName.CreatePieChart:
             return (

@@ -8,6 +8,10 @@ import { Tool } from "ai";
 import { httpFetchTool } from "./http/fetch";
 import { jsExecutionTool } from "./code/js-run-tool";
 import { pythonExecutionTool } from "./code/python-run-tool";
+import { showClaimExtractionTool } from "./passport/claim-extraction-tool";
+import { showMatchListTool } from "./passport/match-list-tool";
+import { showGapAnalysisTool } from "./passport/gap-analysis-tool";
+import { createDraftPitchTool } from "./passport/draft-pitch-tool";
 
 export const APP_DEFAULT_TOOL_KIT: Record<
   AppDefaultToolkit,
@@ -29,5 +33,11 @@ export const APP_DEFAULT_TOOL_KIT: Record<
   [AppDefaultToolkit.Code]: {
     [DefaultToolName.JavascriptExecution]: jsExecutionTool,
     [DefaultToolName.PythonExecution]: pythonExecutionTool,
+  },
+  [AppDefaultToolkit.Passport]: {
+    [DefaultToolName.ShowClaimExtraction]: showClaimExtractionTool,
+    [DefaultToolName.ShowMatchList]: showMatchListTool,
+    [DefaultToolName.ShowGapAnalysis]: showGapAnalysisTool,
+    [DefaultToolName.CreateDraftPitch]: createDraftPitchTool,
   },
 };

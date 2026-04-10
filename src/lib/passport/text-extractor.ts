@@ -66,7 +66,9 @@ export async function extractText(
 }
 
 async function extractPdf(buffer: Buffer): Promise<ExtractedText> {
-  const pdfParse = (await import("pdf-parse")).default;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfParse =
+    ((await import("pdf-parse")) as any).default ?? (await import("pdf-parse"));
   const result = await pdfParse(buffer);
   return {
     text: result.text,

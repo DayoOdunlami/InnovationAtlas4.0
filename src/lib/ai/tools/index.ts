@@ -3,6 +3,7 @@ export enum AppDefaultToolkit {
   WebSearch = "webSearch",
   Http = "http",
   Code = "code",
+  Passport = "passport",
 }
 
 export enum DefaultToolName {
@@ -15,6 +16,11 @@ export enum DefaultToolName {
   Http = "http",
   JavascriptExecution = "mini-javascript-execution",
   PythonExecution = "python-execution",
+  // Passport pipeline artefacts
+  ShowClaimExtraction = "showClaimExtraction",
+  ShowMatchList = "showMatchList",
+  ShowGapAnalysis = "showGapAnalysis",
+  CreateDraftPitch = "createDraftPitch",
 }
 
 export const SequentialThinkingToolName = "sequential-thinking";

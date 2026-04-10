@@ -19,9 +19,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "better-chatbot",
+  title: "Innovation Atlas",
   description:
-    "Better Chatbot is a chatbot that uses the Tools to answer questions.",
+    "Innovation Atlas — cross-sector innovation translation engine powered by JARVIS.",
 };
 
 export default async function RootLayout({

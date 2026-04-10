@@ -1,0 +1,14 @@
+{
+  "_comment": "Copy this file to .mcp-config.json and fill in your POSTGRES_URL value. Required when FILE_BASED_MCP_CONFIG=true (bootstrap mode — before admin user is created). After signing in and adding the MCP server via the app UI, set FILE_BASED_MCP_CONFIG=false in .env.",
+  "supabase-atlas": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-postgres",
+      "YOUR_SUPABASE_TRANSACTION_POOLER_URL"
+    ],
+    "env": {
+      "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+    }
+  }
+}

@@ -17,6 +17,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "seed:jarvis": "tsx scripts/seed-jarvis.ts",
+    "seed:demo": "dotenv -- tsx scripts/seed-demo-users.ts",
     "setup:storage": "tsx scripts/setup-atlas-storage.ts",
     "test:e2e:seed": "dotenv -- tsx scripts/seed-test-users.ts",
     "test:e2e:clean": "dotenv -- tsx scripts/cleanup-all-test-data.ts",

@@ -16,6 +16,7 @@
 - `pnpm test` / `pnpm test:watch` — Unit tests (Vitest).
 - `pnpm test:e2e` — Playwright tests; uses `playwright.config.ts` webServer.
 - DB: `pnpm db:push`, `pnpm db:studio`, `pnpm db:migrate` (Drizzle Kit).
+- Demo logins (shared DB for local + Vercel): `pnpm seed:demo` (optional `pnpm seed:demo -- --reset`). Uses `POSTGRES_URL` from `.env`; run once with the same URI as production so both environments see `demo-admin@` / `demo-tester@`.
 - Docker: `pnpm docker-compose:up` / `:down` to run local stack.
 
 ## Coding Style & Naming Conventions

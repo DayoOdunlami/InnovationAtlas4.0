@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "auth/server";
 import pg from "pg";
+import {
+  getDevBypassPassword,
+  isDevTestLoginEnabled,
+} from "lib/auth/dev-test-login";
+
+const BOOTSTRAP_ADMIN_EMAIL = "dev-bypass-bootstrap@innovation-atlas.local";
 
 function getPool() {
   const rawUrl = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
@@ -39,8 +45,49 @@ async function ensureGuestUser(pool: pg.Pool): Promise<string | null> {
   return res.user.id;
 }
 
+/**
+ * First matching admin, or create a bootstrap admin via sign-up when none exist.
+ */
+async function ensureAdminUserForBypass(pool: pg.Pool): Promise<string | null> {
+  const admins = await pool.query<{ id: string }>(
+    `SELECT id FROM public.user WHERE role = 'admin' ORDER BY created_at LIMIT 1`,
+  );
+  if (admins.rows[0]) return admins.rows[0].id;
+
+  const bootstrapPw =
+    process.env.DEV_BOOTSTRAP_ADMIN_PASSWORD?.trim() ||
+    "AtlasBootstrapAdmin!2026";
+
+  const existingBoot = await pool.query<{ id: string }>(
+    `SELECT id FROM public.user WHERE email = $1`,
+    [BOOTSTRAP_ADMIN_EMAIL],
+  );
+  if (existingBoot.rows[0]) {
+    await pool.query(
+      `UPDATE public.user SET role = 'admin', email_verified = true WHERE id = $1`,
+      [existingBoot.rows[0].id],
+    );
+    return existingBoot.rows[0].id;
+  }
+
+  const res = await auth.api.signUpEmail({
+    body: {
+      email: BOOTSTRAP_ADMIN_EMAIL,
+      password: bootstrapPw,
+      name: "Bootstrap Admin",
+    },
+  });
+  if (!res?.user?.id) return null;
+
+  await pool.query(
+    `UPDATE public.user SET role = 'admin', email_verified = true WHERE id = $1`,
+    [res.user.id],
+  );
+  return res.user.id;
+}
+
 export async function POST(request: NextRequest) {
-  if (process.env.NODE_ENV === "production") {
+  if (!isDevTestLoginEnabled()) {
     return NextResponse.json({ error: "Not available" }, { status: 404 });
   }
 
@@ -49,31 +96,26 @@ export async function POST(request: NextRequest) {
     password: string;
   };
 
-  const expectedPassword =
-    role === "admin"
-      ? process.env.DEV_ADMIN_BYPASS_PASSWORD
-      : process.env.DEV_GUEST_BYPASS_PASSWORD;
-
-  if (!expectedPassword || password !== expectedPassword) {
+  const expected = getDevBypassPassword(role);
+  if (password !== expected) {
     return NextResponse.json({ error: "Wrong password" }, { status: 401 });
   }
 
   const pool = getPool();
   try {
-    let userId: string | null = null;
-
-    if (role === "admin") {
-      const result = await pool.query(
-        `SELECT id FROM public.user WHERE role = 'admin' ORDER BY created_at LIMIT 1`,
-      );
-      userId = result.rows[0]?.id ?? null;
-    } else {
-      userId = await ensureGuestUser(pool);
-    }
+    const userId: string | null =
+      role === "admin"
+        ? await ensureAdminUserForBypass(pool)
+        : await ensureGuestUser(pool);
 
     if (!userId) {
       return NextResponse.json(
-        { error: "No matching user found" },
+        {
+          error:
+            role === "admin"
+              ? "Could not create or find an admin user. Ensure email sign-up is enabled (DISABLE_EMAIL_SIGN_UP unset) and BETTER_AUTH_URL matches this site."
+              : "Could not create guest user. Ensure email sign-up is enabled.",
+        },
         { status: 404 },
       );
     }

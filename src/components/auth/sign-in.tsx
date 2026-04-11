@@ -24,9 +24,11 @@ import { useTranslations } from "next-intl";
 import { MicrosoftIcon } from "ui/microsoft-icon";
 import { SocialAuthenticationProvider } from "app-types/authentication";
 
-const IS_DEV = process.env.NODE_ENV !== "production";
-
-function DevQuickLogin() {
+function DevQuickLogin({
+  hints,
+}: {
+  hints: { admin: string; guest: string };
+}) {
   const [loadingRole, setLoadingRole] = useState<"admin" | "guest" | null>(
     null,
   );
@@ -99,7 +101,12 @@ function DevQuickLogin() {
         </Button>
       </div>
       <p className="text-xs text-amber-600/70 dark:text-amber-500/60 text-center">
-        Admin: <code>12345</code> · Guest: <code>1234</code>
+        Admin: <code className="select-all">{hints.admin}</code> · Guest:{" "}
+        <code className="select-all">{hints.guest}</code>
+        <span className="mt-1 block opacity-80">
+          Override with <code>DEV_ADMIN_BYPASS_PASSWORD</code> /{" "}
+          <code>DEV_GUEST_BYPASS_PASSWORD</code>.
+        </span>
       </p>
     </div>
   );
@@ -110,11 +117,15 @@ export default function SignIn({
   signUpEnabled,
   socialAuthenticationProviders,
   isFirstUser,
+  showDevLogin,
+  devBypassHints,
 }: {
   emailAndPasswordEnabled: boolean;
   signUpEnabled: boolean;
   socialAuthenticationProviders: SocialAuthenticationProvider[];
   isFirstUser: boolean;
+  showDevLogin: boolean;
+  devBypassHints: { admin: string; guest: string } | null;
 }) {
   const t = useTranslations("Auth.SignIn");
 
@@ -263,7 +274,9 @@ export default function SignIn({
               </Link>
             </div>
           )}
-          {IS_DEV && <DevQuickLogin />}
+          {showDevLogin && devBypassHints && (
+            <DevQuickLogin hints={devBypassHints} />
+          )}
         </CardContent>
       </Card>
     </div>

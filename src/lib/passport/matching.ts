@@ -31,7 +31,166 @@ export type MatchingOutput = {
   live_call_matches: MatchResult[];
   total_matches: number;
   embedding_dims: number;
+  gaps_written?: number;
 };
+
+// ── Gap type + severity mapping ────────────────────────────────────────────
+
+type CanonicalGapType =
+  | "missing_evidence"
+  | "trl_gap"
+  | "sector_gap"
+  | "certification_gap"
+  | "conditions_mismatch";
+
+type CanonicalSeverity = "blocking" | "significant" | "minor";
+
+const GAP_TYPE_MAP: Record<string, CanonicalGapType> = {
+  // canonical pass-throughs
+  missing_evidence: "missing_evidence",
+  trl_gap: "trl_gap",
+  sector_gap: "sector_gap",
+  certification_gap: "certification_gap",
+  conditions_mismatch: "conditions_mismatch",
+  // Claude's freeform output → canonical
+  technology: "missing_evidence",
+  capability: "missing_evidence",
+  scope: "sector_gap",
+  application: "sector_gap",
+  domain: "sector_gap",
+  certification: "certification_gap",
+  regulatory: "conditions_mismatch",
+  regulation: "conditions_mismatch",
+  conditions: "conditions_mismatch",
+  trl: "trl_gap",
+  readiness: "trl_gap",
+  evidence: "missing_evidence",
+  data: "missing_evidence",
+};
+
+const SEVERITY_MAP: Record<string, CanonicalSeverity> = {
+  blocking: "blocking",
+  significant: "significant",
+  minor: "minor",
+  high: "blocking",
+  medium: "significant",
+  low: "minor",
+  critical: "blocking",
+  moderate: "significant",
+  negligible: "minor",
+};
+
+const ADDRESSABLE_BY_DEFAULTS: Record<CanonicalGapType, string> = {
+  missing_evidence:
+    "Provide documented evidence or trial data demonstrating this capability claim",
+  trl_gap:
+    "Increase TRL through controlled field trials or independent validation activities",
+  sector_gap:
+    "Identify and document a sector translation pathway or equivalent cross-sector use case",
+  certification_gap:
+    "Obtain the relevant certification or demonstrate standards compliance",
+  conditions_mismatch:
+    "Provide evidence collected under the required conditions, or document accepted equivalence",
+};
+
+function mapGapType(raw: string | undefined): CanonicalGapType {
+  if (!raw) return "missing_evidence";
+  return GAP_TYPE_MAP[raw.toLowerCase().trim()] ?? "missing_evidence";
+}
+
+function mapSeverity(raw: string | undefined): CanonicalSeverity {
+  if (!raw) return "significant";
+  return SEVERITY_MAP[raw.toLowerCase().trim()] ?? "significant";
+}
+
+function severityRank(s: CanonicalSeverity): number {
+  return s === "blocking" ? 3 : s === "significant" ? 2 : 1;
+}
+
+// ── Gap denormalisation ────────────────────────────────────────────────────
+
+type RawGap = {
+  gap_type?: string;
+  severity?: string;
+  gap_description?: string;
+  addressable_by?: string;
+};
+
+/**
+ * Reads all gaps from atlas.matches for a passport, maps them to canonical
+ * types/severities, deduplicates by (gap_type + description prefix), and
+ * writes fresh rows to atlas.passport_gaps. Clears existing rows first.
+ *
+ * @returns Number of gap rows inserted.
+ */
+export async function denormaliseGaps(
+  passportId: string,
+  pool: import("pg").Pool,
+): Promise<number> {
+  // 1. Clear existing gaps for this passport
+  await pool.query(
+    `DELETE FROM atlas.passport_gaps WHERE evidence_passport_id = $1`,
+    [passportId],
+  );
+
+  // 2. Load all gaps arrays from matches
+  const result = await pool.query<{ gaps: RawGap[] | null }>(
+    `SELECT gaps FROM atlas.matches
+     WHERE passport_id = $1 AND gaps IS NOT NULL AND gaps != '[]'::jsonb`,
+    [passportId],
+  );
+
+  // 3. Collect + deduplicate by (canonical_type + first-60-chars of description)
+  //    keeping the highest severity seen for the same conceptual gap
+  const seen = new Map<
+    string,
+    {
+      gap_type: CanonicalGapType;
+      severity: CanonicalSeverity;
+      gap_description: string;
+      addressable_by: string;
+    }
+  >();
+
+  for (const row of result.rows) {
+    const gaps = Array.isArray(row.gaps) ? row.gaps : [];
+    for (const gap of gaps) {
+      if (!gap.gap_description) continue;
+      const canonical_type = mapGapType(gap.gap_type);
+      const canonical_sev = mapSeverity(gap.severity);
+      const dedup_key = `${canonical_type}:${gap.gap_description
+        .toLowerCase()
+        .slice(0, 60)}`;
+
+      const existing = seen.get(dedup_key);
+      if (
+        !existing ||
+        severityRank(canonical_sev) > severityRank(existing.severity)
+      ) {
+        seen.set(dedup_key, {
+          gap_type: canonical_type,
+          severity: canonical_sev,
+          gap_description: gap.gap_description,
+          addressable_by:
+            gap.addressable_by ?? ADDRESSABLE_BY_DEFAULTS[canonical_type],
+        });
+      }
+    }
+  }
+
+  // 4. Insert deduplicated rows
+  for (const g of seen.values()) {
+    await pool.query(
+      `INSERT INTO atlas.passport_gaps
+         (id, evidence_passport_id, gap_type, severity, gap_description,
+          addressable_by, created_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, now())`,
+      [passportId, g.gap_type, g.severity, g.gap_description, g.addressable_by],
+    );
+  }
+
+  return seen.size;
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -419,7 +578,10 @@ export async function runPassportMatching(
       });
     }
 
-    // 9. Bump passport updated_at
+    // 9. Denormalise gaps from atlas.matches → atlas.passport_gaps
+    const gapCount = await denormaliseGaps(passportId, pool);
+
+    // 10. Bump passport updated_at
     await pool.query(
       `UPDATE atlas.passports SET updated_at = now() WHERE id = $1`,
       [passportId],
@@ -431,6 +593,7 @@ export async function runPassportMatching(
       live_call_matches: liveCallMatches,
       total_matches: projectMatches.length + liveCallMatches.length,
       embedding_dims: embedding.length,
+      gaps_written: gapCount,
     };
   } finally {
     await pool.end();

@@ -1,21 +1,5 @@
-import dynamic from "next/dynamic";
-import { Loader2, Map } from "lucide-react";
-
-const LandscapeScatter = dynamic(
-  () =>
-    import("@/components/landscape/landscape-scatter").then(
-      (mod) => mod.LandscapeScatter,
-    ),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-full text-muted-foreground gap-2">
-        <Loader2 className="size-5 animate-spin" />
-        Loading landscape…
-      </div>
-    ),
-  },
-);
+import { LandscapeScatterLazy } from "@/components/landscape/landscape-scatter-lazy";
+import { Map } from "lucide-react";
 
 export default function LandscapePage() {
   return (
@@ -28,7 +12,7 @@ export default function LandscapePage() {
         </p>
       </div>
       <div className="flex-1 min-h-0 rounded-xl border border-border/60 bg-card/60 p-4">
-        <LandscapeScatter />
+        <LandscapeScatterLazy />
       </div>
     </div>
   );

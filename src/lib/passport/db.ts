@@ -2,7 +2,12 @@ import "server-only";
 import pg from "pg";
 import type { ExtractedClaim } from "./claim-extractor";
 
-const rawUrl = process.env.POSTGRES_URL!;
+const rawUrl = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
+if (!rawUrl) {
+  throw new Error(
+    "Missing POSTGRES_URL or DATABASE_URL for passport database access",
+  );
+}
 const connectionString = rawUrl.replace(/[?&]sslmode=[^&]*/g, "");
 
 export function getPassportPool() {
@@ -93,4 +98,59 @@ export async function markDocumentFailed(
     [documentId],
   );
   console.error(`[passport/extract] Document ${documentId} failed: ${error}`);
+}
+
+export type InsertPassportClaimInput = {
+  passport_id: string;
+  claim_role: string;
+  claim_domain: string;
+  claim_text: string;
+  conditions: string | null;
+  confidence_tier: string;
+  confidence_reason: string;
+  source_document_id: string | null;
+  source_excerpt: string;
+  conflict_flag?: boolean;
+  conflicting_claim_id?: string | null;
+  conflict_resolution?: string | null;
+};
+
+export async function insertPassportClaimRow(
+  pool: pg.Pool,
+  input: InsertPassportClaimInput,
+): Promise<{ id: string }> {
+  const result = await pool.query<{ id: string }>(
+    `INSERT INTO atlas.passport_claims
+       (passport_id, claim_role, claim_domain, claim_text, conditions,
+        confidence_tier, confidence_reason, source_document_id, source_excerpt,
+        conflict_flag, conflicting_claim_id, conflict_resolution)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     RETURNING id`,
+    [
+      input.passport_id,
+      input.claim_role,
+      input.claim_domain,
+      input.claim_text,
+      input.conditions,
+      input.confidence_tier,
+      input.confidence_reason,
+      input.source_document_id,
+      input.source_excerpt,
+      input.conflict_flag ?? false,
+      input.conflicting_claim_id ?? null,
+      input.conflict_resolution ?? null,
+    ],
+  );
+  return result.rows[0];
+}
+
+export async function updatePassportClaimEmbedding(
+  pool: pg.Pool,
+  claimId: string,
+  vectorLiteral: string,
+): Promise<void> {
+  await pool.query(
+    `UPDATE atlas.passport_claims SET embedding = $2::vector WHERE id = $1`,
+    [claimId, vectorLiteral],
+  );
 }

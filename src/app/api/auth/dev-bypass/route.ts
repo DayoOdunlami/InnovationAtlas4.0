@@ -2,15 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "auth/server";
 import pg from "pg";
 
-// Hard block in production — this route must never be reachable outside dev
-if (process.env.NODE_ENV === "production") {
-  throw new Error("dev-bypass route must not be included in production builds");
-}
-
-const rawUrl = process.env.POSTGRES_URL!;
-const connectionString = rawUrl.replace(/[?&]sslmode=[^&]*/g, "");
-
 function getPool() {
+  const rawUrl = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
+  if (!rawUrl) {
+    throw new Error(
+      "POSTGRES_URL or DATABASE_URL is required for dev-bypass (development only)",
+    );
+  }
+  const connectionString = rawUrl.replace(/[?&]sslmode=[^&]*/g, "");
   return new pg.Pool({
     connectionString,
     ssl: { rejectUnauthorized: false },
@@ -24,7 +23,6 @@ async function ensureGuestUser(pool: pg.Pool): Promise<string | null> {
   );
   if (existing.rows.length > 0) return existing.rows[0].id as string;
 
-  // Create guest via better-auth signUp
   const res = await auth.api.signUpEmail({
     body: {
       email: "guest@innovation-atlas.local",
@@ -34,7 +32,6 @@ async function ensureGuestUser(pool: pg.Pool): Promise<string | null> {
   });
   if (!res?.user?.id) return null;
 
-  // Mark verified and set role
   await pool.query(
     `UPDATE public.user SET email_verified = true, role = 'user'
      WHERE email = 'guest@innovation-atlas.local'`,
@@ -52,7 +49,6 @@ export async function POST(request: NextRequest) {
     password: string;
   };
 
-  // Validate bypass password
   const expectedPassword =
     role === "admin"
       ? process.env.DEV_ADMIN_BYPASS_PASSWORD
@@ -82,14 +78,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use better-auth admin plugin to impersonate the user
     const impersonateResponse = await auth.api.impersonateUser({
       body: { userId },
       headers: request.headers,
       asResponse: true,
     });
 
-    // Forward the Set-Cookie headers from better-auth to the browser
     const response = NextResponse.json({ ok: true });
     impersonateResponse.headers.forEach((value, key) => {
       if (key.toLowerCase() === "set-cookie") {

@@ -29,7 +29,11 @@ async function runCommand(command: string, description: string) {
 async function main() {
   if (IS_VERCEL_ENV) {
     if (FILE_BASED_MCP_CONFIG) {
-      console.error("File based MCP config is not supported on Vercel.");
+      console.error(
+        "FILE_BASED_MCP_CONFIG=true is not supported on Vercel (no checked-in MCP JSON). " +
+          "In Vercel → Settings → Environment Variables, remove it or set FILE_BASED_MCP_CONFIG=false. " +
+          "Configure MCP servers from the app after deploy.",
+      );
       process.exit(1);
     }
     console.log("Running on Vercel, performing database migration.");

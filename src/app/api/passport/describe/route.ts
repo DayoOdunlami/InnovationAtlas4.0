@@ -38,6 +38,7 @@ export async function POST(request: Request) {
     claims?: ExtractedClaim[];
     title?: string;
     project_name?: string;
+    passport_type?: string;
     tags?: string[];
     trial_date_start?: string;
     trial_date_end?: string;
@@ -102,8 +103,8 @@ export async function POST(request: Request) {
       const title = body.title ?? body.project_name ?? "Untitled Passport";
       const newPassport = await pool.query<{ id: string; title: string }>(
         `INSERT INTO atlas.passports
-           (title, project_name, user_id, tags, trial_date_start, trial_date_end)
-         VALUES ($1, $2, $3, $4, $5::date, $6::date)
+           (title, project_name, user_id, tags, trial_date_start, trial_date_end, passport_type)
+         VALUES ($1, $2, $3, $4, $5::date, $6::date, $7)
          RETURNING id, COALESCE(title, project_name, 'Untitled') AS title`,
         [
           title,
@@ -112,6 +113,7 @@ export async function POST(request: Request) {
           body.tags ?? [],
           body.trial_date_start ?? null,
           body.trial_date_end ?? null,
+          body.passport_type ?? "evidence_profile",
         ],
       );
       passportId = newPassport.rows[0].id;

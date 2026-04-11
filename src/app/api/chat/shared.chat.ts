@@ -431,10 +431,10 @@ export const loadAppDefaultTools = (opt?: {
 }) =>
   safe(APP_DEFAULT_TOOL_KIT)
     .map((tools) => {
-      if (opt?.mentions?.length) {
-        const defaultToolMentions = opt.mentions.filter(
-          (m) => m.type == "defaultTool",
-        );
+      const defaultToolMentions = (opt?.mentions ?? []).filter(
+        (m) => m.type == "defaultTool",
+      );
+      if (defaultToolMentions.length) {
         return Array.from(Object.values(tools)).reduce((acc, t) => {
           const allowed = objectFlow(t).filter((_, k) => {
             return defaultToolMentions.some((m) => m.name == k);

@@ -16,6 +16,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin/users", request.url));
   }
 
+  // Allow internal tool-to-API calls authenticated by shared secret
+  const toolSecret = request.headers.get("x-tool-secret");
+  if (
+    toolSecret &&
+    toolSecret === process.env.BETTER_AUTH_SECRET &&
+    process.env.BETTER_AUTH_SECRET
+  ) {
+    return NextResponse.next();
+  }
+
   const sessionCookie = getSessionCookie(request);
 
   if (!sessionCookie) {

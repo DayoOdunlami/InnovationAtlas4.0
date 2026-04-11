@@ -1,6 +1,6 @@
 import { tool as createTool } from "ai";
 import { z } from "zod";
-import { getPassportPool, saveClaims } from "@/lib/passport/db";
+import { internalApiFetch } from "@/lib/passport/internal-fetch";
 
 export type SaveClaimsOutput = {
   passport_id: string;
@@ -9,10 +9,17 @@ export type SaveClaimsOutput = {
   passport_url: string;
 };
 
+/**
+ * Calls POST /api/passport/describe via internalApiFetch.
+ * The API route handles all DB writes with proper confidence ceiling guards.
+ * No direct SQL is performed here.
+ */
 export const saveClaimsToPassportTool = createTool({
   description:
     "Save a pending batch of extracted claims to a chosen passport. " +
     "Use the pending_batch_id returned by extractClaimsPreview. " +
+    "For adding evidence to an EXISTING passport (returning user), use addEvidenceToPassport instead " +
+    "so conflicts are detected before save. " +
     "If the user said 'new', omit passport_id and provide title (and optionally " +
     "project_name, tags, trial_date_start, trial_date_end). " +
     "After saving, confirm: '✓ N claims saved to [title]. Visit /passport/[id] to review and verify them.'",
@@ -50,99 +57,25 @@ export const saveClaimsToPassportTool = createTool({
     trial_date_start,
     trial_date_end,
   }): Promise<SaveClaimsOutput> => {
-    const pool = getPassportPool();
-    try {
-      // Fetch pending claims
-      const batchResult = await pool.query<{ claims: unknown }>(
-        `SELECT claims FROM atlas.pending_claim_batches WHERE id = $1`,
-        [pending_batch_id],
-      );
-      if (!batchResult.rows[0]) {
-        throw new Error(
-          `pending_batch_id ${pending_batch_id} not found or expired`,
-        );
-      }
-      const claims = batchResult.rows[0].claims as Parameters<
-        typeof saveClaims
-      >[2];
+    const result = await internalApiFetch<{
+      passport_id: string;
+      passport_title: string;
+      claims_saved: number;
+    }>("/api/passport/describe", {
+      pending_batch_id,
+      passport_id,
+      title,
+      project_name,
+      tags,
+      trial_date_start,
+      trial_date_end,
+    });
 
-      // Confidence ceiling guard
-      if (
-        (claims as { confidence_tier?: string }[]).some(
-          (c) => c.confidence_tier === "verified",
-        )
-      ) {
-        throw new Error(
-          "CONFIDENCE CEILING VIOLATION: cannot write confidence_tier = 'verified'",
-        );
-      }
-
-      // Delete batch
-      await pool.query(
-        `DELETE FROM atlas.pending_claim_batches WHERE id = $1`,
-        [pending_batch_id],
-      );
-
-      let passportId = passport_id ?? "";
-      let passportTitle = "";
-
-      if (!passportId) {
-        const pTitle = title ?? project_name ?? "Untitled Passport";
-        const newP = await pool.query<{ id: string; title: string }>(
-          `INSERT INTO atlas.passports
-             (title, project_name, tags, trial_date_start, trial_date_end)
-           VALUES ($1, $2, $3, $4::date, $5::date)
-           RETURNING id, COALESCE(title, project_name, 'Untitled') AS title`,
-          [
-            pTitle,
-            project_name ?? null,
-            tags ?? [],
-            trial_date_start ?? null,
-            trial_date_end ?? null,
-          ],
-        );
-        passportId = newP.rows[0].id;
-        passportTitle = newP.rows[0].title;
-      } else {
-        if (project_name || tags || trial_date_start || trial_date_end) {
-          await pool.query(
-            `UPDATE atlas.passports
-             SET project_name = COALESCE($2, project_name),
-                 tags = COALESCE($3, tags),
-                 trial_date_start = COALESCE($4::date, trial_date_start),
-                 trial_date_end = COALESCE($5::date, trial_date_end),
-                 updated_at = now()
-             WHERE id = $1`,
-            [
-              passportId,
-              project_name ?? null,
-              tags ?? null,
-              trial_date_start ?? null,
-              trial_date_end ?? null,
-            ],
-          );
-        }
-        const pRow = await pool.query<{ title: string }>(
-          `SELECT COALESCE(title, project_name, 'Untitled') AS title FROM atlas.passports WHERE id = $1`,
-          [passportId],
-        );
-        passportTitle = pRow.rows[0]?.title ?? "Untitled";
-      }
-
-      const saved = await saveClaims(pool, passportId, claims, null);
-      await pool.query(
-        `UPDATE atlas.passports SET updated_at = now() WHERE id = $1`,
-        [passportId],
-      );
-
-      return {
-        passport_id: passportId,
-        passport_title: passportTitle,
-        claims_saved: saved.length,
-        passport_url: `/passport/${passportId}`,
-      };
-    } finally {
-      await pool.end();
-    }
+    return {
+      passport_id: result.passport_id,
+      passport_title: result.passport_title,
+      claims_saved: result.claims_saved,
+      passport_url: `/passport/${result.passport_id}`,
+    };
   },
 });

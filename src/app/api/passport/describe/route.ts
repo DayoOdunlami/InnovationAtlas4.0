@@ -20,8 +20,15 @@ import type { ExtractedClaim } from "@/lib/passport/claim-extractor";
  *   trial_date_end?
  */
 export async function POST(request: Request) {
-  const session = await getSession();
-  if (!session?.user?.id) {
+  // Allow internal tool calls authenticated by BETTER_AUTH_SECRET header
+  const toolSecret = request.headers.get("x-tool-secret");
+  const isInternalCall =
+    toolSecret &&
+    toolSecret === process.env.BETTER_AUTH_SECRET &&
+    process.env.BETTER_AUTH_SECRET;
+
+  const session = isInternalCall ? null : await getSession();
+  if (!isInternalCall && !session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -101,7 +108,7 @@ export async function POST(request: Request) {
         [
           title,
           body.project_name ?? null,
-          session.user.id,
+          session?.user?.id ?? null,
           body.tags ?? [],
           body.trial_date_start ?? null,
           body.trial_date_end ?? null,

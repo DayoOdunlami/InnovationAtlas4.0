@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "auth/server";
 import { getPassportPool } from "@/lib/passport/db";
+import { applyPassportClaimAction } from "@/lib/passport/claim-actions";
 
 /**
  * POST /api/passport/verify-claim
@@ -16,8 +17,15 @@ import { getPassportPool } from "@/lib/passport/db";
  * A single request may include multiple actions (e.g. verify + note together).
  */
 export async function POST(request: Request) {
-  const session = await getSession();
-  if (!session?.user?.id) {
+  // Allow internal tool calls (reject action only — verify requires user session)
+  const toolSecret = request.headers.get("x-tool-secret");
+  const isInternalCall =
+    toolSecret &&
+    toolSecret === process.env.BETTER_AUTH_SECRET &&
+    process.env.BETTER_AUTH_SECRET;
+
+  const session = isInternalCall ? null : await getSession();
+  if (!isInternalCall && !session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -50,71 +58,44 @@ export async function POST(request: Request) {
     );
   }
 
+  // Internal tool calls may only reject/note — not verify (verify requires a human)
+  if (isInternalCall && action === "verify") {
+    return NextResponse.json(
+      {
+        error:
+          "CONFIDENCE CEILING: only a human session can set confidence_tier = 'verified'",
+      },
+      { status: 403 },
+    );
+  }
+
   const pool = getPassportPool();
 
   try {
-    // Confirm claim exists and belongs to a passport the user can access
-    const existing = await pool.query(
-      `SELECT id, passport_id, confidence_tier, rejected
-       FROM atlas.passport_claims
-       WHERE id = $1`,
-      [claim_id],
+    const verifiedBy = session?.user?.email ?? session?.user?.id ?? "tool";
+    const { claim: updatedClaim, passport_id } = await applyPassportClaimAction(
+      pool,
+      {
+        claim_id,
+        action,
+        note,
+        verified_by: verifiedBy,
+      },
     );
-
-    if (existing.rows.length === 0) {
-      return NextResponse.json({ error: "Claim not found" }, { status: 404 });
-    }
-
-    const claim = existing.rows[0];
-
-    // Apply the action
-    let updatedClaim: Record<string, unknown>;
-
-    if (action === "verify") {
-      // THE ONLY PLACE IN THE ENTIRE CODEBASE WHERE confidence_tier = 'verified' IS WRITTEN
-      const result = await pool.query(
-        `UPDATE atlas.passport_claims
-         SET confidence_tier = 'verified',
-             verified_at     = now(),
-             verified_by     = $2,
-             rejected        = false
-         WHERE id = $1
-         RETURNING *`,
-        [claim_id, session.user.email ?? session.user.id],
-      );
-      updatedClaim = result.rows[0];
-    } else if (action === "reject") {
-      const result = await pool.query(
-        `UPDATE atlas.passport_claims
-         SET rejected = true,
-             confidence_tier = CASE
-               WHEN confidence_tier = 'verified' THEN 'ai_inferred'
-               ELSE confidence_tier
-             END
-         WHERE id = $1
-         RETURNING *`,
-        [claim_id],
-      );
-      updatedClaim = result.rows[0];
-    } else {
-      // action === 'note'
-      const result = await pool.query(
-        `UPDATE atlas.passport_claims
-         SET user_note = $2
-         WHERE id = $1
-         RETURNING *`,
-        [claim_id, note],
-      );
-      updatedClaim = result.rows[0];
-    }
 
     return NextResponse.json({
       ok: true,
       action,
       claim_id,
-      passport_id: claim.passport_id,
+      passport_id,
       claim: updatedClaim,
     });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    if (msg === "Claim not found") {
+      return NextResponse.json({ error: "Claim not found" }, { status: 404 });
+    }
+    return NextResponse.json({ error: msg }, { status: 400 });
   } finally {
     await pool.end();
   }
@@ -146,7 +127,8 @@ export async function GET(request: Request) {
       `SELECT id, passport_id, claim_role, claim_domain, claim_text,
               conditions, confidence_tier, confidence_reason,
               source_document_id, source_excerpt,
-              verified_at, verified_by, rejected, user_note, created_at
+              verified_at, verified_by, rejected, user_note, created_at,
+              conflict_flag, conflicting_claim_id, conflict_resolution
        FROM atlas.passport_claims
        WHERE id = $1`,
       [claim_id],

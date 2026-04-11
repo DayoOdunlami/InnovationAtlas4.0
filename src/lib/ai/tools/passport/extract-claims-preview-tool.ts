@@ -1,7 +1,6 @@
 import { tool as createTool } from "ai";
 import { z } from "zod";
-import { extractClaimsFromDescription } from "@/lib/passport/claim-extractor";
-import { getPassportPool } from "@/lib/passport/db";
+import { internalApiFetch } from "@/lib/passport/internal-fetch";
 import type { ExtractedClaim } from "@/lib/passport/claim-extractor";
 
 export type ClaimsPreviewOutput = {
@@ -10,6 +9,11 @@ export type ClaimsPreviewOutput = {
   source_text_length: number;
 };
 
+/**
+ * Calls POST /api/passport/preview via internalApiFetch.
+ * The API route handles Claude claim extraction and pending_claim_batches insert.
+ * No direct SQL is performed here.
+ */
 export const extractClaimsPreviewTool = createTool({
   description:
     "Extract structured claims from a typed or spoken innovation description WITHOUT " +
@@ -33,27 +37,9 @@ export const extractClaimsPreviewTool = createTool({
       ),
   }),
   execute: async ({ text, context_hint }): Promise<ClaimsPreviewOutput> => {
-    const fullText = context_hint
-      ? `Context: ${context_hint}\n\n${text}`
-      : text;
-    const claims = await extractClaimsFromDescription(fullText);
-
-    // Store in pending_claim_batches so JARVIS doesn't need to re-pass large JSON
-    const pool = getPassportPool();
-    try {
-      const result = await pool.query<{ id: string }>(
-        `INSERT INTO atlas.pending_claim_batches (claims, source_text)
-         VALUES ($1::jsonb, $2)
-         RETURNING id`,
-        [JSON.stringify(claims), text.slice(0, 2000)],
-      );
-      return {
-        pending_batch_id: result.rows[0].id,
-        claims,
-        source_text_length: text.length,
-      };
-    } finally {
-      await pool.end();
-    }
+    return internalApiFetch<ClaimsPreviewOutput>("/api/passport/preview", {
+      text,
+      context_hint,
+    });
   },
 });

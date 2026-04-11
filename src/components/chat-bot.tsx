@@ -201,10 +201,13 @@ export default function ChatBot({ threadId, initialMessages }: Props) {
             (body as { model: ChatModel })?.model ?? latestRef.current.model,
           toolChoice: latestRef.current.toolChoice,
           allowedAppDefaultToolkit:
-            latestRef.current.mentions?.length || hasFilePart
+            latestRef.current.mentions?.filter((m) => m.type !== "agent")
+              .length || hasFilePart
               ? []
               : latestRef.current.allowedAppDefaultToolkit,
-          allowedMcpServers: latestRef.current.mentions?.length
+          allowedMcpServers: latestRef.current.mentions?.filter(
+            (m) => m.type !== "agent",
+          ).length
             ? {}
             : latestRef.current.allowedMcpServers,
           mentions: latestRef.current.mentions,

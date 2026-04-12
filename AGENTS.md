@@ -14,6 +14,7 @@
 - `pnpm lint` / `pnpm lint:fix` — ESLint + Biome checks and autofix.
 - `pnpm format` — Format with Biome.
 - `pnpm test` / `pnpm test:watch` — Unit tests (Vitest).
+- `pnpm test:smoke` — Atlas passport smoke (Vitest: `src/smoke`; needs `POSTGRES_URL` and `BETTER_AUTH_SECRET`). In the app, admins can open **Admin → Testing** (`/admin/testing`) for the same command and context.
 - `pnpm test:e2e` — Playwright tests; uses `playwright.config.ts` webServer.
 - DB: `pnpm db:push`, `pnpm db:studio`, `pnpm db:migrate` (Drizzle Kit).
 - Demo logins (shared DB for local + Vercel): `pnpm seed:demo` (optional `pnpm seed:demo -- --reset`). Uses `POSTGRES_URL` from `.env`; run once with the same URI as production so both environments see `demo-admin@` / `demo-tester@`.
@@ -28,6 +29,7 @@
 
 ## Testing Guidelines
 - Unit tests: Vitest, filename `*.test.ts(x)`.
+- Smoke: `pnpm test:smoke` — deterministic passport and tool-kit checks (no LLM for preview; see `src/smoke/atlas-smoke.test.ts`).
 - E2E: Playwright under `tests/`, filename `*.spec.ts`.
 - Run locally: `pnpm test` and `pnpm test:e2e` (ensure app is running or let Playwright start via config).
 - Add tests for new features and bug fixes; cover happy path + one failure mode.

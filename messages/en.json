@@ -737,6 +737,13 @@
       "joined": "Joined",
       "backToUsers": "Back to Users"
     },
+    "Testing": {
+      "title": "Testing",
+      "description": "Deterministic smoke checks for passport APIs and tool registration (Vitest).",
+      "requirements": "Requires POSTGRES_URL (or DATABASE_URL) and BETTER_AUTH_SECRET from your .env — the same values the app uses.",
+      "commandLabel": "Run from the repository root:",
+      "implementationNote": "Tests live in src/smoke/atlas-smoke.test.ts. The preview-route test mocks claim extraction so no LLM call is required."
+    },
     "UserDelete": {
       "title": "Delete User Account",
       "description": "You are about to permanently delete {name}'s account. This action cannot be undone.",

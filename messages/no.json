@@ -737,6 +737,13 @@
       "joined": "Ble med",
       "backToUsers": "Tilbake til brukere"
     },
+    "Testing": {
+      "title": "Testing",
+      "description": "Deterministiske smoke-tester for passporter-API-er og verktøyregistrering (Vitest).",
+      "requirements": "Krever POSTGRES_URL (eller DATABASE_URL) og BETTER_AUTH_SECRET fra .env — samme som appen.",
+      "commandLabel": "Kjør fra rotmappen i repoet:",
+      "implementationNote": "Testene ligger i src/smoke/atlas-smoke.test.ts. Forhåndsvisningstesten mocker kravuttrekk, så ingen LLM-kall trengs."
+    },
     "UserDelete": {
       "title": "Slett brukerkonto",
       "description": "Du er i ferd med å permanent slette {name}s konto. Denne handlingen kan ikke angres.",

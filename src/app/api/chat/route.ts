@@ -1,54 +1,55 @@
 import {
+  Tool,
+  UIMessage,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
   smoothStream,
   stepCountIs,
-  streamText,
-  Tool,
-  UIMessage,
 } from "ai";
 
 import { customModelProvider, isToolCallUnsupportedModel } from "lib/ai/models";
 
-import { agentRepository, chatRepository } from "lib/db/repository";
-import globalLogger from "logger";
 import {
-  buildMcpServerCustomizationsSystemPrompt,
-  buildUserSystemPrompt,
-  buildToolCallUnsupportedModelSystemPrompt,
-} from "lib/ai/prompts";
-import {
-  chatApiSchemaRequestBodySchema,
   ChatMention,
   ChatMetadata,
+  chatApiSchemaRequestBodySchema,
 } from "app-types/chat";
+import {
+  buildMcpServerCustomizationsSystemPrompt,
+  buildToolCallUnsupportedModelSystemPrompt,
+  buildUserSystemPrompt,
+} from "lib/ai/prompts";
+import { agentRepository, chatRepository } from "lib/db/repository";
+import globalLogger from "logger";
 
 import { errorIf, safe } from "ts-safe";
 
-import {
-  excludeToolExecution,
-  handleError,
-  manualToolExecuteByLastMessage,
-  mergeSystemPrompt,
-  extractInProgressToolPart,
-  filterMcpServerCustomizations,
-  loadMcpTools,
-  loadWorkFlowTools,
-  loadAppDefaultTools,
-  convertToSavePart,
-} from "./shared.chat";
+import { buildCsvIngestionPreviewParts } from "@/lib/ai/ingest/csv-ingest";
+import { getSession } from "auth/server";
+import { colorize } from "consola/utils";
+import { ImageToolName } from "lib/ai/tools";
+import { nanoBananaTool, openaiImageTool } from "lib/ai/tools/image";
+import { serverFileStorage } from "lib/file-storage";
+import { generateUUID } from "lib/utils";
 import {
   rememberAgentAction,
   rememberMcpServerCustomizationsAction,
 } from "./actions";
-import { getSession } from "auth/server";
-import { colorize } from "consola/utils";
-import { generateUUID } from "lib/utils";
-import { nanoBananaTool, openaiImageTool } from "lib/ai/tools/image";
-import { ImageToolName } from "lib/ai/tools";
-import { buildCsvIngestionPreviewParts } from "@/lib/ai/ingest/csv-ingest";
-import { serverFileStorage } from "lib/file-storage";
+import {
+  convertToSavePart,
+  excludeToolExecution,
+  extractInProgressToolPart,
+  filterMcpServerCustomizations,
+  handleError,
+  loadAppDefaultTools,
+  loadMcpTools,
+  loadWorkFlowTools,
+  manualToolExecuteByLastMessage,
+  mergeSystemPrompt,
+} from "./shared.chat";
+
+import { chatStreamText } from "@/app/api/chat/stream-text-adapter";
 
 const logger = globalLogger.withDefaults({
   message: colorize("blackBright", `Chat API: `),
@@ -315,7 +316,7 @@ export async function POST(request: Request) {
         }
         logger.info(`model: ${chatModel?.provider}/${chatModel?.model}`);
 
-        const result = streamText({
+        const result = chatStreamText({
           model,
           system: systemPrompt,
           messages: convertToModelMessages(messages),

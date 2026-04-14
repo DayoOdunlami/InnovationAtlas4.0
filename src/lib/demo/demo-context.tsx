@@ -11,7 +11,21 @@ import {
   useState,
 } from "react";
 
+import {
+  armDemoAssistantReadyGate,
+  disarmDemoAssistantReadyGate,
+  waitForDemoAssistantReadyEvent,
+} from "@/lib/demo/demo-assistant-bridge";
 import { sendDemoMessage } from "@/lib/demo/demo-chat-bridge";
+import {
+  armDemoJarvisForChat,
+  disarmDemoJarvisForChat,
+} from "@/lib/demo/demo-jarvis-bridge";
+import {
+  DEFAULT_DEMO_OPTIONS,
+  type DemoRunOptions,
+  mergeDemoOptions,
+} from "@/lib/demo/demo-options";
 import { type DemoStep, demoTotalDurationMs } from "@/lib/demo/demo-runner";
 
 type DemoContextValue = {
@@ -20,10 +34,14 @@ type DemoContextValue = {
   currentStep: number;
   narrationText: string;
   progress: number;
+  /** Script `pause` step — click bar to continue. */
   waitingForContinue: boolean;
-  startDemo: (script: DemoStep[]) => void;
+  runOptions: DemoRunOptions;
+  startDemo: (script: DemoStep[], options?: Partial<DemoRunOptions>) => void;
   stopDemo: () => void;
   acknowledgePause: () => void;
+  /** Ends the current script delay or assistant wait so the runner moves on. */
+  requestDemoSkip: () => void;
 };
 
 const DemoContext = createContext<DemoContextValue | null>(null);
@@ -40,6 +58,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const runEpochRef = useRef(0);
   const pauseResumeRef = useRef<(() => void) | null>(null);
+  const runOptionsRef = useRef<DemoRunOptions>(DEFAULT_DEMO_OPTIONS);
+  const abortAssistantWaitRef = useRef<AbortController | null>(null);
+  /** Resolves the active skippable wait (step delay or assistant wait). */
+  const skipWaitRef = useRef<(() => void) | null>(null);
 
   const [isActive, setIsActive] = useState(false);
   const [currentScript, setCurrentScript] = useState<DemoStep[] | null>(null);
@@ -47,10 +69,33 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [narrationText, setNarrationText] = useState("");
   const [progress, setProgress] = useState(0);
   const [waitingForContinue, setWaitingForContinue] = useState(false);
+  const [runOptions, setRunOptions] =
+    useState<DemoRunOptions>(DEFAULT_DEMO_OPTIONS);
 
-  const delay = useCallback((ms: number) => {
+  const requestDemoSkip = useCallback(() => {
+    skipWaitRef.current?.();
+  }, []);
+
+  const waitSkippableDelay = useCallback((ms: number, myEpoch: number) => {
     return new Promise<void>((resolve) => {
-      setTimeout(resolve, ms);
+      if (runEpochRef.current !== myEpoch) {
+        resolve();
+        return;
+      }
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        skipWaitRef.current = null;
+        resolve();
+      };
+      const timer = setTimeout(finish, ms);
+      skipWaitRef.current = () => {
+        if (done) return;
+        clearTimeout(timer);
+        finish();
+      };
     });
   }, []);
 
@@ -58,6 +103,12 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     runEpochRef.current += 1;
     pauseResumeRef.current?.();
     pauseResumeRef.current = null;
+    skipWaitRef.current?.();
+    skipWaitRef.current = null;
+    abortAssistantWaitRef.current?.abort();
+    abortAssistantWaitRef.current = null;
+    disarmDemoAssistantReadyGate();
+    disarmDemoJarvisForChat();
     setIsActive(false);
     setCurrentScript(null);
     setCurrentStep(0);
@@ -73,14 +124,71 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setWaitingForContinue(false);
   }, [waitingForContinue]);
 
+  const waitAfterMessageForAssistant = useCallback(
+    async (opts: DemoRunOptions, myEpoch: number) => {
+      if (runEpochRef.current !== myEpoch) {
+        disarmDemoAssistantReadyGate();
+        return;
+      }
+
+      abortAssistantWaitRef.current?.abort();
+      const ac = new AbortController();
+      abortAssistantWaitRef.current = ac;
+
+      const capMs =
+        opts.advanceMode === "hybrid"
+          ? opts.hybridAssistantMaxMs
+          : opts.assistantSafetyMaxMs;
+
+      const assistantPromise = waitForDemoAssistantReadyEvent(ac.signal).catch(
+        () => undefined,
+      );
+
+      await new Promise<void>((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          skipWaitRef.current = null;
+          ac.abort();
+          resolve();
+        };
+        const timer = setTimeout(finish, capMs);
+        void assistantPromise.then(finish);
+        skipWaitRef.current = () => {
+          if (done) return;
+          clearTimeout(timer);
+          finish();
+        };
+      });
+
+      disarmDemoAssistantReadyGate();
+    },
+    [],
+  );
+
   const executeStep = useCallback(
-    async (step: DemoStep) => {
+    async (step: DemoStep, opts: DemoRunOptions, myEpoch: number) => {
       switch (step.type) {
         case "narrate":
           setNarrationText(step.content);
           break;
         case "message":
+          if (
+            opts.advanceMode === "on_response" ||
+            opts.advanceMode === "hybrid"
+          ) {
+            armDemoAssistantReadyGate();
+          }
           sendDemoMessage(step.content);
+          if (runEpochRef.current !== myEpoch) return;
+          if (
+            opts.advanceMode === "on_response" ||
+            opts.advanceMode === "hybrid"
+          ) {
+            await waitAfterMessageForAssistant(opts, myEpoch);
+          }
           break;
         case "navigate":
           router.push(step.content);
@@ -110,12 +218,20 @@ export function DemoProvider({ children }: { children: ReactNode }) {
           break;
       }
     },
-    [router],
+    [router, waitAfterMessageForAssistant],
   );
 
   const startDemo = useCallback(
-    (script: DemoStep[]) => {
+    (script: DemoStep[], partial?: Partial<DemoRunOptions>) => {
       stopDemo();
+      const opts = mergeDemoOptions(partial);
+      runOptionsRef.current = opts;
+      setRunOptions(opts);
+
+      if (opts.forceJarvis) {
+        armDemoJarvisForChat();
+      }
+
       const myEpoch = runEpochRef.current;
       setCurrentScript(script);
       setIsActive(true);
@@ -126,14 +242,31 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       const totalMs = demoTotalDurationMs(script);
 
       void (async () => {
+        let skipNextScriptDelay = false;
+
         for (let i = 0; i < script.length; i++) {
           if (runEpochRef.current !== myEpoch) return;
           const step = script[i]!;
-          await delay(step.delay);
+
+          if (!skipNextScriptDelay) {
+            await waitSkippableDelay(step.delay, myEpoch);
+          } else {
+            skipNextScriptDelay = false;
+          }
           if (runEpochRef.current !== myEpoch) return;
+
           setCurrentStep(i);
-          await executeStep(step);
+          await executeStep(step, opts, myEpoch);
           if (runEpochRef.current !== myEpoch) return;
+
+          if (
+            step.type === "message" &&
+            (opts.advanceMode === "on_response" ||
+              opts.advanceMode === "hybrid")
+          ) {
+            skipNextScriptDelay = true;
+          }
+
           if (totalMs > 0) {
             setProgress(
               Math.min(1, cumulativeDelayThrough(script, i) / totalMs),
@@ -145,9 +278,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         setIsActive(false);
         setCurrentScript(null);
         setNarrationText("");
+        disarmDemoAssistantReadyGate();
+        disarmDemoJarvisForChat();
       })();
     },
-    [delay, executeStep, stopDemo],
+    [executeStep, stopDemo, waitSkippableDelay],
   );
 
   const value = useMemo(
@@ -158,9 +293,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       narrationText,
       progress,
       waitingForContinue,
+      runOptions,
       startDemo,
       stopDemo,
       acknowledgePause,
+      requestDemoSkip,
     }),
     [
       isActive,
@@ -169,9 +306,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       narrationText,
       progress,
       waitingForContinue,
+      runOptions,
       startDemo,
       stopDemo,
       acknowledgePause,
+      requestDemoSkip,
     ],
   );
 

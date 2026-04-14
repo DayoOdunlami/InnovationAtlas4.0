@@ -1,5 +1,6 @@
 import { UIMessage } from "ai";
 import { ChatMention } from "app-types/chat";
+import type { AllowedMCPServer } from "app-types/mcp";
 
 export type UIMessageWithCompleted = UIMessage & { completed: boolean };
 
@@ -20,6 +21,8 @@ export interface VoiceChatSession {
 export type VoiceChatOptions = {
   toolMentions?: ChatMention[];
   agentId?: string;
+  /** When no agent / empty mentions, same filter as text chat for MCP tools. */
+  allowedMcpServers?: Record<string, AllowedMCPServer>;
   model?: string;
   voice?: string;
 };

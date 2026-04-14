@@ -1,4 +1,4 @@
-import { VercelAIMcpTool } from "app-types/mcp";
+import { AllowedMCPServer, VercelAIMcpTool } from "app-types/mcp";
 import { getSession } from "auth/server";
 import {
   VOICE_REALTIME_RESPONSE_APPENDIX,
@@ -15,6 +15,7 @@ import {
 import { ChatMention } from "app-types/chat";
 import { colorize } from "consola/utils";
 import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
+import { VOICE_VOICE_DEFAULT_PASSPORT_TOOLS } from "lib/ai/speech/voice-default-tools";
 import globalLogger from "lib/logger";
 import { getUserPreferences } from "lib/user/server";
 import { safe } from "ts-safe";
@@ -44,20 +45,28 @@ export async function POST(request: NextRequest) {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const { voice, mentions, agentId } = (await request.json()) as {
-      model: string;
-      voice: string;
-      agentId?: string;
-      mentions: ChatMention[];
-    };
+    const { voice, mentions, agentId, allowedMcpServers } =
+      (await request.json()) as {
+        model: string;
+        voice: string;
+        agentId?: string;
+        mentions: ChatMention[];
+        allowedMcpServers?: Record<string, AllowedMCPServer>;
+      };
 
     const agent = await rememberAgentAction(agentId, session.user.id);
 
     agentId && logger.info(`[${agentId}] Agent: ${agent?.name}`);
 
-    const enabledMentions = agent ? agent.instructions.mentions : mentions;
+    const agentMentions = agent?.instructions.mentions ?? [];
+    const useAgentMentions = Boolean(agent && agentMentions.length > 0);
+    const mentionsPayload = useAgentMentions ? agentMentions : mentions;
 
-    const allowedMcpTools = await loadMcpTools({ mentions: enabledMentions });
+    const allowedMcpTools = await loadMcpTools(
+      mentionsPayload.length > 0
+        ? { mentions: mentionsPayload }
+        : { allowedMcpServers },
+    );
 
     const toolNames = Object.keys(allowedMcpTools ?? {});
 
@@ -94,7 +103,16 @@ export async function POST(request: NextRequest) {
       VOICE_REALTIME_RESPONSE_APPENDIX,
     );
 
-    const bindingTools = [...openAITools, ...DEFAULT_VOICE_TOOLS];
+    const voiceDefaultToolsForSlice =
+      process.env.ENABLE_VOICE_DEFAULT_TOOLS !== "0"
+        ? VOICE_VOICE_DEFAULT_PASSPORT_TOOLS
+        : [];
+
+    const bindingTools = [
+      ...openAITools,
+      ...DEFAULT_VOICE_TOOLS,
+      ...voiceDefaultToolsForSlice,
+    ];
 
     const r = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",

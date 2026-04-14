@@ -7,9 +7,11 @@ import {
   OPENAI_VOICE,
   useOpenAIVoiceChat as OpenAIVoiceChat,
 } from "lib/ai/speech/open-ai/use-voice-chat.openai";
-import { cn, groupBy, isNull } from "lib/utils";
+import { cn, groupBy } from "lib/utils";
 import {
+  Bot,
   CheckIcon,
+  ChevronDown,
   ChevronRight,
   Loader,
   MessageSquareMoreIcon,
@@ -48,13 +50,22 @@ import { ToolMessagePart } from "./message-parts";
 
 import { appStore } from "@/app/store";
 import { useAgent } from "@/hooks/queries/use-agent";
+import { useAgents } from "@/hooks/queries/use-agents";
 import { agentIdForVoiceFromThreadMentions } from "@/lib/chat/agent-id-for-voice";
 import { ChatMention } from "app-types/chat";
 import { Shortcuts, isShortcutEvent } from "lib/keyboard-shortcuts";
 import { useTranslations } from "next-intl";
 import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "ui/command";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "ui/dialog";
 import JsonView from "ui/json-view";
+import { Popover, PopoverContent, PopoverTrigger } from "ui/popover";
 import { useShallow } from "zustand/shallow";
 import { EnabledTools, EnabledToolsDropdown } from "./enabled-tools-dropdown";
 
@@ -140,8 +151,22 @@ export function ChatBotVoice() {
   } = OpenAIVoiceChat({
     toolMentions,
     agentId,
+    allowedMcpServers,
     ...voiceChat.options.providerOptions,
   });
+
+  const { agents } = useAgents({ filters: ["all"], limit: 80 });
+  const [agentPickerOpen, setAgentPickerOpen] = useState(false);
+  const prevVoiceAgentId = useRef(agentId);
+
+  useEffect(() => {
+    if (prevVoiceAgentId.current === agentId) return;
+    prevVoiceAgentId.current = agentId;
+    if (isActive) {
+      void stop();
+      toast.info(t("VoiceChat.agentChangedReconnect"));
+    }
+  }, [agentId, isActive, stop, t]);
 
   const startWithSound = useCallback(() => {
     if (!startAudio.current) {
@@ -216,17 +241,38 @@ export function ChatBotVoice() {
       (v) => v.type === "mcpTool",
     ) as Extract<ChatMention, { type: "mcpTool" }>[];
 
-    const groupByServer = groupBy(mcpMentions, "serverName");
-    return Object.entries(groupByServer).map(([serverName, tools]) => {
-      return {
+    const fromTools = Object.entries(groupBy(mcpMentions, "serverName")).map(
+      ([serverName, tools]) => ({
         groupName: serverName,
         tools: tools.map((v) => ({
           name: v.name,
           description: v.description,
         })),
+      }),
+    );
+
+    const serverMentions = toolMentions.filter(
+      (v) => v.type === "mcpServer",
+    ) as Extract<ChatMention, { type: "mcpServer" }>[];
+
+    const fromServers = serverMentions.map((s) => {
+      const client = mcpList.find((m) => m.id === s.serverId);
+      const tools =
+        client?.toolInfo.map((ti) => ({
+          name: ti.name,
+          description: ti.description ?? "",
+        })) ?? [];
+      return {
+        groupName: s.name,
+        tools:
+          tools.length > 0
+            ? tools
+            : [{ name: s.serverId, description: s.description ?? "" }],
       };
     });
-  }, [toolMentions]);
+
+    return [...fromTools, ...fromServers];
+  }, [toolMentions, mcpList]);
 
   const tools = useMemo<EnabledTools[]>(() => {
     return [...prependTools, ...mcpTools];
@@ -245,17 +291,6 @@ export function ChatBotVoice() {
       // startWithSound();
     } else if (isActive) {
       stop();
-    }
-  }, [voiceChat.isOpen]);
-
-  useEffect(() => {
-    if (!voiceChat.isOpen && !isNull(voiceChat.agentId)) {
-      appStoreMutate((prev) => ({
-        voiceChat: {
-          ...prev.voiceChat,
-          agentId: undefined,
-        },
-      }));
     }
   }, [voiceChat.isOpen]);
 
@@ -301,33 +336,109 @@ export function ChatBotVoice() {
                 userSelect: "text",
               }}
             >
-              {agent && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div
-                      style={agent.icon?.style}
-                      className="size-9 items-center justify-center flex rounded-lg ring ring-secondary"
-                    >
-                      <Avatar className="size-6">
+              <Popover open={agentPickerOpen} onOpenChange={setAgentPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 h-9 max-w-[min(240px,42vw)] shrink-0 justify-start px-2"
+                  >
+                    {agent ? (
+                      <Avatar className="size-6 shrink-0">
                         <AvatarImage src={agent.icon?.value} />
                         <AvatarFallback>
                           {agent.name.slice(0, 1)}
                         </AvatarFallback>
                       </Avatar>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="p-3 max-w-xs">
-                    <div className="space-y-2">
-                      <div className="font-semibold text-sm">{agent.name}</div>
-                      {agent.description && (
-                        <div className="text-xs text-muted-foreground leading-relaxed">
-                          {agent.description}
-                        </div>
-                      )}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              )}
+                    ) : (
+                      <Bot className="size-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="truncate min-w-0 text-left">
+                      {agent?.name ?? t("VoiceChat.noAgentSelected")}
+                    </span>
+                    <ChevronDown className="size-4 shrink-0 opacity-60" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-72" align="start">
+                  <Command>
+                    <CommandInput placeholder={t("VoiceChat.searchAgents")} />
+                    <CommandList>
+                      <CommandGroup heading={t("VoiceChat.voiceAgentHeading")}>
+                        <CommandItem
+                          value="__none__"
+                          onSelect={() => {
+                            setAgentPickerOpen(false);
+                            appStoreMutate((prev) => {
+                              const tid = prev.currentThreadId;
+                              return {
+                                voiceChat: {
+                                  ...prev.voiceChat,
+                                  agentId: undefined,
+                                },
+                                threadMentions: tid
+                                  ? {
+                                      ...prev.threadMentions,
+                                      [tid]: (
+                                        prev.threadMentions[tid] ?? []
+                                      ).filter((m) => m.type !== "agent"),
+                                    }
+                                  : prev.threadMentions,
+                              };
+                            });
+                          }}
+                        >
+                          {t("VoiceChat.noAgentMcpFromSettings")}
+                        </CommandItem>
+                        {agents.map((a) => (
+                          <CommandItem
+                            key={a.id}
+                            value={`${a.name} ${a.id}`}
+                            onSelect={() => {
+                              setAgentPickerOpen(false);
+                              const mention: ChatMention = {
+                                type: "agent",
+                                agentId: a.id,
+                                name: a.name,
+                                description: a.description ?? null,
+                                icon: a.icon,
+                              };
+                              appStoreMutate((prev) => {
+                                const tid = prev.currentThreadId;
+                                const row = tid
+                                  ? (prev.threadMentions[tid] ?? []).filter(
+                                      (m) => m.type !== "agent",
+                                    )
+                                  : [];
+                                return {
+                                  voiceChat: {
+                                    ...prev.voiceChat,
+                                    agentId: a.id,
+                                  },
+                                  threadMentions: tid
+                                    ? {
+                                        ...prev.threadMentions,
+                                        [tid]: [...row, mention],
+                                      }
+                                    : prev.threadMentions,
+                                };
+                              });
+                            }}
+                            className="gap-2"
+                          >
+                            <Avatar className="size-6 shrink-0">
+                              <AvatarImage src={a.icon?.value} />
+                              <AvatarFallback>
+                                {a.name.slice(0, 1)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="truncate">{a.name}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

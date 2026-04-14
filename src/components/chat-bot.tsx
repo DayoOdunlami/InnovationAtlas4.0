@@ -25,10 +25,16 @@ import { useFileDragOverlay } from "@/hooks/use-file-drag-overlay";
 import { useToRef } from "@/hooks/use-latest";
 import { useMounted } from "@/hooks/use-mounted";
 import { useThreadFileUploader } from "@/hooks/use-thread-file-uploader";
+import { signalDemoAssistantReadyIfArmed } from "@/lib/demo/demo-assistant-bridge";
 import { registerDemoChatSender } from "@/lib/demo/demo-chat-bridge";
+import {
+  disarmDemoJarvisForChat,
+  isDemoJarvisArmed,
+} from "@/lib/demo/demo-jarvis-bridge";
 import {
   ChatApiSchemaRequestBody,
   ChatAttachment,
+  type ChatMention,
   ChatModel,
 } from "app-types/chat";
 import { AnimatePresence, motion } from "framer-motion";
@@ -96,6 +102,7 @@ export default function ChatBot({ threadId, initialMessages }: Props) {
     threadMentions,
     pendingThreadMention,
     threadImageToolModel,
+    agentList,
   ] = appStore(
     useShallow((state) => [
       state.mutate,
@@ -107,6 +114,7 @@ export default function ChatBot({ threadId, initialMessages }: Props) {
       state.threadMentions,
       state.pendingThreadMention,
       state.threadImageToolModel,
+      state.agentList,
     ]),
   );
 
@@ -227,6 +235,7 @@ export default function ChatBot({ threadId, initialMessages }: Props) {
     onFinish,
   });
   const [isDeleteThreadPopupOpen, setIsDeleteThreadPopupOpen] = useState(false);
+  const prevChatStatusRef = useRef<typeof status | null>(null);
 
   const addToolResult = useCallback(
     async (result: Parameters<typeof _addToolResult>[0]) => {
@@ -368,6 +377,14 @@ export default function ChatBot({ threadId, initialMessages }: Props) {
   }, [sendMessage]);
 
   useEffect(() => {
+    const prev = prevChatStatusRef.current;
+    prevChatStatusRef.current = status;
+    if (prev != null && prev !== "ready" && status === "ready") {
+      signalDemoAssistantReadyIfArmed();
+    }
+  }, [status]);
+
+  useEffect(() => {
     if (pendingThreadMention && threadId) {
       appStoreMutate((prev) => ({
         threadMentions: {
@@ -378,6 +395,34 @@ export default function ChatBot({ threadId, initialMessages }: Props) {
       }));
     }
   }, [pendingThreadMention, threadId, appStoreMutate]);
+
+  useEffect(() => {
+    if (!isDemoJarvisArmed() || !threadId) return;
+    const jarvis = agentList.find((a) =>
+      (a.name ?? "").toLowerCase().includes("jarvis"),
+    );
+    if (!jarvis) return;
+
+    const newMention: ChatMention = {
+      type: "agent",
+      agentId: jarvis.id,
+      name: jarvis.name,
+      icon: jarvis.icon,
+      description: jarvis.description,
+    };
+
+    appStoreMutate((prev) => {
+      const current = prev.threadMentions[threadId] ?? [];
+      const withoutAgent = current.filter((m) => m.type !== "agent");
+      return {
+        threadMentions: {
+          ...prev.threadMentions,
+          [threadId]: [...withoutAgent, newMention],
+        },
+      };
+    });
+    disarmDemoJarvisForChat();
+  }, [threadId, agentList, appStoreMutate]);
 
   useEffect(() => {
     if (isInitialThreadEntry)

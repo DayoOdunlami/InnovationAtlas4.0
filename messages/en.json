@@ -267,6 +267,11 @@
     },
     "VoiceChat": {
       "title": "Voice Chat Mode",
+      "noAgentSelected": "No agent (MCP from tool settings)",
+      "searchAgents": "Search agents…",
+      "voiceAgentHeading": "Voice agent",
+      "noAgentMcpFromSettings": "No agent — use enabled MCP tools from chat tool settings",
+      "agentChangedReconnect": "Voice agent changed — press Start to reconnect with the new tools.",
       "compactDisplayMode": "Compact display mode",
       "conversationDisplayMode": "Conversation display mode",
       "pleaseCloseTheVoiceChatAndTryAgain": "Please close the voice chat and try again.",

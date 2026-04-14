@@ -53,6 +53,10 @@ next-env.d.ts
 
 local-data
 
+# Python (local scripts)
+__pycache__/
+*.py[cod]
+
 .cursorrules
 .cursor
 *.ignore

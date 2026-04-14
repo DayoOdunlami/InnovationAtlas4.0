@@ -1,6 +1,6 @@
+import { getPassportPool } from "@/lib/passport/db";
 import { tool as createTool } from "ai";
 import { z } from "zod";
-import { getPassportPool } from "@/lib/passport/db";
 
 export type PassportListItem = {
   id: string;
@@ -15,18 +15,12 @@ export type PassportListOutput = {
   passports: PassportListItem[];
 };
 
-export const listPassportsTool = createTool({
-  description:
-    "List all existing passports with their claim counts. " +
-    "Call this after extractClaimsPreview to present the user with a numbered list " +
-    "of passports to save their claims to (or add evidence: then use addEvidenceToPassport). " +
-    "Display as: 1. [project_name or title] — N claims (V verified)",
-  inputSchema: z.object({}),
-  execute: async (): Promise<PassportListOutput> => {
-    const pool = getPassportPool();
-    try {
-      const result = await pool.query<PassportListItem>(
-        `SELECT
+/** Shared by text chat tool and voice Realtime dispatcher. */
+export async function runListPassportsQuery(): Promise<PassportListOutput> {
+  const pool = getPassportPool();
+  try {
+    const result = await pool.query<PassportListItem>(
+      `SELECT
            p.id,
            p.title,
            p.project_name,
@@ -40,10 +34,19 @@ export const listPassportsTool = createTool({
          GROUP BY p.id
          ORDER BY p.updated_at DESC
          LIMIT 20`,
-      );
-      return { passports: result.rows };
-    } finally {
-      await pool.end();
-    }
-  },
+    );
+    return { passports: result.rows };
+  } finally {
+    await pool.end();
+  }
+}
+
+export const listPassportsTool = createTool({
+  description:
+    "List all existing passports with their claim counts. " +
+    "Call this after extractClaimsPreview to present the user with a numbered list " +
+    "of passports to save their claims to (or add evidence: then use addEvidenceToPassport). " +
+    "Display as: 1. [project_name or title] — N claims (V verified)",
+  inputSchema: z.object({}),
+  execute: async (): Promise<PassportListOutput> => runListPassportsQuery(),
 });

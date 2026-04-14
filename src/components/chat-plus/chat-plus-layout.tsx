@@ -1,7 +1,41 @@
 "use client";
 
+import { setThreadActivePassportAction } from "@/app/api/chat/actions";
+import { appStore } from "@/app/store";
+import { useGenerateThreadTitle } from "@/hooks/queries/use-generate-thread-title";
+import { useToRef } from "@/hooks/use-latest";
+import type { PassportSummary } from "@/lib/passport/types";
+import { createBrowserClient } from "@/lib/supabase/client";
 import { useChat } from "@ai-sdk/react";
-import { toast } from "sonner";
+import {
+  DefaultChatTransport,
+  TextUIPart,
+  UIMessage,
+  isToolUIPart,
+  lastAssistantMessageIsCompleteWithToolCalls,
+} from "ai";
+import {
+  ChatApiSchemaRequestBody,
+  ChatAttachment,
+  ChatModel,
+} from "app-types/chat";
+import { AnimatePresence, motion } from "framer-motion";
+import { Shortcuts, isShortcutEvent } from "lib/keyboard-shortcuts";
+import { cn, generateUUID, truncateString } from "lib/utils";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clipboard,
+  Columns2,
+  ExternalLink,
+  FilePlus,
+  LoaderCircle,
+  Map as MapIcon,
+  MessageSquare,
+  Printer,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -9,42 +43,9 @@ import {
   useState,
   useTransition,
 } from "react";
-import { appStore } from "@/app/store";
-import { cn, generateUUID, truncateString } from "lib/utils";
-import { useShallow } from "zustand/shallow";
-import {
-  DefaultChatTransport,
-  isToolUIPart,
-  lastAssistantMessageIsCompleteWithToolCalls,
-  TextUIPart,
-  UIMessage,
-} from "ai";
+import { toast } from "sonner";
 import { mutate } from "swr";
-import {
-  ChatApiSchemaRequestBody,
-  ChatAttachment,
-  ChatModel,
-} from "app-types/chat";
-import { useToRef } from "@/hooks/use-latest";
-import { isShortcutEvent, Shortcuts } from "lib/keyboard-shortcuts";
 import { Button } from "ui/button";
-import {
-  MessageSquare,
-  Columns2,
-  Map,
-  ChevronRight,
-  ChevronLeft,
-  FilePlus,
-  Clipboard,
-  Printer,
-  ExternalLink,
-  LoaderCircle,
-} from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { setThreadActivePassportAction } from "@/app/api/chat/actions";
-import type { PassportSummary } from "@/lib/passport/types";
-import { createBrowserClient } from "@/lib/supabase/client";
 import {
   Select,
   SelectContent,
@@ -53,20 +54,19 @@ import {
   SelectValue,
 } from "ui/select";
 import { Think } from "ui/think";
-import { useGenerateThreadTitle } from "@/hooks/queries/use-generate-thread-title";
-import { AnimatePresence, motion } from "framer-motion";
+import { useShallow } from "zustand/shallow";
 
-import { useThreadFileUploader } from "@/hooks/use-thread-file-uploader";
-import { useFileDragOverlay } from "@/hooks/use-file-drag-overlay";
-import { getStorageManager } from "lib/browser-stroage";
-import { PreviewMessage, ErrorMessage } from "@/components/message";
-import PromptInput from "@/components/prompt-input";
-import { SessionDocument } from "@/components/passport/session-document";
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
+import { ErrorMessage, PreviewMessage } from "@/components/message";
+import { SessionDocument } from "@/components/passport/session-document";
+import PromptInput from "@/components/prompt-input";
+import { useFileDragOverlay } from "@/hooks/use-file-drag-overlay";
+import { useThreadFileUploader } from "@/hooks/use-thread-file-uploader";
+import { getStorageManager } from "lib/browser-stroage";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 
 const rightPanelStorage = getStorageManager("atlas-right-panel-open");
@@ -597,7 +597,7 @@ export function ChatPlusLayout({
               <TooltipTrigger asChild>
                 <Link href="/landscape">
                   <Button variant="ghost" size="icon" className="size-7">
-                    <Map className="size-3.5" />
+                    <MapIcon className="size-3.5" />
                   </Button>
                 </Link>
               </TooltipTrigger>

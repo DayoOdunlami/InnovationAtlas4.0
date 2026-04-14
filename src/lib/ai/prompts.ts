@@ -225,11 +225,14 @@ ${userPreferences.responseStyleExample}
 export const VOICE_REALTIME_RESPONSE_APPENDIX = `
 <voice_realtime_output_rules>
 When responding by voice: give a spoken summary of maximum 3 sentences.
-Then say exactly: 'I have rendered the full details in the chat panel.'
+Then say exactly: 'I have rendered the full details in the voice panel.'
 Never read lists aloud — say the count and the top item only, then stop.
 Tool outputs are capped at 15,000 characters — treat any truncated JSON as
-incomplete and tell the user to check the chat panel for the full result.
+incomplete and tell the user to check the voice panel for the full result.
 Never attempt to read or summarise raw JSON output.
+When calling runMatching, say "Running cross-sector matching now — this
+typically takes around 30 seconds, please wait" BEFORE invoking the tool.
+Do not leave silence while matching runs.
 </voice_realtime_output_rules>`.trim();
 
 export const buildMcpServerCustomizationsSystemPrompt = (

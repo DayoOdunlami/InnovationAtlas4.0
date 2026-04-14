@@ -1,15 +1,14 @@
 "use client";
 import { appStore } from "@/app/store";
+import { AgentSummary } from "app-types/agent";
+import { authClient } from "auth/client";
 import { AudioWaveformIcon, PencilLine } from "lucide-react";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { type PropsWithChildren, useState } from "react";
 import { Command, CommandGroup, CommandItem, CommandList } from "ui/command";
-import { Separator } from "ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "ui/popover";
-import { useTranslations } from "next-intl";
-import { generateUUID } from "lib/utils";
-import { AgentSummary } from "app-types/agent";
-import Link from "next/link";
-import { authClient } from "auth/client";
+import { Separator } from "ui/separator";
 
 type Props = PropsWithChildren<{
   agent: AgentSummary;
@@ -38,7 +37,6 @@ export function AgentDropdown({ agent, children, side, align }: Props) {
                       voiceChat: {
                         ...state.voiceChat,
                         isOpen: true,
-                        threadId: generateUUID(),
                         agentId: agent.id,
                       },
                     }));

@@ -1,23 +1,25 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { TextPart, ToolUIPart } from "ai";
+import { generateUUID } from "lib/utils";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_VOICE_TOOLS,
   UIMessageWithCompleted,
   VoiceChatOptions,
   VoiceChatSession,
 } from "..";
-import { generateUUID } from "lib/utils";
-import { TextPart, ToolUIPart } from "ai";
 import {
   OpenAIRealtimeServerEvent,
   OpenAIRealtimeSession,
 } from "./openai-realtime-event";
 
-import { useTheme } from "next-themes";
-import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
+import { executeVoiceDefaultToolAction } from "@/app/actions/execute-voice-default-tool";
 import { callMcpToolByServerNameAction } from "@/app/api/mcp/actions";
 import { appStore } from "@/app/store";
+import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
+import { voiceDefaultToolNamesAllowlist } from "lib/ai/speech/voice-default-tools";
+import { useTheme } from "next-themes";
 
 export const OPENAI_VOICE = {
   Alloy: "alloy",
@@ -145,7 +147,8 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
             model,
             voice,
             agentId: props?.agentId,
-            mentions: props?.toolMentions,
+            mentions: props?.toolMentions ?? [],
+            allowedMcpServers: props?.allowedMcpServers,
           }),
         },
       );
@@ -158,7 +161,13 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       }
 
       return session;
-    }, [model, voice, props?.toolMentions, props?.agentId]);
+    }, [
+      model,
+      voice,
+      props?.toolMentions,
+      props?.agentId,
+      props?.allowedMcpServers,
+    ]);
 
   const updateUIMessage = useCallback(
     (
@@ -191,7 +200,8 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       args,
       id,
     }: { callId: string; toolName: string; args: string; id: string }) => {
-      let toolResult: any = "success";
+      let payloadForRealtime: unknown = "success";
+      let payloadForUi: unknown = "success";
       stopListening();
       const toolArgs = JSON.parse(args);
       if (DEFAULT_VOICE_TOOLS.some((t) => t.name === toolName)) {
@@ -212,17 +222,24 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
             }));
             break;
         }
+      } else if (voiceDefaultToolNamesAllowlist.has(toolName)) {
+        const { cardPayload, realtimePayload } =
+          await executeVoiceDefaultToolAction(toolName, toolArgs);
+        payloadForRealtime = realtimePayload;
+        payloadForUi = cardPayload;
       } else {
         const toolId = extractMCPToolId(toolName);
 
-        toolResult = await callMcpToolByServerNameAction(
+        const mcpResult = await callMcpToolByServerNameAction(
           toolId.serverName,
           toolId.toolName,
           toolArgs,
         );
+        payloadForRealtime = mcpResult;
+        payloadForUi = mcpResult;
       }
       startListening();
-      const resultText = JSON.stringify(toolResult).trim();
+      const resultText = JSON.stringify(payloadForRealtime).trim();
 
       const event = {
         type: "conversation.item.create",
@@ -238,7 +255,7 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
         if (!prevPart) return prev;
         const part: ToolUIPart = {
           state: "output-available",
-          output: toolResult,
+          output: payloadForUi,
           toolCallId: callId,
           input: toolArgs,
           type: `tool-${toolName}`,

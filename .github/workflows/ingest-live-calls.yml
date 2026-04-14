@@ -1,0 +1,44 @@
+name: Ingest Live Calls (Daily)
+
+on:
+  schedule:
+    - cron: "0 7 * * *"  # Daily at 07:00 UTC
+  workflow_dispatch:      # Also allow manual trigger
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements-atlas.txt
+
+      - name: Ingest Horizon Europe calls
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          EU_HORIZON_SEARCH_API_KEY: ${{ secrets.EU_HORIZON_SEARCH_API_KEY }}
+        run: python scripts/ingest_live_calls.py
+
+      - name: Ingest UKRI competitions
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/ingest_ukri_competitions.py
+
+      - name: Ingest Find a Tender notices
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/ingest_fts_tenders.py
+
+      - name: Embed new live calls
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/embed_live_calls.py

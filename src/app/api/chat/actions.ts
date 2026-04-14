@@ -34,6 +34,8 @@ import { JSONSchema7 } from "json-schema";
 import { ObjectJsonSchema7 } from "app-types/util";
 import { jsonSchemaToZod } from "lib/json-schema-to-zod";
 import { Agent } from "app-types/agent";
+import { pgDb } from "lib/db/pg/db.pg";
+import { sql } from "drizzle-orm";
 
 export async function getUserId() {
   const session = await getSession();
@@ -102,6 +104,38 @@ export async function updateThreadAction(
 ) {
   const userId = await getUserId();
   await chatRepository.updateThread(id, { ...thread, userId });
+}
+
+/**
+ * Binds `atlas.passports` to this chat thread for split-view (`/chat-plus`).
+ * Persists `public.chat_thread.active_passport_id`.
+ */
+export async function setThreadActivePassportAction(
+  threadId: string,
+  passportId: string | null,
+) {
+  const userId = await getUserId();
+  const hasThread = await chatRepository.checkAccess(threadId, userId);
+  if (!hasThread) {
+    throw new Error("Thread not found");
+  }
+
+  if (passportId) {
+    const found = await pgDb.execute(sql`
+      SELECT 1 AS ok FROM atlas.passports
+      WHERE id::text = ${passportId}
+        AND (user_id IS NULL OR user_id = ${userId})
+      LIMIT 1
+    `);
+    if (!found.rows.length) {
+      throw new Error("Passport not found or not accessible");
+    }
+  }
+
+  await chatRepository.updateThread(threadId, {
+    activePassportId: passportId,
+    userId,
+  });
 }
 
 export async function deleteThreadsAction() {

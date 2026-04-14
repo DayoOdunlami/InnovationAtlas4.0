@@ -57,6 +57,7 @@ export const pgChatRepository: ChatRepository = {
       title: thread.chat_thread.title,
       userId: thread.chat_thread.userId,
       createdAt: thread.chat_thread.createdAt,
+      activePassportId: thread.chat_thread.activePassportId ?? null,
       userPreferences: thread.user?.preferences ?? undefined,
       messages,
     };
@@ -116,14 +117,24 @@ export const pgChatRepository: ChatRepository = {
     id: string,
     thread: Partial<Omit<ChatThread, "id" | "createdAt">>,
   ): Promise<ChatThread> => {
+    const patch: Partial<typeof ChatThreadTable.$inferInsert> = {};
+    if (thread.title !== undefined) patch.title = thread.title;
+    if (thread.activePassportId !== undefined) {
+      patch.activePassportId = thread.activePassportId;
+    }
+    if (Object.keys(patch).length === 0) {
+      const [existing] = await db
+        .select()
+        .from(ChatThreadTable)
+        .where(eq(ChatThreadTable.id, id));
+      return existing as ChatThread;
+    }
     const [result] = await db
       .update(ChatThreadTable)
-      .set({
-        title: thread.title,
-      })
+      .set(patch)
       .where(eq(ChatThreadTable.id, id))
       .returning();
-    return result;
+    return result as ChatThread;
   },
   upsertThread: async (
     thread: Omit<ChatThread, "createdAt">,

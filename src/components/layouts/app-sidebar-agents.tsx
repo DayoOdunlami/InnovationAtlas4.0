@@ -201,6 +201,9 @@ export function AppSidebarAgents({ userRole }: { userRole?: string | null }) {
                                       BACKGROUND_COLORS[
                                         i % BACKGROUND_COLORS.length
                                       ],
+                                    ...(agent.icon?.style?.color
+                                      ? { color: agent.icon.style.color }
+                                      : {}),
                                   }}
                                 >
                                   <Avatar className="size-3.5">

@@ -6,6 +6,9 @@
 name: GtR Atlas Ingestion
 
 on:
+  schedule:
+    # Weekly sync every Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
   workflow_dispatch:
     inputs:
       skip_ingest:
@@ -14,16 +17,21 @@ on:
         default: "true"
         type: boolean
       start_pass:
-        description: "First pass to run (1-35). Ignored when skip_ingest is true."
+        description: "First pass to run (1-41). Ignored when skip_ingest is true."
         required: false
         default: "1"
         type: string
+      active_only:
+        description: "Filter to Active projects only (--active-only flag)"
+        required: false
+        default: "false"
+        type: boolean
 
 jobs:
   ingest:
     runs-on: ubuntu-latest
     timeout-minutes: 360
-    if: ${{ github.event.inputs.skip_ingest != 'true' }}
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.skip_ingest != 'true' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +46,15 @@ jobs:
       - name: Run GtR ingestion
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/ingest_gtr.py --start-pass ${{ github.event.inputs.start_pass }}
+        run: |
+          ACTIVE_FLAG=""
+          # On scheduled runs, default to active-only to sync new active projects quickly
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            ACTIVE_FLAG="--active-only"
+          elif [ "${{ github.event.inputs.active_only }}" = "true" ]; then
+            ACTIVE_FLAG="--active-only"
+          fi
+          python scripts/ingest_gtr.py --start-pass ${{ github.event.inputs.start_pass || '1' }} $ACTIVE_FLAG
 
   embed:
     needs: ingest

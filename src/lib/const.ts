@@ -34,6 +34,7 @@ export const BASE_URL = (() => {
 export const BASE_THEMES = [
   "default",
   "zinc",
+  "cpc",
   "slate",
   "stone",
   "gray",

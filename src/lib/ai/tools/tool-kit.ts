@@ -18,6 +18,7 @@ import { saveClaimsToPassportTool } from "./passport/save-claims-to-passport-too
 import { addEvidenceToPassportTool } from "./passport/add-evidence-to-passport-tool";
 import { rejectClaimByDescriptionTool } from "./passport/reject-claim-by-description-tool";
 import { runMatchingTool } from "./passport/run-matching-tool";
+import { findConsortiumPartnersTool } from "./passport/find-consortium-partners";
 
 export const APP_DEFAULT_TOOL_KIT: Record<
   AppDefaultToolkit,
@@ -51,5 +52,6 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     [DefaultToolName.AddEvidenceToPassport]: addEvidenceToPassportTool,
     [DefaultToolName.RejectClaimByDescription]: rejectClaimByDescriptionTool,
     [DefaultToolName.RunMatching]: runMatchingTool,
+    [DefaultToolName.FindConsortiumPartners]: findConsortiumPartnersTool,
   },
 };

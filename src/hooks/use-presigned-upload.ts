@@ -1,20 +1,22 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { upload as uploadToVercelBlob } from "@vercel/blob/client";
-import useSWR from "swr";
-import { toast } from "sonner";
 import { getStorageInfoAction } from "@/app/api/storage/actions";
+import { upload as uploadToVercelBlob } from "@vercel/blob/client";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
+import useSWR from "swr";
 
 // Types
 interface StorageInfo {
-  type: "local" | "vercel-blob" | "s3";
+  type: "vercel-blob" | "s3" | "supabase-passport";
   supportsDirectUpload: boolean;
 }
 
 interface UploadOptions {
   filename?: string;
   contentType?: string;
+  /** Required for Supabase passport storage (chat thread scoping). */
+  threadId?: string;
 }
 
 interface UploadResult {
@@ -42,6 +44,8 @@ function useStorageInfo() {
     isLoading,
   };
 }
+
+const PASSPORT_UPLOAD = "/api/passport/upload";
 
 /**
  * Hook for uploading files to storage.
@@ -95,6 +99,38 @@ export function useFileUpload() {
 
       setIsUploading(true);
       try {
+        // Chat thread: Supabase via /api/passport/upload (signed URL for multimodal).
+        // No threadId (e.g. avatar): fall through to /api/storage/upload below.
+        if (storageType === "supabase-passport" && uploadOptions.threadId) {
+          const fd = new FormData();
+          fd.append("file", file);
+          fd.append("threadId", uploadOptions.threadId);
+          const res = await fetch(PASSPORT_UPLOAD, {
+            method: "POST",
+            body: fd,
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast.error(
+              typeof body.error === "string"
+                ? body.error
+                : "Upload failed (passport storage)",
+            );
+            return;
+          }
+          const url = body.url as string | undefined;
+          if (!url) {
+            toast.error("Upload succeeded but no file URL was returned.");
+            return;
+          }
+          return {
+            pathname: (body.storagePath as string) ?? filename,
+            url,
+            contentType,
+            size: file.size,
+          };
+        }
+
         // Vercel Blob direct upload
         if (storageType === "vercel-blob") {
           const blob = await uploadToVercelBlob(filename, file, {
@@ -205,6 +241,7 @@ export function useFileUpload() {
   return {
     upload,
     isUploading: isUploading || isLoadingStorageInfo,
+    storageType,
   };
 }
 

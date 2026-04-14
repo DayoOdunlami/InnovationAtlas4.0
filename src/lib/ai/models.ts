@@ -1,23 +1,23 @@
 import "server-only";
 
-import { createOllama } from "ollama-ai-provider-v2";
-import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
 import { anthropic } from "@ai-sdk/anthropic";
+import { google } from "@ai-sdk/google";
+import { createGroq } from "@ai-sdk/groq";
+import { openai } from "@ai-sdk/openai";
 import { xai } from "@ai-sdk/xai";
 import { LanguageModelV2, openrouter } from "@openrouter/ai-sdk-provider";
-import { createGroq } from "@ai-sdk/groq";
 import { LanguageModel } from "ai";
+import { ChatModel } from "app-types/chat";
+import { createOllama } from "ollama-ai-provider-v2";
 import {
   createOpenAICompatibleModels,
   openaiCompatibleModelsSafeParse,
 } from "./create-openai-compatiable";
-import { ChatModel } from "app-types/chat";
 import {
-  DEFAULT_FILE_PART_MIME_TYPES,
-  OPENAI_FILE_MIME_TYPES,
-  GEMINI_FILE_MIME_TYPES,
   ANTHROPIC_FILE_MIME_TYPES,
+  DEFAULT_FILE_PART_MIME_TYPES,
+  GEMINI_FILE_MIME_TYPES,
+  OPENAI_FILE_MIME_TYPES,
   XAI_FILE_MIME_TYPES,
 } from "./file-support";
 
@@ -133,19 +133,30 @@ registerFileSupport(
   staticModels.google["gemini-2.5-pro"],
   GEMINI_FILE_MIME_TYPES,
 );
+registerFileSupport(
+  staticModels.google["gemini-3-pro"],
+  GEMINI_FILE_MIME_TYPES,
+);
 
+registerFileSupport(
+  staticModels.anthropic["sonnet-4-6"],
+  ANTHROPIC_FILE_MIME_TYPES,
+);
 registerFileSupport(
   staticModels.anthropic["sonnet-4.5"],
   ANTHROPIC_FILE_MIME_TYPES,
 );
 registerFileSupport(
-  staticModels.anthropic["opus-4.1"],
+  staticModels.anthropic["haiku-4.5"],
+  ANTHROPIC_FILE_MIME_TYPES,
+);
+registerFileSupport(
+  staticModels.anthropic["opus-4.5"],
   ANTHROPIC_FILE_MIME_TYPES,
 );
 
-registerFileSupport(staticModels.xai["grok-4-fast"], XAI_FILE_MIME_TYPES);
-registerFileSupport(staticModels.xai["grok-4"], XAI_FILE_MIME_TYPES);
-registerFileSupport(staticModels.xai["grok-3"], XAI_FILE_MIME_TYPES);
+registerFileSupport(staticModels.xai["grok-4-1-fast"], XAI_FILE_MIME_TYPES);
+registerFileSupport(staticModels.xai["grok-4-1"], XAI_FILE_MIME_TYPES);
 registerFileSupport(staticModels.xai["grok-3-mini"], XAI_FILE_MIME_TYPES);
 registerFileSupport(
   staticModels.openRouter["gemini-2.0-flash-exp:free"],

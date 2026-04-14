@@ -31,6 +31,8 @@ export type ChatThread = {
   title: string;
   userId: string;
   createdAt: Date;
+  /** UUID of atlas.passports row bound to this thread (split view session doc) */
+  activePassportId?: string | null;
 };
 
 export type ChatMessage = {

@@ -14,9 +14,11 @@ Env:
 from __future__ import annotations
 
 import html
+import math
 import os
 import pickle
 import re
+import time as _time
 from datetime import date, datetime
 from pathlib import Path
 
@@ -40,8 +42,12 @@ if not API_KEY:
     )
 
 SEARCH_URL = "https://api.tech.ec.europa.eu/search-api/prod/rest/search"
-SEARCH_TEXT = "transport autonomous decarbonisation"
+SEARCH_TEXT = (
+    "transport autonomous mobility built environment decarbonisation "
+    "infrastructure clean energy"
+)
 PAGE_SIZE = 50
+MAX_PAGES = 10  # cap at 500 results per run (~10 × 50); raise to fetch more
 MODEL = "text-embedding-3-small"
 SCRIPT_DIR = Path(__file__).resolve().parent
 UMAP_MODEL_PATH = SCRIPT_DIR / "umap_model.pkl"
@@ -135,6 +141,55 @@ def fetch_search_page(page_number: int) -> dict:
     return r.json()
 
 
+def extract_funding_amount(meta: dict) -> str | None:
+    """Parse a clean funding string from Horizon Europe API metadata.
+
+    The budgetTopicActionMap is embedded as a JSON string inside the
+    budgetOverview metadata list.  Structure:
+      budgetOverview[0] = JSON string containing:
+        { "budgetTopicActionMap": { "<topicId>": [ { "budgetYearMap": { "2024": 5000000 } } ] } }
+
+    We sum all values in every budgetYearMap across every topic and action,
+    then format as "€Xm" (millions, rounded) or "€Xk" (thousands).
+    """
+    import json as _json
+
+    bo = first_meta_list(meta, "budgetOverview")
+    if not bo:
+        return None
+
+    total = 0.0
+    for entry in bo:
+        try:
+            parsed = _json.loads(str(entry)) if isinstance(entry, str) else entry
+        except Exception:
+            continue
+        bmap = parsed.get("budgetTopicActionMap") if isinstance(parsed, dict) else None
+        if not bmap or not isinstance(bmap, dict):
+            continue
+        for actions in bmap.values():
+            if not isinstance(actions, list):
+                continue
+            for action in actions:
+                if not isinstance(action, dict):
+                    continue
+                year_map = action.get("budgetYearMap", {})
+                if isinstance(year_map, dict):
+                    for v in year_map.values():
+                        try:
+                            total += float(v)
+                        except (TypeError, ValueError):
+                            pass
+
+    if total <= 0:
+        return None
+    if total >= 1_000_000:
+        return f"\u20ac{round(total / 1_000_000)}m"
+    if total >= 1_000:
+        return f"\u20ac{round(total / 1_000)}k"
+    return f"\u20ac{round(total)}"
+
+
 def row_from_result(item: dict) -> dict | None:
     url = item.get("url")
     if not url:
@@ -150,10 +205,7 @@ def row_from_result(item: dict) -> dict | None:
 
     summary = item.get("summary") or strip_html(item.get("content") or "")
     desc = summary
-    bo = first_meta_list(meta, "budgetOverview")
-    funding = None
-    if bo:
-        funding = str(bo[0])[:2000]
+    funding = extract_funding_amount(meta)
 
     deadlines = parse_deadlines(meta)
     deadline_d, status = deadline_status(deadlines)
@@ -194,22 +246,39 @@ def main() -> None:
     conn = psycopg2.connect(DB_URL, sslmode="require")
     ensure_table(conn)
 
+    # ── Paginated fetch ──────────────────────────────────────────────────────
     print("Fetching search page 1...", flush=True)
     page1 = fetch_search_page(1)
-    results = list(page1.get("results") or [])
-    total_pages = int(page1.get("totalPages") or page1.get("pageNumber") or 1)
-    if total_pages < 1:
-        total_pages = 1
+    total_results = int(page1.get("totalResults") or 0)
+    resp_page_size = int(page1.get("pageSize") or PAGE_SIZE)
+    total_pages_api = math.ceil(total_results / resp_page_size) if total_results > 0 else 1
+    pages_to_fetch = min(total_pages_api, MAX_PAGES)
     print(
-        f"totalResults={page1.get('totalResults')} pageSize={page1.get('pageSize')} "
-        f"totalPages={total_pages}",
+        f"totalResults={total_results} pageSize={resp_page_size} "
+        f"computedTotalPages={total_pages_api} -> fetching {pages_to_fetch} page(s)",
         flush=True,
     )
 
+    all_results = list(page1.get("results") or [])
+
+    for page_num in range(2, pages_to_fetch + 1):
+        _time.sleep(1.0)  # polite delay between pages
+        print(f"Fetching page {page_num}/{pages_to_fetch}...", flush=True)
+        try:
+            page_data = fetch_search_page(page_num)
+            all_results.extend(page_data.get("results") or [])
+        except Exception as exc:
+            print(f"  Warning: page {page_num} failed ({exc}), stopping pagination.", flush=True)
+            break
+
+    print(f"Total results collected: {len(all_results)}", flush=True)
+
     rows: list[dict] = []
-    for item in results:
+    seen_urls: set[str] = set()
+    for item in all_results:
         r = row_from_result(item)
-        if r:
+        if r and r["source_url"] not in seen_urls:
+            seen_urls.add(r["source_url"])
             rows.append(r)
 
     if not rows:
@@ -251,7 +320,7 @@ def main() -> None:
             )
         )
 
-    print("Upserting into atlas.live_calls...", flush=True)
+    print("Inserting new calls into atlas.live_calls...", flush=True)
     with conn.cursor() as cur:
         psycopg2.extras.execute_batch(
             cur,
@@ -262,24 +331,20 @@ def main() -> None:
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s::vector, %s, %s, NOW()
             )
-            ON CONFLICT (source_url) DO UPDATE SET
-                title = EXCLUDED.title,
-                funder = EXCLUDED.funder,
-                deadline = EXCLUDED.deadline,
-                funding_amount = EXCLUDED.funding_amount,
-                description = EXCLUDED.description,
-                status = EXCLUDED.status,
-                embedding = EXCLUDED.embedding,
-                viz_x = EXCLUDED.viz_x,
-                viz_y = EXCLUDED.viz_y,
-                scraped_at = NOW()
+            ON CONFLICT (source_url) DO NOTHING
             """,
             upserts,
             page_size=20,
         )
     conn.commit()
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM atlas.live_calls")
+        total_in_db = cur.fetchone()[0]
+
     conn.close()
-    print(f"Upserted {len(upserts)} live call(s).", flush=True)
+    print(f"Processed {len(upserts)} candidate row(s) from API.", flush=True)
+    print(f"Total rows now in atlas.live_calls: {total_in_db}", flush=True)
 
 
 if __name__ == "__main__":

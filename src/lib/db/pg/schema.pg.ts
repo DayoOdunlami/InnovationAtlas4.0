@@ -26,6 +26,8 @@ export const ChatThreadTable = pgTable("chat_thread", {
     .notNull()
     .references(() => UserTable.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  /** Binds this chat thread to an atlas.passports row for split-view session doc */
+  activePassportId: text("active_passport_id"),
 });
 
 export const ChatMessageTable = pgTable("chat_message", {

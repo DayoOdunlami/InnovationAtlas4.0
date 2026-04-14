@@ -1,23 +1,27 @@
 "use client";
 
-import { useEffect, useState, useCallback, memo } from "react";
-import {
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
 import type {
   LandscapeData,
-  LandscapeProject,
   LandscapeLiveCall,
+  LandscapeProject,
 } from "@/app/api/landscape/data/route";
-import { Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  inferThemeFromLive,
+  inferThemeFromProject,
+} from "@/lib/landscape/infer-landscape-theme";
+import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { memo, useCallback, useEffect, useState } from "react";
+import {
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 // ── Custom shapes ──────────────────────────────────────────────────────────
 
@@ -25,15 +29,22 @@ function CircleDot({
   cx,
   cy,
   fill,
-}: { cx?: number; cy?: number; fill?: string }) {
+  payload,
+}: {
+  cx?: number;
+  cy?: number;
+  fill?: string;
+  payload?: { _opacity?: number };
+}) {
   if (cx == null || cy == null) return null;
+  const opacity = payload?._opacity ?? 0.75;
   return (
     <circle
       cx={cx}
       cy={cy}
       r={4}
       fill={fill ?? "#3b82f6"}
-      fillOpacity={0.75}
+      fillOpacity={opacity}
       stroke="none"
     />
   );
@@ -43,15 +54,22 @@ function DiamondDot({
   cx,
   cy,
   fill,
-}: { cx?: number; cy?: number; fill?: string }) {
+  payload,
+}: {
+  cx?: number;
+  cy?: number;
+  fill?: string;
+  payload?: { _opacity?: number };
+}) {
   if (cx == null || cy == null) return null;
   const s = 5;
+  const opacity = payload?._opacity ?? 0.9;
   const points = `${cx},${cy - s} ${cx + s},${cy} ${cx},${cy + s} ${cx - s},${cy}`;
   return (
     <polygon
       points={points}
       fill={fill ?? "#f59e0b"}
-      fillOpacity={0.9}
+      fillOpacity={opacity}
       stroke="none"
     />
   );
@@ -151,7 +169,17 @@ function LandscapeLegend({
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export const LandscapeScatter = memo(function LandscapeScatter() {
+interface LandscapeScatterProps {
+  modeFilter?: string;
+  showLiveCalls?: boolean;
+  highlightTheme?: string | null;
+}
+
+export const LandscapeScatter = memo(function LandscapeScatter({
+  modeFilter = "All",
+  showLiveCalls = true,
+  highlightTheme = null,
+}: LandscapeScatterProps) {
   const [data, setData] = useState<LandscapeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -195,20 +223,48 @@ export const LandscapeScatter = memo(function LandscapeScatter() {
     );
   }
 
-  // Annotate _type so tooltip can distinguish
-  const projectPoints = data.projects.map((p) => ({
-    ...p,
-    _type: "project" as const,
-    x: Number(p.viz_x),
-    y: Number(p.viz_y),
-  }));
+  // Annotate _type so tooltip can distinguish; apply mode filter opacity
+  const projectPoints = data.projects.map((p) => {
+    const modeMatch =
+      modeFilter === "All" ||
+      (p.cpc_modes ?? "").toLowerCase().includes(modeFilter.toLowerCase());
+    const themeKey = inferThemeFromProject(p);
+    const themeMatch = !highlightTheme || themeKey === highlightTheme;
+    const baseOp = modeMatch ? 0.75 : 0.075;
+    const opacity =
+      highlightTheme != null && highlightTheme !== ""
+        ? themeMatch && modeMatch
+          ? 0.95
+          : 0.06
+        : baseOp;
+    return {
+      ...p,
+      _type: "project" as const,
+      x: Number(p.viz_x),
+      y: Number(p.viz_y),
+      _opacity: opacity,
+    };
+  });
 
-  const livePoints = data.liveCalls.map((c) => ({
-    ...c,
-    _type: "live" as const,
-    x: Number(c.viz_x),
-    y: Number(c.viz_y),
-  }));
+  const livePoints = showLiveCalls
+    ? data.liveCalls.map((c) => {
+        const themeKey = inferThemeFromLive(c);
+        const themeMatch = !highlightTheme || themeKey === highlightTheme;
+        const opacity =
+          highlightTheme != null && highlightTheme !== ""
+            ? themeMatch
+              ? 0.95
+              : 0.06
+            : 0.9;
+        return {
+          ...c,
+          _type: "live" as const,
+          x: Number(c.viz_x),
+          y: Number(c.viz_y),
+          _opacity: opacity,
+        };
+      })
+    : [];
 
   return (
     <div className="flex flex-col h-full gap-3">
@@ -266,18 +322,24 @@ export const LandscapeScatter = memo(function LandscapeScatter() {
               name="Projects"
               data={projectPoints}
               fill="#3b82f6"
-              shape={(props: { cx?: number; cy?: number; fill?: string }) => (
-                <CircleDot {...props} />
-              )}
+              shape={(props: {
+                cx?: number;
+                cy?: number;
+                fill?: string;
+                payload?: { _opacity?: number };
+              }) => <CircleDot {...props} />}
               isAnimationActive={false}
             />
             <Scatter
               name="Live calls"
               data={livePoints}
               fill="#f59e0b"
-              shape={(props: { cx?: number; cy?: number; fill?: string }) => (
-                <DiamondDot {...props} />
-              )}
+              shape={(props: {
+                cx?: number;
+                cy?: number;
+                fill?: string;
+                payload?: { _opacity?: number };
+              }) => <DiamondDot {...props} />}
               isAnimationActive={false}
             />
             <Legend wrapperStyle={{ display: "none" }} />

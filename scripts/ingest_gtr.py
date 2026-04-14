@@ -76,9 +76,21 @@ SEARCH_PASSES = [
     {"q": "signalling"},
     {"q": "fleet management"},
     {"q": "multimodal"},
+    # Built environment sector (Sprint 3 addition)
+    {"q": "built environment"},
+    {"q": "urban planning"},
+    {"q": "smart city"},
+    {"q": "building retrofit"},
+    {"q": "construction innovation"},
+    {"q": "net zero buildings"},
     # CCAV — dedicated CAV funder, fetch all
     {"f_fc": "CCAV"},
 ]
+
+# GtR project status filter — set to None to fetch all statuses (default behaviour).
+# Set to "Active" to restrict to live projects only.
+# Can be overridden at runtime via --active-only CLI flag.
+STATUS_FILTER: str | None = None
 
 INSERT_SQL = """
 INSERT INTO atlas.projects (
@@ -86,7 +98,7 @@ INSERT INTO atlas.projects (
     potential_impact, status, grant_category, lead_funder,
     lead_org_department, start_date, end_date, funding_amount,
     research_subjects, research_topics, cpc_modes, cpc_themes,
-    transport_relevance_score, embedding, raw_json
+    transport_relevance_score, embedding, raw_json, last_synced_at
 ) VALUES (
     %(gtr_id)s, %(grant_reference)s, %(title)s, %(abstract)s,
     %(tech_abstract)s, %(potential_impact)s, %(status)s,
@@ -95,9 +107,10 @@ INSERT INTO atlas.projects (
     %(research_subjects)s, %(research_topics)s,
     %(cpc_modes)s, %(cpc_themes)s,
     %(transport_relevance_score)s, %(embedding)s,
-    %(raw_json)s
+    %(raw_json)s, NOW()
 )
-ON CONFLICT (gtr_id) DO NOTHING
+ON CONFLICT (gtr_id) DO UPDATE SET
+    last_synced_at = NOW()
 """
 
 
@@ -122,9 +135,11 @@ def write_ingest_progress(
         f.write(line)
 
 
-def fetch_projects_page(params: dict, page: int) -> dict:
+def fetch_projects_page(params: dict, page: int, status_filter: str | None = None) -> dict:
     """GET one page; retry on HTTP 429 with backoff (Retry-After or exponential)."""
     p = {**params, "fetchSize": PAGE_SIZE, "page": page}
+    if status_filter:
+        p["f_sta"] = status_filter  # GtR status filter param (e.g. "Active")
     url = f"{GtR_BASE}/projects"
     for attempt in range(GT_R_429_MAX_RETRIES):
         r = requests.get(url, headers=HEADERS, params=p, timeout=60)
@@ -222,6 +237,7 @@ def ingest_pass(
     pass_num: int,
     total_passes: int,
     label: str,
+    status_filter: str | None = None,
 ) -> tuple[int, int]:
     """Run a single search pass. Returns (fetched, inserted)."""
     fetched = 0
@@ -231,7 +247,7 @@ def ingest_pass(
     with conn.cursor() as cur:
         while True:
             try:
-                data = fetch_projects_page(params, page)
+                data = fetch_projects_page(params, page, status_filter=status_filter)
             except Exception as e:
                 print(f"  API error on page {page}: {e}")
                 break
@@ -291,6 +307,15 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Exit immediately with code 0 — corpus is complete, no API calls needed.",
     )
+    p.add_argument(
+        "--active-only",
+        action="store_true",
+        default=False,
+        help=(
+            "Filter GtR API results to status='Active' projects only. "
+            "When omitted, all project statuses are fetched (default behaviour)."
+        ),
+    )
     args = p.parse_args()
     if not args.skip_all and (args.start_pass < 1 or args.start_pass > len(SEARCH_PASSES)):
         raise SystemExit(
@@ -305,6 +330,10 @@ def main():
     if args.skip_all:
         print("--skip-all: corpus is complete, skipping ingestion.", flush=True)
         return
+
+    status_filter = "Active" if args.active_only else STATUS_FILTER
+    if status_filter:
+        print(f"Status filter active: fetching only status='{status_filter}' projects.", flush=True)
 
     start_idx = args.start_pass - 1
     passes_to_run = SEARCH_PASSES[start_idx:]
@@ -331,7 +360,7 @@ def main():
         print(f"\n[{pass_num}/{total_passes}] Search: '{label}'", flush=True)
 
         fetched, inserted = ingest_pass(
-            conn, params, pass_num, total_passes, label
+            conn, params, pass_num, total_passes, label, status_filter=status_filter
         )
         total_fetched += fetched
         total_inserted += inserted

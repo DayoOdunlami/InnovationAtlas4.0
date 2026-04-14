@@ -1,0 +1,1 @@
+ALTER TABLE "chat_thread" ADD COLUMN IF NOT EXISTS "active_passport_id" text;

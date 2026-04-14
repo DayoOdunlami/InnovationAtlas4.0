@@ -1,9 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { z } from "zod";
 import { USER_ROLES } from "app-types/roles";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 // Mock server-only module
 vi.mock("server-only", () => ({}));
+
+// action-utils imports ./auth/permissions at module load; that pulls auth-instance → db.
+// Mock permissions so the chain never touches POSTGRES_URL during evaluation.
+vi.mock("./auth/permissions", () => ({
+  requireAdminPermission: vi.fn().mockResolvedValue(undefined),
+  requireUserManagePermissionFor: vi.fn().mockResolvedValue(undefined),
+}));
 
 // Mock the auth modules
 vi.mock("auth/server", () => ({

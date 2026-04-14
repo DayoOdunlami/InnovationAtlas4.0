@@ -7,6 +7,8 @@ const importActions = async () => await import("./actions");
 describe("checkStorageAction", () => {
   beforeEach(() => {
     vi.resetModules();
+    delete (globalThis as { __server__file_storage__?: unknown })
+      .__server__file_storage__;
     delete process.env.FILE_STORAGE_TYPE;
     delete process.env.BLOB_READ_WRITE_TOKEN;
     delete process.env.FILE_STORAGE_S3_BUCKET;

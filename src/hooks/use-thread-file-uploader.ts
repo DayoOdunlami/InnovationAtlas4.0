@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
-import { appStore, UploadedFile } from "@/app/store";
+import { UploadedFile, appStore } from "@/app/store";
 import { useFileUpload } from "@/hooks/use-presigned-upload";
 import { generateUUID } from "@/lib/utils";
+import { useCallback } from "react";
 import { toast } from "sonner";
 
 /** Silently registers a PDF with the passport pipeline (fire-and-forget). */
@@ -35,7 +35,7 @@ async function registerPassportDocument(
 
 export function useThreadFileUploader(threadId?: string) {
   const appStoreMutate = appStore((s) => s.mutate);
-  const { upload } = useFileUpload();
+  const { upload, storageType } = useFileUpload();
 
   const uploadFiles = useCallback(
     async (files: File[]) => {
@@ -73,13 +73,18 @@ export function useThreadFileUploader(threadId?: string) {
           },
         }));
 
-        // PDF → also register with passport pipeline (fire-and-forget)
-        if (file.type === "application/pdf" && threadId) {
+        // PDF → side-channel passport registration when using Vercel Blob / S3
+        // (supabase-passport already hits /api/passport/upload)
+        if (
+          file.type === "application/pdf" &&
+          threadId &&
+          storageType !== "supabase-passport"
+        ) {
           registerPassportDocument(file, threadId);
         }
 
         try {
-          const uploaded = await upload(file);
+          const uploaded = await upload(file, { threadId });
           if (uploaded) {
             appStoreMutate((prev) => ({
               threadFiles: {
@@ -120,7 +125,7 @@ export function useThreadFileUploader(threadId?: string) {
         }
       }
     },
-    [threadId, appStoreMutate, upload],
+    [threadId, appStoreMutate, upload, storageType],
   );
 
   return { uploadFiles };

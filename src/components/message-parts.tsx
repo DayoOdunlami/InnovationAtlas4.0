@@ -766,6 +766,14 @@ const ClaimPreviewCard = dynamic(
   { ssr: false, loading },
 );
 
+const ConsortiumCard = dynamic(
+  () =>
+    import("./tool-invocation/consortium-card").then(
+      (mod) => mod.ConsortiumCard,
+    ),
+  { ssr: false, loading },
+);
+
 // Local shortcuts for tool invocation approval/rejection
 const approveToolInvocationShortcut: Shortcut = {
   description: "approveToolInvocation",
@@ -945,6 +953,10 @@ export const ToolMessagePart = memo(
       // Passport pipeline artefacts — render on input-available or output-available
       if (toolName === DefaultToolName.ExtractClaimsPreview) {
         return <ClaimPreviewCard key={toolCallId} part={part} />;
+      }
+
+      if (toolName === DefaultToolName.FindConsortiumPartners) {
+        return <ConsortiumCard key={toolCallId} part={part} />;
       }
 
       if (

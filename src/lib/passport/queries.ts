@@ -62,7 +62,8 @@ export async function getPassportDetail(
       pool.query<PassportClaimRow>(
         `SELECT id, passport_id, claim_role, claim_domain, claim_text, conditions,
                 confidence_tier, confidence_reason, source_excerpt, source_document_id,
-                verified_at::text, verified_by, rejected, user_note, created_at::text
+                verified_at::text, verified_by, rejected, user_note, created_at::text,
+                conflict_flag, conflicting_claim_id, conflict_resolution
          FROM atlas.passport_claims
          WHERE passport_id = $1 AND rejected = false
          ORDER BY claim_domain, confidence_tier`,

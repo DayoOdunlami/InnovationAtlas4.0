@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  TriangleAlert,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -109,6 +110,15 @@ function ClaimCard({
             >
               {cfg.label}
             </Badge>
+            {claim.conflict_flag ? (
+              <Badge
+                variant="outline"
+                className="text-xs border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200 gap-1"
+              >
+                <TriangleAlert className="size-3 shrink-0" />
+                Conflict flagged — review recommended
+              </Badge>
+            ) : null}
             {claim.verified_by && (
               <span className="text-xs text-muted-foreground">
                 · {claim.verified_by}

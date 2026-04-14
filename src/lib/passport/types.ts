@@ -67,6 +67,9 @@ export type PassportClaimRow = {
   rejected: boolean;
   user_note: string | null;
   created_at: string;
+  conflict_flag?: boolean | null;
+  conflicting_claim_id?: string | null;
+  conflict_resolution?: string | null;
 };
 
 export type PassportDetail = {

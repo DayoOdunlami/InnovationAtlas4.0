@@ -1,26 +1,27 @@
-import { NextRequest } from "next/server";
-import { getSession } from "auth/server";
 import { VercelAIMcpTool } from "app-types/mcp";
+import { getSession } from "auth/server";
+import {
+  VOICE_REALTIME_RESPONSE_APPENDIX,
+  buildMcpServerCustomizationsSystemPrompt,
+  buildSpeechSystemPrompt,
+} from "lib/ai/prompts";
+import { NextRequest } from "next/server";
 import {
   filterMcpServerCustomizations,
   loadMcpTools,
   mergeSystemPrompt,
 } from "../shared.chat";
-import {
-  buildMcpServerCustomizationsSystemPrompt,
-  buildSpeechSystemPrompt,
-} from "lib/ai/prompts";
 
-import { safe } from "ts-safe";
+import { ChatMention } from "app-types/chat";
+import { colorize } from "consola/utils";
 import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
+import globalLogger from "lib/logger";
+import { getUserPreferences } from "lib/user/server";
+import { safe } from "ts-safe";
 import {
   rememberAgentAction,
   rememberMcpServerCustomizationsAction,
 } from "../actions";
-import globalLogger from "lib/logger";
-import { colorize } from "consola/utils";
-import { getUserPreferences } from "lib/user/server";
-import { ChatMention } from "app-types/chat";
 
 const logger = globalLogger.withDefaults({
   message: colorize("blackBright", `OpenAI Realtime API: `),
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
         agent,
       ),
       buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
+      VOICE_REALTIME_RESPONSE_APPENDIX,
     );
 
     const bindingTools = [...openAITools, ...DEFAULT_VOICE_TOOLS];

@@ -29,6 +29,8 @@ export enum DefaultToolName {
   RejectClaimByDescription = "rejectClaimByDescription",
   // Matching engine
   RunMatching = "runMatching",
+  // Consortium discovery
+  FindConsortiumPartners = "findConsortiumPartners",
 }
 
 export const SequentialThinkingToolName = "sequential-thinking";

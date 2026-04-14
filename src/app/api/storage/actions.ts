@@ -1,7 +1,7 @@
 "use server";
 
-import { storageDriver } from "lib/file-storage";
 import { IS_VERCEL_ENV } from "lib/const";
+import { storageDriver } from "lib/file-storage";
 
 /**
  * Get storage configuration info.
@@ -26,6 +26,30 @@ interface StorageCheckResult {
  * Returns detailed error messages with solutions.
  */
 export async function checkStorageAction(): Promise<StorageCheckResult> {
+  if (storageDriver === "supabase-passport") {
+    const missing: string[] = [];
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      missing.push("NEXT_PUBLIC_SUPABASE_URL");
+    }
+    if (!process.env.SUPABASE_SERVICE_KEY) {
+      missing.push("SUPABASE_SERVICE_KEY");
+    }
+    if (!process.env.POSTGRES_URL) {
+      missing.push("POSTGRES_URL");
+    }
+    if (missing.length > 0) {
+      return {
+        isValid: false,
+        error: `Missing Supabase / Postgres configuration: ${missing.join(", ")}`,
+        solution:
+          "Set NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_KEY, and POSTGRES_URL. " +
+          "Ensure the `passport-documents` storage bucket exists. " +
+          "Optional: FILE_STORAGE_TYPE=supabase-passport (this is the default).",
+      };
+    }
+    return { isValid: true };
+  }
+
   // 1. Check Vercel Blob configuration
   if (storageDriver === "vercel-blob") {
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -75,14 +99,15 @@ export async function checkStorageAction(): Promise<StorageCheckResult> {
   }
 
   // 3. Validate storage driver
-  if (!["vercel-blob", "s3"].includes(storageDriver)) {
+  if (!["vercel-blob", "s3", "supabase-passport"].includes(storageDriver)) {
     return {
       isValid: false,
       error: `Invalid storage driver: ${storageDriver}`,
       solution:
         "FILE_STORAGE_TYPE must be one of:\n" +
-        "- 'vercel-blob' (default)\n" +
-        "- 's3' (coming soon)",
+        "- 'supabase-passport' (default — Supabase Storage, same as passport uploads)\n" +
+        "- 'vercel-blob'\n" +
+        "- 's3'",
     };
   }
 

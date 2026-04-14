@@ -19,6 +19,23 @@ const LandscapeScatter = dynamic(
   },
 );
 
-export function LandscapeScatterLazy() {
-  return <LandscapeScatter />;
+interface LandscapeScatterLazyProps {
+  modeFilter?: string;
+  showLiveCalls?: boolean;
+  /** When set, emphasises nodes whose inferred theme matches (guided demo). */
+  highlightTheme?: string | null;
+}
+
+export function LandscapeScatterLazy({
+  modeFilter = "All",
+  showLiveCalls = true,
+  highlightTheme = null,
+}: LandscapeScatterLazyProps) {
+  return (
+    <LandscapeScatter
+      modeFilter={modeFilter}
+      showLiveCalls={showLiveCalls}
+      highlightTheme={highlightTheme}
+    />
+  );
 }

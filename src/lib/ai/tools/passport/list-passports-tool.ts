@@ -19,7 +19,7 @@ export const listPassportsTool = createTool({
   description:
     "List all existing passports with their claim counts. " +
     "Call this after extractClaimsPreview to present the user with a numbered list " +
-    "of passports to save their claims to. " +
+    "of passports to save their claims to (or add evidence: then use addEvidenceToPassport). " +
     "Display as: 1. [project_name or title] — N claims (V verified)",
   inputSchema: z.object({}),
   execute: async (): Promise<PassportListOutput> => {

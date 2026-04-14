@@ -9,6 +9,11 @@ export type LandscapeProject = {
   funding_amount: number | null;
   viz_x: number;
   viz_y: number;
+  transport_relevance_score: number | null;
+  status: string | null;
+  abstract: string | null;
+  cpc_modes: string | null;
+  source_url: string | null;
 };
 
 export type LandscapeLiveCall = {
@@ -20,6 +25,8 @@ export type LandscapeLiveCall = {
   viz_y: number;
   status: string;
   deadline: string | null;
+  source_url: string | null;
+  description: string | null;
 };
 
 export type LandscapeData = {
@@ -36,14 +43,16 @@ export async function GET() {
   try {
     const [projectsResult, liveCallsResult] = await Promise.all([
       pool.query<LandscapeProject>(
-        `SELECT id, title, lead_funder, funding_amount, viz_x, viz_y
+        `SELECT id, title, lead_funder, funding_amount, viz_x, viz_y,
+                transport_relevance_score, status, abstract, cpc_modes,
+                source_url
          FROM atlas.projects
          WHERE viz_x IS NOT NULL AND viz_y IS NOT NULL
          ORDER BY id`,
       ),
       pool.query<LandscapeLiveCall>(
         `SELECT id, title, funder, funding_amount::text, viz_x, viz_y, status,
-                deadline::text
+                deadline::text, source_url, description
          FROM atlas.live_calls
          WHERE viz_x IS NOT NULL AND viz_y IS NOT NULL`,
       ),

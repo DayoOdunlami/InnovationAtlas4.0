@@ -19,7 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Innovation Atlas",
+  applicationName: "Innovation Atlas",
+  title: "Innovation Atlas — Strategic Intelligence",
   description:
     "Innovation Atlas — cross-sector innovation translation engine powered by JARVIS.",
 };

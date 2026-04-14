@@ -1,10 +1,10 @@
-import { McpServerCustomizationsPrompt, MCPToolInfo } from "app-types/mcp";
+import { MCPToolInfo, McpServerCustomizationsPrompt } from "app-types/mcp";
 
+import { Agent } from "app-types/agent";
 import { UserPreferences } from "app-types/user";
 import { User } from "better-auth";
-import { createMCPToolId } from "./mcp/mcp-tool-id";
 import { format } from "date-fns";
-import { Agent } from "app-types/agent";
+import { createMCPToolId } from "./mcp/mcp-tool-id";
 
 export const CREATE_THREAD_TITLE_PROMPT = `
 You are a chat title generation expert.
@@ -220,6 +220,17 @@ ${userPreferences.responseStyleExample}
 
   return prompt.trim();
 };
+
+/** Appended to OpenAI Realtime session instructions (Phase A voice UX). */
+export const VOICE_REALTIME_RESPONSE_APPENDIX = `
+<voice_realtime_output_rules>
+When responding by voice: give a spoken summary of maximum 3 sentences.
+Then say exactly: 'I have rendered the full details in the chat panel.'
+Never read lists aloud — say the count and the top item only, then stop.
+Tool outputs are capped at 15,000 characters — treat any truncated JSON as
+incomplete and tell the user to check the chat panel for the full result.
+Never attempt to read or summarise raw JSON output.
+</voice_realtime_output_rules>`.trim();
 
 export const buildMcpServerCustomizationsSystemPrompt = (
   instructions: Record<string, McpServerCustomizationsPrompt>,

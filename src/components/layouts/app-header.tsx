@@ -1,26 +1,31 @@
 "use client";
 
-import { useSidebar } from "ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import {
   AudioWaveformIcon,
   ChevronDown,
   MessageCircleDashed,
   PanelLeft,
+  PlayCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "ui/button";
 import { Separator } from "ui/separator";
+import { useSidebar } from "ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 
-import { useEffect, useMemo } from "react";
-import { ThreadDropdown } from "../thread-dropdown";
 import { appStore } from "@/app/store";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useShallow } from "zustand/shallow";
-import { getShortcutKeyList, Shortcuts } from "lib/keyboard-shortcuts";
-import { useTranslations } from "next-intl";
-import { TextShimmer } from "ui/text-shimmer";
-import { buildReturnUrl } from "lib/admin/navigation-utils";
+import { DemoPickerDialog } from "@/components/demo/demo-picker-dialog";
+import { AppHeaderUserAvatar } from "@/components/layouts/app-header-user-avatar";
 import { BackButton } from "@/components/layouts/back-button";
+import { agentIdForVoiceFromThreadMentions } from "@/lib/chat/agent-id-for-voice";
+import { buildReturnUrl } from "lib/admin/navigation-utils";
+import { Shortcuts, getShortcutKeyList } from "lib/keyboard-shortcuts";
+import { useTranslations } from "next-intl";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { TextShimmer } from "ui/text-shimmer";
+import { useShallow } from "zustand/shallow";
+import { ThreadDropdown } from "../thread-dropdown";
 
 export function AppHeader() {
   const t = useTranslations();
@@ -28,6 +33,8 @@ export function AppHeader() {
   const { toggleSidebar, open } = useSidebar();
   const currentPaths = usePathname();
   const searchParams = useSearchParams();
+
+  const [demoPickerOpen, setDemoPickerOpen] = useState(false);
 
   const showActionButtons = useMemo(() => {
     if (currentPaths.startsWith("/admin")) {
@@ -107,7 +114,10 @@ export function AppHeader() {
                     voiceChat: {
                       ...state.voiceChat,
                       isOpen: true,
-                      agentId: undefined,
+                      agentId: agentIdForVoiceFromThreadMentions(
+                        state.threadMentions,
+                        state.currentThreadId,
+                      ),
                     },
                   }));
                 }}
@@ -168,8 +178,24 @@ export function AppHeader() {
               </div>
             </TooltipContent>
           </Tooltip>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="h-8 gap-1.5 border border-border bg-transparent px-2.5 text-sm font-normal text-foreground shadow-none hover:bg-muted/50"
+            onClick={() => setDemoPickerOpen(true)}
+          >
+            <PlayCircle className="size-4 shrink-0" />
+            Demo
+          </Button>
+          <AppHeaderUserAvatar />
         </div>
       )}
+      <DemoPickerDialog
+        open={demoPickerOpen}
+        onOpenChange={setDemoPickerOpen}
+      />
     </header>
   );
 }
@@ -230,6 +256,12 @@ function ThreadDropdownComponent() {
           </Tooltip>
         </div>
       </ThreadDropdown>
+      <Link
+        href={`/chat-plus/${currentThread.id}`}
+        className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors ml-1 hidden md:inline"
+      >
+        Try split view →
+      </Link>
     </div>
   );
 }

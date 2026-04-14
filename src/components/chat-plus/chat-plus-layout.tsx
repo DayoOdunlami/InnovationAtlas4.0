@@ -396,7 +396,10 @@ export function ChatPlusLayout({
           .from("projects")
           .select("id, title, lead_funder")
           .in("id", projectIds);
-        const projectMap = new Map(
+        const projectMap = new globalThis.Map<
+          string,
+          { id: string; title: string | null; lead_funder: string | null }
+        >(
           (
             (projRes.data ?? []) as Array<{
               id: string;

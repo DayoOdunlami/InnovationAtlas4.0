@@ -1,7 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { embed } from "ai";
 import Anthropic from "@anthropic-ai/sdk";
-import { getPassportPool } from "./db";
+import { getPassportPool } from "./pg-pool";
 import type { PassportClaimRow } from "./types";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -14,6 +14,7 @@ export type MatchResult = {
   evidence_map: Record<string, unknown>;
   gaps: unknown[];
   gap_value_estimate: number | null;
+  source_url?: string | null;
   // project match
   project_id?: string;
   title?: string;
@@ -375,6 +376,7 @@ type RawProjectMatch = {
   cosine_sim: number;
   weighted_score: number;
   outcomes_count: number;
+  source_url: string | null;
 };
 
 type RawLiveCallMatch = {
@@ -386,6 +388,7 @@ type RawLiveCallMatch = {
   deadline: string | null;
   status: string;
   cosine_sim: number;
+  source_url: string | null;
 };
 
 // ── Main matching function ─────────────────────────────────────────────────
@@ -443,7 +446,13 @@ export async function runPassportMatching(
            + COALESCE(p.transport_relevance_score::float / 100.0, 0) * 0.3
            + LEAST(COUNT(po.id), 5)::float / 50.0 * 0.1
          )::float                                                                AS weighted_score,
-         COUNT(po.id)::int                                                       AS outcomes_count
+         COUNT(po.id)::int                                                       AS outcomes_count,
+         COALESCE(
+           p.source_url,
+           CASE WHEN p.gtr_id IS NOT NULL
+                THEN 'https://gtr.ukri.org/projects?ref=' || p.gtr_id
+                ELSE NULL END
+         )                                                                       AS source_url
        FROM atlas.projects p
        LEFT JOIN atlas.project_outcomes po ON po.project_id = p.id
        WHERE p.embedding IS NOT NULL
@@ -463,9 +472,12 @@ export async function runPassportMatching(
          lc.description,
          lc.deadline::text,
          lc.status,
+         lc.source_url,
          (1 - (lc.embedding <=> $1::vector))::float AS cosine_sim
        FROM atlas.live_calls lc
-       WHERE lc.embedding IS NOT NULL AND lc.status = 'open'
+       WHERE lc.embedding IS NOT NULL
+         AND (lc.relevance_tag IS NULL OR lc.relevance_tag != 'irrelevant')
+         AND lc.status = 'open'
        ORDER BY cosine_sim DESC
        LIMIT 5`,
       [vectorStr],
@@ -533,6 +545,7 @@ export async function runPassportMatching(
         evidence_map: s.evidence_map,
         gaps: s.gaps,
         gap_value_estimate: gapValueEstimate,
+        source_url: pm.source_url ?? null,
         project_id: pm.id,
         title: pm.title,
         lead_funder: pm.lead_funder,
@@ -569,6 +582,7 @@ export async function runPassportMatching(
         evidence_map: {},
         gaps: s.gaps,
         gap_value_estimate: null,
+        source_url: lm.source_url ?? null,
         live_call_id: lm.id,
         title: lm.title,
         lead_funder: lm.funder,

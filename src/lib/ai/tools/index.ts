@@ -29,6 +29,8 @@ export enum DefaultToolName {
   RejectClaimByDescription = "rejectClaimByDescription",
   // Matching engine
   RunMatching = "runMatching",
+  // Admin / cleanup (requires admin session)
+  ArchivePassport = "archivePassport",
   // Consortium discovery
   FindConsortiumPartners = "findConsortiumPartners",
 }

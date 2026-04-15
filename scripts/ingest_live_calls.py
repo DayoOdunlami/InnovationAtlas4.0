@@ -1,14 +1,20 @@
 """
 Ingest Horizon Europe search results into atlas.live_calls: embed, UMAP
-coordinates via a pre-fitted reducer (scripts/umap_model.pkl), upsert by
-source_url.
+coordinates via scripts/umap_model.pkl, upsert by source_url.
 
-Prerequisite: run scripts/umap_atlas.py once so scripts/umap_model.pkl exists.
+Fetches pages HORIZON_PAGE_START..HORIZON_PAGE_END (default 6-20) so page 1-5
+wide runs stay incremental. Skips URLs already present in atlas.live_calls.
+
+New rows: optional Haiku relevance for short / topic-code titles; otherwise
+auto-tag relevant. All new rows are embedded (including borderline).
+
+Prerequisite: scripts/umap_model.pkl (run scripts/umap_atlas.py once).
 
 Env:
   DATABASE_URL
   OPENAI_API_KEY
-  REACT_APP_SOLR_KEY or EU_HORIZON_SEARCH_API_KEY — Search API key (query param apiKey)
+  ANTHROPIC_API_KEY (for Haiku when title needs classification)
+  REACT_APP_SOLR_KEY or EU_HORIZON_SEARCH_API_KEY
 """
 
 from __future__ import annotations
@@ -18,6 +24,7 @@ import math
 import os
 import pickle
 import re
+import sys
 import time as _time
 from datetime import date, datetime
 from pathlib import Path
@@ -26,8 +33,14 @@ import numpy as np
 import psycopg2
 import psycopg2.extras
 import requests
+from anthropic import Anthropic
 from dotenv import load_dotenv
 from openai import OpenAI
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+from live_calls_columns import ensure_live_calls_columns  # noqa: E402
 
 load_dotenv()
 
@@ -47,12 +60,40 @@ SEARCH_TEXT = (
     "infrastructure clean energy"
 )
 PAGE_SIZE = 50
-MAX_PAGES = 10  # cap at 500 results per run (~10 × 50); raise to fetch more
+HORIZON_PAGE_START = int(os.environ.get("HORIZON_PAGE_START", "6"))
+HORIZON_PAGE_END = int(os.environ.get("HORIZON_PAGE_END", "20"))
 MODEL = "text-embedding-3-small"
-SCRIPT_DIR = Path(__file__).resolve().parent
+HAIKU_MODEL = os.environ.get("ANTHROPIC_HAIKU_MODEL", "claude-haiku-4-5")
+
 UMAP_MODEL_PATH = SCRIPT_DIR / "umap_model.pkl"
 
 TAG_RE = re.compile(r"<[^>]+>")
+
+HORIZON_TITLE_NEEDS_AI = re.compile(
+    r"^(MOBILITY|TRANSPORT|HORIZON|CL\d+|[A-Z0-9][A-Z0-9\-]{0,22})$",
+    re.IGNORECASE,
+)
+
+CLASSIFIER_SYSTEM = """You classify UK public sector tender notices for relevance to transport \
+innovation, autonomous systems, clean energy, and advanced engineering. \
+Transport innovation includes: rail, aviation, maritime, highways, autonomous vehicles, \
+drones/UAS, electrification, digital infrastructure, smart cities, decarbonisation, \
+and related technology R&D and procurement. \
+Operational procurement (housing maintenance, food safety, laundry, fire alarm \
+servicing, insurance compliance, catering, cleaning) is irrelevant even if from a \
+transport body. \
+Reply with exactly one of: relevant, borderline, irrelevant \
+Then on a new line, one sentence explaining why (max 15 words)."""
+
+
+TITLE_FIX_SQL = """
+UPDATE atlas.live_calls
+SET title = LEFT(REGEXP_REPLACE(description, '[[:space:]]+', ' ', 'g'), 80)
+WHERE source = 'horizon_europe'
+  AND (LENGTH(title) < 20 OR title ~ '^[A-Z0-9-]+$')
+  AND description IS NOT NULL
+  AND LENGTH(description) > 20
+"""
 
 
 def strip_html(s: str) -> str:
@@ -124,6 +165,7 @@ def ensure_table(conn) -> None:
             """
         )
     conn.commit()
+    ensure_live_calls_columns(conn)
 
 
 def fetch_search_page(page_number: int) -> dict:
@@ -142,16 +184,6 @@ def fetch_search_page(page_number: int) -> dict:
 
 
 def extract_funding_amount(meta: dict) -> str | None:
-    """Parse a clean funding string from Horizon Europe API metadata.
-
-    The budgetTopicActionMap is embedded as a JSON string inside the
-    budgetOverview metadata list.  Structure:
-      budgetOverview[0] = JSON string containing:
-        { "budgetTopicActionMap": { "<topicId>": [ { "budgetYearMap": { "2024": 5000000 } } ] } }
-
-    We sum all values in every budgetYearMap across every topic and action,
-    then format as "€Xm" (millions, rounded) or "€Xk" (thousands).
-    """
     import json as _json
 
     bo = first_meta_list(meta, "budgetOverview")
@@ -222,6 +254,41 @@ def row_from_result(item: dict) -> dict | None:
     }
 
 
+def title_needs_haiku(title: str) -> bool:
+    t = (title or "").strip()
+    if len(t) < 20:
+        return True
+    return bool(HORIZON_TITLE_NEEDS_AI.match(t))
+
+
+def classify_horizon(client: Anthropic | None, title: str, funder: str, desc: str | None) -> tuple[str, str]:
+    if client is None:
+        return "relevant", "Horizon Europe transport search (no Haiku key)"
+    user_msg = (
+        f"Title: {title}\nFunder: {funder}\n"
+        f"Description: {(desc or '')[:400] if desc else 'No description'}"
+    )
+    msg = client.messages.create(
+        model=HAIKU_MODEL,
+        max_tokens=80,
+        system=CLASSIFIER_SYSTEM,
+        messages=[{"role": "user", "content": user_msg}],
+    )
+    text = ""
+    if msg.content and msg.content[0].type == "text":
+        text = msg.content[0].text.strip()
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    tag = "relevant"
+    if lines:
+        first = lines[0].lower()
+        for t in ("relevant", "borderline", "irrelevant"):
+            if first.startswith(t):
+                tag = t
+                break
+    reason = lines[1][:500] if len(lines) > 1 else ""
+    return tag, reason
+
+
 def main() -> None:
     if not UMAP_MODEL_PATH.is_file():
         raise SystemExit(
@@ -246,49 +313,62 @@ def main() -> None:
     conn = psycopg2.connect(DB_URL, sslmode="require")
     ensure_table(conn)
 
-    # ── Paginated fetch ──────────────────────────────────────────────────────
-    print("Fetching search page 1...", flush=True)
-    page1 = fetch_search_page(1)
-    total_results = int(page1.get("totalResults") or 0)
-    resp_page_size = int(page1.get("pageSize") or PAGE_SIZE)
-    total_pages_api = math.ceil(total_results / resp_page_size) if total_results > 0 else 1
-    pages_to_fetch = min(total_pages_api, MAX_PAGES)
+    with conn.cursor() as cur:
+        cur.execute("SELECT source_url FROM atlas.live_calls WHERE source_url IS NOT NULL")
+        existing_urls = {r[0] for r in cur.fetchall()}
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    anthropic = Anthropic(api_key=anthropic_key) if anthropic_key else None
+
+    lo = max(1, HORIZON_PAGE_START)
+    hi = max(lo, HORIZON_PAGE_END)
     print(
-        f"totalResults={total_results} pageSize={resp_page_size} "
-        f"computedTotalPages={total_pages_api} -> fetching {pages_to_fetch} page(s)",
+        f"Fetching Horizon pages {lo}-{hi} (pageSize={PAGE_SIZE})...",
         flush=True,
     )
 
-    all_results = list(page1.get("results") or [])
-
-    for page_num in range(2, pages_to_fetch + 1):
-        _time.sleep(1.0)  # polite delay between pages
-        print(f"Fetching page {page_num}/{pages_to_fetch}...", flush=True)
+    all_results: list[dict] = []
+    for page_num in range(lo, hi + 1):
+        _time.sleep(1.0 if page_num > lo else 0)
+        print(f"  Page {page_num}/{hi}...", flush=True)
         try:
             page_data = fetch_search_page(page_num)
             all_results.extend(page_data.get("results") or [])
         except Exception as exc:
-            print(f"  Warning: page {page_num} failed ({exc}), stopping pagination.", flush=True)
+            print(f"  Warning: page {page_num} failed ({exc}), stopping.", flush=True)
             break
 
-    print(f"Total results collected: {len(all_results)}", flush=True)
+    print(f"Total API results collected: {len(all_results)}", flush=True)
 
     rows: list[dict] = []
-    seen_urls: set[str] = set()
     for item in all_results:
         r = row_from_result(item)
-        if r and r["source_url"] not in seen_urls:
-            seen_urls.add(r["source_url"])
-            rows.append(r)
+        if not r or r["source_url"] in existing_urls:
+            continue
+        if title_needs_haiku(r["title"]):
+            tag, reason = classify_horizon(
+                anthropic,
+                r["title"],
+                r["funder"] or "",
+                r.get("description") or "",
+            )
+            _time.sleep(0.05)
+        else:
+            tag, reason = "relevant", "Curated Horizon Europe transport search"
+        r["relevance_tag"] = tag
+        r["relevance_reason"] = reason[:2000] if reason else None
+        rows.append(r)
+
+    print(f"New Horizon calls to insert: {len(rows)}", flush=True)
 
     if not rows:
-        print("No rows to ingest.")
         conn.close()
+        print("Nothing new to ingest.")
         return
 
     client = OpenAI(api_key=OPENAI_API_KEY)
     texts = [r["embed_text"] for r in rows]
-    print(f"Embedding {len(texts)} calls...", flush=True)
+    print(f"Embedding {len(texts)} new calls...", flush=True)
     emb_resp = client.embeddings.create(input=texts, model=MODEL)
     emb = np.array(
         [emb_resp.data[i].embedding for i in range(len(emb_resp.data))],
@@ -317,6 +397,8 @@ def main() -> None:
                 vec,
                 vx,
                 vy,
+                r["relevance_tag"],
+                r["relevance_reason"],
             )
         )
 
@@ -327,24 +409,32 @@ def main() -> None:
             """
             INSERT INTO atlas.live_calls (
                 title, funder, deadline, funding_amount, description,
-                source_url, status, embedding, viz_x, viz_y, scraped_at
+                source_url, status, embedding, viz_x, viz_y, scraped_at,
+                source, relevance_tag, relevance_reason, last_synced_at
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s::vector, %s, %s, NOW()
+                %s, %s, %s, %s, %s, %s, %s, %s::vector, %s, %s, NOW(),
+                'horizon_europe', %s, %s, NOW()
             )
             ON CONFLICT (source_url) DO NOTHING
             """,
             upserts,
             page_size=20,
         )
+        cur.execute(TITLE_FIX_SQL)
     conn.commit()
 
     with conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM atlas.live_calls WHERE source = 'horizon_europe'"
+        )
+        hz = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM atlas.live_calls")
         total_in_db = cur.fetchone()[0]
 
     conn.close()
-    print(f"Processed {len(upserts)} candidate row(s) from API.", flush=True)
-    print(f"Total rows now in atlas.live_calls: {total_in_db}", flush=True)
+    print(f"Inserted (attempted) {len(upserts)} new row(s).", flush=True)
+    print(f"Horizon Europe rows in DB: {hz}", flush=True)
+    print(f"Total atlas.live_calls rows: {total_in_db}", flush=True)
 
 
 if __name__ == "__main__":

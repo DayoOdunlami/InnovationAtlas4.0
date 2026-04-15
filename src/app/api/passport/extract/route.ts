@@ -29,6 +29,8 @@ import {
  * Server-side guard: any attempt to write confidence_tier = 'verified' → 400.
  */
 export async function POST(request: Request) {
+  const ATLAS_AGENT_ID = "56ba4eef-69b4-4a4a-a0d8-a1abe88bfa5a";
+
   const session = await getSession();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -36,12 +38,29 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     passport_id: string;
+    agentId?: string;
+    agent_id?: string;
     // Path A
     document_id?: string;
     storage_path?: string;
     // Path B
     text?: string;
   };
+
+  const agentId =
+    request.headers.get("x-agent-id") ??
+    request.headers.get("x-agent") ??
+    body.agentId ??
+    body.agent_id;
+  if (agentId === ATLAS_AGENT_ID) {
+    return Response.json(
+      {
+        error:
+          "Switch to JARVIS to process evidence. ATLAS is for landscape exploration, not passport writing.",
+      },
+      { status: 403 },
+    );
+  }
 
   const { passport_id } = body;
   if (!passport_id) {

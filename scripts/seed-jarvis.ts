@@ -18,6 +18,7 @@ import "load-env";
 import { auth } from "auth/auth-instance";
 import { asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { ATLAS_SYSTEM_PROMPT } from "lib/ai/prompts/atlas-strategist";
 import { AgentTable, UserTable } from "lib/db/pg/schema.pg";
 import { generateUUID } from "lib/utils";
 import { Pool } from "pg";
@@ -297,6 +298,20 @@ const JARVIS_INSTRUCTIONS = {
   ],
 };
 
+const ATLAS_INSTRUCTIONS = {
+  role: "CPC strategic intelligence agent for landscape exploration",
+  systemPrompt: ATLAS_SYSTEM_PROMPT,
+  mentions: [
+    {
+      type: "mcpServer" as const,
+      name: "supabase-atlas",
+      description:
+        "Direct SQL access to Supabase atlas schema (projects, lens_categories, live_calls, project_outcomes). NEVER touch hive.* or public.*.",
+      serverId: "supabase-atlas",
+    },
+  ],
+};
+
 // ────────────────────────────────────────────────────────────────────────────
 // DB connection — same SSL fix as db.pg.ts
 // ────────────────────────────────────────────────────────────────────────────
@@ -363,66 +378,100 @@ async function seedJarvis() {
   const admin = await ensureAdminUser();
   console.log(`✅ Using admin: ${admin.email} (${admin.id})`);
 
-  // Check if JARVIS already exists for this admin
-  const existing = await db
-    .select({ id: AgentTable.id })
-    .from(AgentTable)
-    .where(eq(AgentTable.name, "JARVIS"));
+  const upsertPublicAgent = async (opts: {
+    name: string;
+    description: string;
+    iconValue: string;
+    iconBackgroundColor: string;
+    instructions: typeof JARVIS_INSTRUCTIONS;
+  }) => {
+    const existing = await db
+      .select({ id: AgentTable.id })
+      .from(AgentTable)
+      .where(eq(AgentTable.name, opts.name));
 
-  if (existing.length > 0) {
-    // Update the existing JARVIS agent
-    await db
-      .update(AgentTable)
-      .set({
-        instructions: JARVIS_INSTRUCTIONS,
-        description:
-          "Innovation Atlas strategic intelligence assistant. Upload evidence → extract claims → match against GtR corpus → surface cross-sector funding → gap analysis → draft pitch.",
-        icon: {
-          type: "emoji" as const,
-          value: "🤖",
-          style: {
-            backgroundColor: "#006E51",
-            color: "#FFFFFF",
+    if (existing.length > 0) {
+      await db
+        .update(AgentTable)
+        .set({
+          instructions: opts.instructions,
+          description: opts.description,
+          icon: {
+            type: "emoji" as const,
+            value: opts.iconValue,
+            style: {
+              backgroundColor: opts.iconBackgroundColor,
+              color: "#FFFFFF",
+            },
           },
-        },
-        visibility: "public",
-        updatedAt: new Date(),
-      })
-      .where(eq(AgentTable.name, "JARVIS"));
+          visibility: "public",
+          updatedAt: new Date(),
+        })
+        .where(eq(AgentTable.name, opts.name));
+      return { id: existing[0].id, action: "Updated" as const };
+    }
 
-    console.log(`✅ Updated JARVIS agent (id: ${existing[0].id})`);
-  } else {
-    // Insert new JARVIS agent
     const [inserted] = await db
       .insert(AgentTable)
       .values({
         id: generateUUID(),
-        name: "JARVIS",
-        description:
-          "Innovation Atlas strategic intelligence assistant. Upload evidence → extract claims → match against GtR corpus → surface cross-sector funding → gap analysis → draft pitch.",
+        name: opts.name,
+        description: opts.description,
         icon: {
           type: "emoji" as const,
-          value: "🤖",
+          value: opts.iconValue,
           style: {
-            backgroundColor: "#006E51",
+            backgroundColor: opts.iconBackgroundColor,
             color: "#FFFFFF",
           },
         },
         userId: admin.id,
-        instructions: JARVIS_INSTRUCTIONS,
+        instructions: opts.instructions,
         visibility: "public",
         createdAt: new Date(),
         updatedAt: new Date(),
       })
       .returning({ id: AgentTable.id });
 
-    console.log(`✅ Created JARVIS agent (id: ${inserted.id})`);
-  }
+    return { id: inserted.id, action: "Created" as const };
+  };
+
+  const jarvisResult = await upsertPublicAgent({
+    name: "JARVIS",
+    description:
+      "Innovation Atlas strategic intelligence assistant. Upload evidence → extract claims → match against GtR corpus → surface cross-sector funding → gap analysis → draft pitch.",
+    iconValue: "🤖",
+    iconBackgroundColor: "#006E51",
+    instructions: JARVIS_INSTRUCTIONS,
+  });
+
+  console.log(
+    `✅ ${jarvisResult.action} JARVIS agent (id: ${jarvisResult.id})`,
+  );
+
+  const atlasResult = await upsertPublicAgent({
+    name: "ATLAS",
+    description:
+      "CPC Strategic Intelligence — landscape exploration, cross-sector synthesis, strategic positioning.",
+    iconValue: "⚡",
+    iconBackgroundColor: "#0F766E",
+    instructions: ATLAS_INSTRUCTIONS,
+  });
+
+  console.log(`✅ ${atlasResult.action} ATLAS agent (id: ${atlasResult.id})`);
+
+  // Check if JARVIS already exists for this admin
+  const existing = await db
+    .select({ id: AgentTable.id })
+    .from(AgentTable)
+    .where(eq(AgentTable.name, "JARVIS"));
+
+  if (existing.length === 0) throw new Error("Failed to create JARVIS agent");
 
   console.log(`
 📋 JARVIS agent is ready.
 
-  • Visibility: public (all users can see and use it)
+  • Visibility: public (all users can see and use both JARVIS + ATLAS)
   • Model to select in chat: anthropic / sonnet-4-6 (claude-sonnet-4-6)
   • MCP attached: supabase-atlas → atlas.projects (622 rows), atlas.lens_categories (14 rows)
   • To switch from file-based MCP to DB-based: add supabase-atlas via the app UI,

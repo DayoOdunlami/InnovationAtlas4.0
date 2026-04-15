@@ -2,6 +2,7 @@ import { runPassportMatching } from "@/lib/passport/matching";
 import { tool as createTool } from "ai";
 import { z } from "zod";
 import type { MatchListOutput, MatchRow } from "./match-list-tool";
+import { sortMatches } from "./match-list-tool";
 
 /**
  * runMatchingTool — JARVIS tool that:
@@ -36,7 +37,7 @@ export async function runMatchingRunner(
 
   const projectRows: MatchRow[] = result.project_matches.map((m) => ({
     id: m.id,
-    match_type: "project",
+    match_type: "project" as const,
     match_score: m.match_score,
     match_summary: m.match_summary,
     evidence_map: m.evidence_map as Record<string, unknown>,
@@ -45,11 +46,12 @@ export async function runMatchingRunner(
     title: m.title ?? "",
     lead_funder: m.lead_funder ?? null,
     funding_amount: m.funding_amount ?? null,
+    source_url: m.source_url ?? null,
   }));
 
   const liveRows: MatchRow[] = result.live_call_matches.map((m) => ({
     id: m.id,
-    match_type: "live_call",
+    match_type: "live_call" as const,
     match_score: m.match_score,
     match_summary: m.match_summary,
     evidence_map: {},
@@ -60,11 +62,11 @@ export async function runMatchingRunner(
     funding_amount: null,
     deadline: m.deadline ?? null,
     status: m.status,
+    source_url: m.source_url ?? null,
   }));
 
-  const matches = [...projectRows, ...liveRows].sort(
-    (a, b) => b.match_score - a.match_score,
-  );
+  // Open live calls first, then projects — both ordered by score within group
+  const matches = sortMatches([...projectRows, ...liveRows]);
 
   return { passport_id, matches };
 }

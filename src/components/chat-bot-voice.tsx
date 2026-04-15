@@ -64,7 +64,6 @@ import {
   CommandList,
 } from "ui/command";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "ui/dialog";
-import JsonView from "ui/json-view";
 import { Popover, PopoverContent, PopoverTrigger } from "ui/popover";
 import { useShallow } from "zustand/shallow";
 import { EnabledTools, EnabledToolsDropdown } from "./enabled-tools-dropdown";
@@ -736,20 +735,23 @@ function CompactMessageView({
 }: {
   messages: UIMessageWithCompleted[];
 }) {
-  const { toolParts, textPart } = useMemo(() => {
-    const toolParts = messages
+  const { toolEntries, textPart } = useMemo(() => {
+    const toolEntries = messages
       .filter((msg) => msg.parts.some(isToolUIPart))
-      .map((msg) => msg.parts.find(isToolUIPart));
+      .map((msg) => ({
+        part: msg.parts.find(isToolUIPart)!,
+        messageId: msg.id,
+      }));
 
     const textPart = messages.findLast((msg) => msg.role === "assistant")
       ?.parts[0] as TextPart;
-    return { toolParts, textPart };
+    return { toolEntries, textPart };
   }, [messages]);
 
   return (
     <div className="relative w-full h-full overflow-hidden">
       <div className="absolute bottom-6 max-h-[80vh] overflow-y-auto left-6 z-10 flex-col gap-2 hidden md:flex">
-        {toolParts.map((toolPart, index) => {
+        {toolEntries.map(({ part: toolPart, messageId }, index) => {
           const isExecuting = toolPart?.state.startsWith("input");
           if (!toolPart) return null;
           return (
@@ -773,35 +775,16 @@ function CompactMessageView({
                   </Button>
                 </div>
               </DialogTrigger>
-              <DialogContent className="z-50 md:max-w-2xl! max-h-[80vh] overflow-y-auto p-8">
-                <DialogTitle>{getToolName(toolPart)}</DialogTitle>
-                <div className="flex flex-row gap-4 text-sm ">
-                  <div className="w-1/2 min-w-0 flex flex-col">
-                    <div className="flex items-center gap-2 mb-2 pt-2 pb-1 z-10">
-                      <h5 className="text-muted-foreground text-sm font-medium">
-                        Inputs
-                      </h5>
-                    </div>
-                    <JsonView data={toolPart.input} />
-                  </div>
-
-                  <div className="w-1/2 min-w-0 pl-4 flex flex-col">
-                    <div className="flex items-center gap-2 mb-4 pt-2 pb-1  z-10">
-                      <h5 className="text-muted-foreground text-sm font-medium">
-                        Outputs
-                      </h5>
-                    </div>
-                    <JsonView
-                      data={
-                        toolPart.state === "output-available"
-                          ? toolPart.output
-                          : toolPart.state == "output-error"
-                            ? toolPart.errorText
-                            : {}
-                      }
-                    />
-                  </div>
-                </div>
+              <DialogContent className="z-50 md:max-w-2xl! max-h-[80vh] overflow-y-auto p-6">
+                <DialogTitle className="sr-only">
+                  {getToolName(toolPart)}
+                </DialogTitle>
+                <ToolMessagePart
+                  part={toolPart}
+                  showActions={false}
+                  messageId={messageId}
+                  isLast={false}
+                />
               </DialogContent>
             </Dialog>
           );

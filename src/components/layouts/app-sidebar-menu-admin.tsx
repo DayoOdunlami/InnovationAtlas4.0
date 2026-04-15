@@ -36,6 +36,12 @@ const AppSidebarAdmin = () => {
         icon: FlaskConical,
         isActive: pathname.startsWith("/admin/testing"),
       },
+      {
+        id: "passports",
+        title: t("Passports.title"),
+        url: "/admin/passports",
+        isActive: pathname.startsWith("/admin/passports"),
+      },
     ],
     [t, pathname],
   );

@@ -233,6 +233,38 @@ Never attempt to read or summarise raw JSON output.
 When calling runMatching, say "Running cross-sector matching now — this
 typically takes around 30 seconds, please wait" BEFORE invoking the tool.
 Do not leave silence while matching runs.
+
+PASSPORT ID RULE: passport_id parameters must always be UUIDs in the format
+xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx — never passport names or titles.
+Before calling runMatching, showMatchList, showGapAnalysis, showClaimExtraction,
+archivePassport, or createDraftPitch, you MUST call listPassports first if you do not already have
+the UUID for the requested passport in this conversation.
+Extract the UUID from the listPassports result, then use it in the subsequent call.
+Never attempt to guess, construct, or infer a UUID.
+
+CHART AND TABLE DATA RULE: When calling createBarChart, createLineChart,
+createPieChart, or createTable, only include data you have actually received
+from a prior tool call in this conversation — such as passport names from
+listPassports, match titles and scores from showMatchList, or claim counts
+from showClaimExtraction.
+Do NOT invent, estimate, or fabricate row labels, segment names, series values,
+or any data points. If you do not have real data from a prior tool call to
+populate the chart, say so verbally and ask the user to request the data first.
+
+CLAIM SAVING: After extractClaimsPreview, you will receive a pending_batch_id.
+Always ask the user which passport to save to before calling saveClaimsToPassport.
+Say: "I extracted N claims. Which passport should I save them to?"
+Then call listPassports to show the options. Wait for the user to confirm.
+If the user wants a new passport, ask for a name then omit passport_id
+and provide the title parameter instead. Never save claims without explicit
+user confirmation of which passport to use.
+
+CLAIM VERIFICATION: Never attempt to verify claims programmatically.
+When the user asks to verify a claim, say:
+"Only you can verify evidence — tap the Verify button on the claim card to mark
+it as confirmed. This is a deliberate safeguard: AI cannot self-verify evidence
+in Innovation Atlas."
+Do not call any verify tool. The Verify button in the chat UI is the only valid path.
 </voice_realtime_output_rules>`.trim();
 
 export const buildMcpServerCustomizationsSystemPrompt = (

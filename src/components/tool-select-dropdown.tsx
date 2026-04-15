@@ -940,8 +940,35 @@ function AgentSelector({
     filters: ["mine", "bookmarked"],
   });
 
+  const rankAgent = useCallback((name: string) => {
+    const n = name.trim().toLowerCase();
+    if (n === "jarvis") return 0;
+    if (n === "atlas") return 1;
+    return 2;
+  }, []);
+
+  const sortAgents = useCallback(
+    (agents: AgentSummary[]) =>
+      [...agents].sort((a, b) => {
+        const rank = rankAgent(a.name) - rankAgent(b.name);
+        if (rank !== 0) return rank;
+        return a.name.localeCompare(b.name);
+      }),
+    [rankAgent],
+  );
+
+  const orderedMyAgents = useMemo(
+    () => sortAgents(myAgents),
+    [myAgents, sortAgents],
+  );
+  const orderedBookmarkedAgents = useMemo(
+    () => sortAgents(bookmarkedAgents),
+    [bookmarkedAgents, sortAgents],
+  );
+
   const emptyAgent = useMemo(() => {
-    if (myAgents.length + bookmarkedAgents.length > 0) return null;
+    if (orderedMyAgents.length + orderedBookmarkedAgents.length > 0)
+      return null;
     return (
       <Link
         href={"/agent/new"}
@@ -960,7 +987,7 @@ function AgentSelector({
         </div>
       </Link>
     );
-  }, [myAgents.length, bookmarkedAgents.length, t]);
+  }, [orderedMyAgents.length, orderedBookmarkedAgents.length, t]);
 
   return (
     <DropdownMenuGroup>
@@ -974,7 +1001,7 @@ function AgentSelector({
             {emptyAgent}
 
             {/* My Agents */}
-            {myAgents.map((agent) => (
+            {orderedMyAgents.map((agent) => (
               <DropdownMenuItem
                 key={agent.id}
                 className="cursor-pointer"
@@ -997,11 +1024,10 @@ function AgentSelector({
               </DropdownMenuItem>
             ))}
 
-            {myAgents.length > 0 && bookmarkedAgents.length > 0 && (
-              <DropdownMenuSeparator />
-            )}
+            {orderedMyAgents.length > 0 &&
+              orderedBookmarkedAgents.length > 0 && <DropdownMenuSeparator />}
 
-            {bookmarkedAgents.map((agent) => (
+            {orderedBookmarkedAgents.map((agent) => (
               <DropdownMenuItem
                 key={agent.id}
                 className="cursor-pointer"

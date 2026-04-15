@@ -8,7 +8,7 @@ on:
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
@@ -20,25 +20,66 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements-atlas.txt
 
+      - name: Embed tagged FTS rows missing vectors
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/embed_fts_relevant_borderline.py
+
       - name: Ingest Horizon Europe calls
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           EU_HORIZON_SEARCH_API_KEY: ${{ secrets.EU_HORIZON_SEARCH_API_KEY }}
         run: python scripts/ingest_live_calls.py
+
+      - name: Embed live calls (after Horizon)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/embed_live_calls.py
 
       - name: Ingest UKRI competitions
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/ingest_ukri_competitions.py
 
-      - name: Ingest Find a Tender notices
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/ingest_fts_tenders.py
-
-      - name: Embed new live calls
+      - name: Embed live calls (after UKRI)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python scripts/embed_live_calls.py
+
+      - name: Ingest Find a Tender notices
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/ingest_fts_tenders.py
+
+      - name: Embed live calls (after FTS)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/embed_live_calls.py
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install Node deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Re-run passport matching (all passports)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/trigger_matching.py

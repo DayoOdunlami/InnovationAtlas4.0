@@ -90,7 +90,8 @@ async function ensureChatSmokeSession(): Promise<boolean> {
 }
 
 describe.skipIf(!smokesReady())("Atlas /api/chat smoke", () => {
-  const t = 45_000;
+  /** Cold import of /api/chat + MCP manager init can exceed 45s on some Windows CI runs. */
+  const t = 90_000;
   let jarvisAgentId: string | null = null;
   let threadId: string | null = null;
   let sessionOk = false;

@@ -20,6 +20,8 @@ import type { ExtractedClaim } from "@/lib/passport/claim-extractor";
  *   trial_date_end?
  */
 export async function POST(request: Request) {
+  const ATLAS_AGENT_ID = "56ba4eef-69b4-4a4a-a0d8-a1abe88bfa5a";
+
   // Allow internal tool calls authenticated by BETTER_AUTH_SECRET header
   const toolSecret = request.headers.get("x-tool-secret");
   const isInternalCall =
@@ -34,6 +36,8 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     passport_id?: string;
+    agentId?: string;
+    agent_id?: string;
     pending_batch_id?: string;
     claims?: ExtractedClaim[];
     title?: string;
@@ -43,6 +47,21 @@ export async function POST(request: Request) {
     trial_date_start?: string;
     trial_date_end?: string;
   };
+
+  const agentId =
+    request.headers.get("x-agent-id") ??
+    request.headers.get("x-agent") ??
+    body.agentId ??
+    body.agent_id;
+  if (agentId === ATLAS_AGENT_ID) {
+    return Response.json(
+      {
+        error:
+          "Switch to JARVIS to process evidence. ATLAS is for landscape exploration, not passport writing.",
+      },
+      { status: 403 },
+    );
+  }
 
   const pool = getPassportPool();
   try {

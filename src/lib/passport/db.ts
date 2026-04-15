@@ -1,22 +1,11 @@
 import "server-only";
 import pg from "pg";
+import { openai } from "@ai-sdk/openai";
+import { embed } from "ai";
 import type { ExtractedClaim } from "./claim-extractor";
+import { getPassportPool } from "./pg-pool";
 
-const rawUrl = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
-if (!rawUrl) {
-  throw new Error(
-    "Missing POSTGRES_URL or DATABASE_URL for passport database access",
-  );
-}
-const connectionString = rawUrl.replace(/[?&]sslmode=[^&]*/g, "");
-
-export function getPassportPool() {
-  return new pg.Pool({
-    connectionString,
-    ssl: { rejectUnauthorized: false },
-    max: 3,
-  });
-}
+export { getPassportPool };
 
 export type SavedClaim = ExtractedClaim & {
   id: string;
@@ -26,9 +15,14 @@ export type SavedClaim = ExtractedClaim & {
 };
 
 /**
- * Write extracted claims to atlas.passport_claims.
+ * Write extracted claims to atlas.passport_claims and immediately embed each
+ * claim using text-embedding-3-small.
+ *
  * Confidence ceiling is enforced here as a second layer:
  * any row with confidence_tier = 'verified' is rejected with a thrown error.
+ *
+ * Embedding failures are non-fatal: the claim is still saved and the error is
+ * logged so the backfill script can recover the row later.
  */
 export async function saveClaims(
   pool: pg.Pool,
@@ -64,7 +58,24 @@ export async function saveClaims(
         claim.source_excerpt,
       ],
     );
-    saved.push(result.rows[0] as SavedClaim);
+    const savedClaim = result.rows[0] as SavedClaim;
+    saved.push(savedClaim);
+
+    // Generate and store claim embedding immediately after insert
+    try {
+      const { embedding } = await embed({
+        model: openai.embedding("text-embedding-3-small"),
+        value: claim.claim_text,
+      });
+      const vectorLiteral = `[${embedding.join(",")}]`;
+      await updatePassportClaimEmbedding(pool, savedClaim.id, vectorLiteral);
+    } catch (embedErr) {
+      // Non-fatal: claim is saved, embedding can be back-filled
+      console.error(
+        `[saveClaims] embedding failed for claim ${savedClaim.id}:`,
+        embedErr,
+      );
+    }
   }
 
   return saved;

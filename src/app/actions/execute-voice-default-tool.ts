@@ -1,5 +1,6 @@
 "use server";
 
+import { archivePassport } from "@/app/actions/admin-passports";
 import { getSession } from "auth/server";
 import { voiceDefaultToolNamesAllowlist } from "lib/ai/speech/voice-default-tools";
 import { DefaultToolName } from "lib/ai/tools";
@@ -11,12 +12,20 @@ import {
   extractClaimsPreviewInputSchema,
   runExtractClaimsPreview,
 } from "lib/ai/tools/passport/extract-claims-preview-tool";
+import {
+  runShowGapAnalysisRunner,
+  showGapAnalysisInputSchema,
+} from "lib/ai/tools/passport/gap-analysis-tool";
 import { runListPassportsQuery } from "lib/ai/tools/passport/list-passports-tool";
 import {
   runShowMatchListRunner,
   showMatchListInputSchema,
 } from "lib/ai/tools/passport/match-list-tool";
 import { runMatchingRunner } from "lib/ai/tools/passport/run-matching-tool";
+import {
+  type SaveClaimsInput,
+  runSaveClaimsToPassportRunner,
+} from "lib/ai/tools/passport/save-claims-to-passport-tool";
 import { z } from "zod";
 
 export type VoiceDefaultToolResult = {
@@ -76,6 +85,43 @@ export async function executeVoiceDefaultToolAction(
       return {
         cardPayload,
         realtimePayload: { ok: true, spoken, type: toolName },
+      };
+    }
+    case DefaultToolName.ArchivePassport: {
+      const parsed = z
+        .object({ passport_id: z.string().uuid() })
+        .strict()
+        .safeParse(toolArgs ?? {});
+      if (!parsed.success) {
+        return {
+          cardPayload: null,
+          realtimePayload: {
+            ok: false,
+            spoken:
+              "I need a valid passport UUID to archive. Call list passports first.",
+            type: toolName,
+          },
+        };
+      }
+      const out = await archivePassport(parsed.data.passport_id);
+      if ("error" in out) {
+        const spoken =
+          out.error === "Unauthorized"
+            ? "Only admins can archive passports."
+            : spokenSnippet(out.error);
+        return {
+          cardPayload: out,
+          realtimePayload: { ok: false, spoken, type: toolName },
+        };
+      }
+      return {
+        cardPayload: { archived_passport_id: parsed.data.passport_id },
+        realtimePayload: {
+          ok: true,
+          spoken:
+            "That passport is now archived. You can restore it from the admin passports page if needed.",
+          type: toolName,
+        },
       };
     }
     case DefaultToolName.ExtractClaimsPreview: {
@@ -239,6 +285,178 @@ export async function executeVoiceDefaultToolAction(
       } catch (err) {
         const msg =
           err instanceof Error ? err.message : "Could not load matches.";
+        return {
+          cardPayload: null,
+          realtimePayload: {
+            ok: false,
+            spoken: spokenSnippet(msg, 140),
+            type: toolName,
+          },
+        };
+      }
+    }
+    case DefaultToolName.ShowGapAnalysis: {
+      const parsed = showGapAnalysisInputSchema.safeParse(toolArgs ?? {});
+      if (!parsed.success) {
+        return {
+          cardPayload: null,
+          realtimePayload: {
+            ok: false,
+            spoken:
+              "I need a passport ID to show gap analysis. Call listPassports first if unsure.",
+            type: toolName,
+          },
+        };
+      }
+      try {
+        const cardPayload = await runShowGapAnalysisRunner(
+          parsed.data.passport_id,
+        );
+        const gaps = cardPayload.gaps ?? [];
+        const count = gaps.length;
+        const blocking = gaps.filter((g) => g.severity === "blocking");
+        const spoken =
+          count === 0
+            ? "No gaps identified yet. Run matching first to generate gap analysis."
+            : blocking.length > 0
+              ? `Found ${count} gap${count > 1 ? "s" : ""}. ${blocking.length} blocking — ${spokenSnippet(blocking[0].gap_description, 80)}. Full analysis in the voice panel.`
+              : `Found ${count} gap${count > 1 ? "s" : ""} — no blocking issues. Full analysis in the voice panel.`;
+        return {
+          cardPayload,
+          realtimePayload: { ok: true, spoken, type: toolName },
+        };
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Could not load gap analysis.";
+        return {
+          cardPayload: null,
+          realtimePayload: {
+            ok: false,
+            spoken: spokenSnippet(msg, 140),
+            type: toolName,
+          },
+        };
+      }
+    }
+    case DefaultToolName.CreateDraftPitch: {
+      // createDraftPitch is display-only — the model wrote the pitch as toolArgs.
+      // No runner call, no DB query, no Claude call — just package and return.
+      const title = String(toolArgs?.title ?? "");
+      const p1 = String(toolArgs?.paragraph1 ?? "");
+      const firstSentence = p1.split(/[.!?]/)[0]?.trim() ?? "";
+      const cardPayload = toolArgs;
+      const spoken = title
+        ? `Pitch ready: "${spokenSnippet(title, 60)}". It opens: "${spokenSnippet(firstSentence, 100)}." Full text in the voice panel.`
+        : "Draft pitch generated. Full text is in the voice panel.";
+      return {
+        cardPayload,
+        realtimePayload: { ok: true, spoken, type: toolName },
+      };
+    }
+    case DefaultToolName.CreateBarChart: {
+      // Display-only — the model generated chart data as toolArgs.
+      const cardPayload = toolArgs;
+      const title = String(toolArgs?.title ?? "chart");
+      const data = toolArgs?.data as Array<{ xAxisLabel?: string }> | undefined;
+      const seriesCount = data?.length ?? 0;
+      const topLabel = data?.[0]?.xAxisLabel ?? "";
+      const spoken = `Bar chart ready: "${spokenSnippet(title, 60)}". ${
+        seriesCount > 0
+          ? `Showing ${seriesCount} ${seriesCount === 1 ? "category" : "categories"}${topLabel ? `, starting with ${spokenSnippet(topLabel, 40)}` : ""}.`
+          : ""
+      } Full chart in the voice panel.`.trim();
+      return {
+        cardPayload,
+        realtimePayload: { ok: true, spoken, type: toolName },
+      };
+    }
+    case DefaultToolName.CreateTable: {
+      // Display-only — the model generated table data as toolArgs.
+      const cardPayload = toolArgs;
+      const title = String(toolArgs?.title ?? "table");
+      const rows = toolArgs?.data as unknown[] | undefined;
+      const rowCount = rows?.length ?? 0;
+      const spoken = `Table ready: "${spokenSnippet(title, 60)}" with ${rowCount} ${rowCount === 1 ? "row" : "rows"}. Full table in the voice panel.`;
+      return {
+        cardPayload,
+        realtimePayload: { ok: true, spoken, type: toolName },
+      };
+    }
+    case DefaultToolName.CreatePieChart: {
+      // Display-only — the model generated pie data as toolArgs.
+      const cardPayload = toolArgs;
+      const segments = Array.isArray(toolArgs?.data)
+        ? (toolArgs.data as Array<{ label?: unknown; value?: unknown }>)
+        : [];
+      const total = segments.reduce(
+        (s: number, x) => s + (Number(x.value) || 0),
+        0,
+      );
+      const top = segments[0];
+      const topPct =
+        total > 0 && top?.value
+          ? Math.round((Number(top.value) / total) * 100)
+          : 0;
+      const spoken =
+        segments.length > 0
+          ? `Pie chart: "${String(toolArgs?.title ?? "chart")}". ${segments.length} segments. Largest: ${String(top?.label ?? "")} at ${topPct}%. Full chart in the voice panel.`
+          : `Pie chart created. Full chart in the voice panel.`;
+      return {
+        cardPayload,
+        realtimePayload: { ok: true, spoken, type: toolName },
+      };
+    }
+    case DefaultToolName.CreateLineChart: {
+      // Display-only — the model generated line chart data as toolArgs.
+      const cardPayload = toolArgs;
+      const dataRows = Array.isArray(toolArgs?.data)
+        ? (toolArgs.data as Array<{
+            xAxisLabel?: unknown;
+            series?: Array<{ seriesName?: unknown }>;
+          }>)
+        : [];
+      const firstSeriesName = dataRows[0]?.series?.[0]?.seriesName ?? null;
+      const spoken = `Line chart: "${String(toolArgs?.title ?? "chart")}". ${dataRows.length} data point${dataRows.length !== 1 ? "s" : ""}${firstSeriesName ? `, series: ${String(firstSeriesName)}` : ""}. Full chart in the voice panel.`;
+      return {
+        cardPayload,
+        realtimePayload: { ok: true, spoken, type: toolName },
+      };
+    }
+    case DefaultToolName.SaveClaimsToPassport: {
+      const pendingBatchId = String(toolArgs?.pending_batch_id ?? "");
+      if (!pendingBatchId) {
+        return {
+          cardPayload: null,
+          realtimePayload: {
+            ok: false,
+            spoken:
+              "I need a pending_batch_id to save claims. Run extractClaimsPreview first and use the batch ID it returns.",
+            type: toolName,
+          },
+        };
+      }
+      try {
+        const args: SaveClaimsInput = {
+          pending_batch_id: pendingBatchId,
+          passport_id: toolArgs?.passport_id
+            ? String(toolArgs.passport_id)
+            : undefined,
+          title: toolArgs?.title ? String(toolArgs.title) : undefined,
+          project_name: toolArgs?.project_name
+            ? String(toolArgs.project_name)
+            : undefined,
+        };
+        const result = await runSaveClaimsToPassportRunner(args);
+        const claimCount = result.claims_saved ?? 0;
+        const passportTitle = result.passport_title ?? "your passport";
+        const spoken = `Saved ${claimCount} ${claimCount === 1 ? "claim" : "claims"} to "${spokenSnippet(passportTitle, 60)}". You can review and verify them on the passport page.`;
+        return {
+          cardPayload: result,
+          realtimePayload: { ok: true, spoken, type: toolName },
+        };
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Could not save claims.";
         return {
           cardPayload: null,
           realtimePayload: {

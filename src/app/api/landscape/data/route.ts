@@ -51,10 +51,17 @@ export async function GET() {
          ORDER BY id`,
       ),
       pool.query<LandscapeLiveCall>(
-        `SELECT id, title, funder, funding_amount::text, viz_x, viz_y, status,
-                deadline::text, source_url, description
+        `SELECT id, title, funder, funding_amount::text,
+                COALESCE(viz_x, 50)::float AS viz_x,
+                COALESCE(viz_y, 50)::float AS viz_y,
+                status, deadline::text, source_url, description
          FROM atlas.live_calls
-         WHERE viz_x IS NOT NULL AND viz_y IS NOT NULL`,
+         WHERE embedding IS NOT NULL
+           AND (
+             source IS DISTINCT FROM 'find_a_tender'
+             OR relevance_tag IS NULL
+             OR relevance_tag <> 'irrelevant'
+           )`,
       ),
     ]);
 

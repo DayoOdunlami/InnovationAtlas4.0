@@ -1,6 +1,6 @@
+import { internalApiFetch } from "@/lib/passport/internal-fetch";
 import { tool as createTool } from "ai";
 import { z } from "zod";
-import { internalApiFetch } from "@/lib/passport/internal-fetch";
 
 export type SaveClaimsOutput = {
   passport_id: string;
@@ -8,6 +8,37 @@ export type SaveClaimsOutput = {
   claims_saved: number;
   passport_url: string;
 };
+
+export type SaveClaimsInput = {
+  pending_batch_id: string;
+  passport_id?: string;
+  title?: string;
+  project_name?: string;
+  tags?: string[];
+  trial_date_start?: string;
+  trial_date_end?: string;
+};
+
+/**
+ * Shared runner — used by both the text tool and the voice Realtime dispatcher.
+ * Calls POST /api/passport/describe via internalApiFetch.
+ * The API route handles all DB writes with proper confidence ceiling guards.
+ */
+export async function runSaveClaimsToPassportRunner(
+  args: SaveClaimsInput,
+): Promise<SaveClaimsOutput> {
+  const result = await internalApiFetch<{
+    passport_id: string;
+    passport_title: string;
+    claims_saved: number;
+  }>("/api/passport/describe", args);
+  return {
+    passport_id: result.passport_id,
+    passport_title: result.passport_title,
+    claims_saved: result.claims_saved,
+    passport_url: `/passport/${result.passport_id}`,
+  };
+}
 
 /**
  * Calls POST /api/passport/describe via internalApiFetch.
@@ -48,34 +79,6 @@ export const saveClaimsToPassportTool = createTool({
       .describe("ISO date string, e.g. 2024-01-15"),
     trial_date_end: z.string().optional().describe("ISO date string"),
   }),
-  execute: async ({
-    pending_batch_id,
-    passport_id,
-    title,
-    project_name,
-    tags,
-    trial_date_start,
-    trial_date_end,
-  }): Promise<SaveClaimsOutput> => {
-    const result = await internalApiFetch<{
-      passport_id: string;
-      passport_title: string;
-      claims_saved: number;
-    }>("/api/passport/describe", {
-      pending_batch_id,
-      passport_id,
-      title,
-      project_name,
-      tags,
-      trial_date_start,
-      trial_date_end,
-    });
-
-    return {
-      passport_id: result.passport_id,
-      passport_title: result.passport_title,
-      claims_saved: result.claims_saved,
-      passport_url: `/passport/${result.passport_id}`,
-    };
-  },
+  execute: async (args): Promise<SaveClaimsOutput> =>
+    runSaveClaimsToPassportRunner(args),
 });

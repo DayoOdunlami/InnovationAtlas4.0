@@ -19,6 +19,7 @@ import { useTranslations } from "next-intl";
 import { MCPIcon } from "ui/mcp-icon";
 import { WriteIcon } from "ui/write-icon";
 import {
+  Box,
   FileBadge2,
   FolderOpenIcon,
   FolderSearchIcon,
@@ -134,6 +135,18 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 <SidebarMenuButton className="font-semibold">
                   <Map className="size-4" />
                   Landscape v2
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <Link href="/landscape-3d">
+                <SidebarMenuButton className="font-semibold">
+                  <Box className="size-4" />
+                  Landscape 3D
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>

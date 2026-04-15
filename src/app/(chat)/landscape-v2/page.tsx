@@ -1,6 +1,10 @@
 "use client";
 
-import { type SimNode, initCanvas } from "@/components/landscape/canvas";
+import {
+  type LandscapeEdgeVisibility,
+  type SimNode,
+  initCanvas,
+} from "@/components/landscape/canvas";
 import { LANDSCAPE_SNAPSHOT } from "@/lib/landscape/snapshot";
 import type {
   LandscapeData,
@@ -9,13 +13,15 @@ import type {
   LiveCallNode,
   ProjectNode,
 } from "@/lib/landscape/types";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type LandscapeCanvasEl = HTMLCanvasElement & {
   __allNodes?: SimNode[];
   __allLinks?: LandscapeLink[];
   __rebuildSim?: (nodes: SimNode[], links: LandscapeLink[]) => void;
   __setParticleSpeed?: (v: number) => void;
+  __respawnParticlesForEdges?: () => void;
+  __setLayoutSpreadMode?: (spread: boolean) => void;
 };
 
 function FilterBtn({
@@ -72,13 +78,16 @@ function ConnectedNodes({
   node,
   allLinks,
   allNodes,
+  edgeVisibility,
 }: {
   node: LandscapeNode;
   allLinks: LandscapeLink[];
   allNodes: LandscapeNode[];
+  edgeVisibility: LandscapeEdgeVisibility;
 }) {
   const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
   const connected = allLinks
+    .filter((l) => edgeVisibility[l.edge_type])
     .filter((l) => l.source_id === node.id || l.target_id === node.id)
     .map((l) => ({
       link: l,
@@ -132,11 +141,19 @@ function ConnectedNodes({
   );
 }
 
+const DEFAULT_EDGE_VISIBILITY: LandscapeEdgeVisibility = {
+  shared_org: true,
+  semantic_similarity: true,
+  live_match: true,
+};
+
 export default function LandscapeV2() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fitRef = useRef<(() => void) | null>(null);
   const reheatRef = useRef<(() => void) | null>(null);
   const selectedIdRef = useRef<string | null>(null);
+  const edgeVisRef = useRef<LandscapeEdgeVisibility>(DEFAULT_EDGE_VISIBILITY);
+  const layoutSpreadRef = useRef(true);
   const [graphData, setGraphData] = useState<LandscapeData>(LANDSCAPE_SNAPSHOT);
   const [dataSource, setDataSource] = useState<"snapshot" | "live">("snapshot");
   const [isLoadingLive, setIsLoadingLive] = useState(true);
@@ -144,6 +161,40 @@ export default function LandscapeV2() {
   const [selectedNode, setSelectedNode] = useState<LandscapeNode | null>(null);
   const [activeFilter, setActiveFilter] = useState("all");
   const [particleSpeed, setParticleSpeed] = useState(20);
+  const [edgeVisibility, setEdgeVisibility] = useState<LandscapeEdgeVisibility>(
+    DEFAULT_EDGE_VISIBILITY,
+  );
+  const [layoutSpread, setLayoutSpread] = useState(true);
+
+  edgeVisRef.current = edgeVisibility;
+  layoutSpreadRef.current = layoutSpread;
+
+  const getEdgeVisibility = useCallback(() => edgeVisRef.current, []);
+  const getLayoutSpread = useCallback(() => layoutSpreadRef.current, []);
+
+  const patchEdgeVisibility = useCallback(
+    (patch: Partial<LandscapeEdgeVisibility>) => {
+      const next = { ...edgeVisRef.current, ...patch };
+      edgeVisRef.current = next;
+      setEdgeVisibility(next);
+      queueMicrotask(() => {
+        (
+          canvasRef.current as LandscapeCanvasEl | null
+        )?.__respawnParticlesForEdges?.();
+      });
+    },
+    [],
+  );
+
+  const setLayoutSpreadAndApply = useCallback((spread: boolean) => {
+    layoutSpreadRef.current = spread;
+    setLayoutSpread(spread);
+    queueMicrotask(() => {
+      (canvasRef.current as LandscapeCanvasEl | null)?.__setLayoutSpreadMode?.(
+        spread,
+      );
+    });
+  }, []);
 
   useEffect(() => {
     selectedIdRef.current = selectedNode?.id ?? null;
@@ -234,8 +285,10 @@ export default function LandscapeV2() {
         reheatRef.current = fn;
       },
       initialParticleSlider: particleSpeed,
+      getEdgeVisibility,
+      getLayoutSpread,
     });
-  }, [graphData]);
+  }, [graphData, getEdgeVisibility, getLayoutSpread]);
 
   const projectCount = graphData.nodes.filter(
     (n) => n.type === "project",
@@ -243,6 +296,10 @@ export default function LandscapeV2() {
   const liveCallCount = graphData.nodes.filter(
     (n) => n.type === "live_call",
   ).length;
+  const visibleEdgeCount = useMemo(
+    () => graphData.links.filter((l) => edgeVisibility[l.edge_type]).length,
+    [graphData.links, edgeVisibility],
+  );
   const snapshotDate = new Date(
     LANDSCAPE_SNAPSHOT.generatedAt,
   ).toLocaleDateString("en-GB", {
@@ -314,6 +371,47 @@ export default function LandscapeV2() {
           label="↺ Reheat"
           onClick={() => reheatRef.current?.()}
         />
+        <div
+          style={{
+            marginTop: 6,
+            paddingTop: 8,
+            borderTop: "0.5px solid rgba(255,255,255,0.12)",
+          }}
+        >
+          <span
+            style={{
+              color: "#6e7681",
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+            }}
+          >
+            Layout
+          </span>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              color: "#c9d1d9",
+              fontSize: 11,
+              cursor: "pointer",
+              marginTop: 6,
+              lineHeight: 1.35,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={layoutSpread}
+              onChange={() => setLayoutSpreadAndApply(!layoutSpreadRef.current)}
+              style={{ marginTop: 2 }}
+            />
+            <span>
+              Allow spread (collision separates overlaps). Off = strict UMAP
+              scatter; you can still drag nodes.
+            </span>
+          </label>
+        </div>
         <label
           style={{
             display: "flex",
@@ -333,6 +431,90 @@ export default function LandscapeV2() {
             onChange={(e) => handleParticleSpeed(Number(e.target.value))}
           />
         </label>
+        <div
+          style={{
+            marginTop: 8,
+            paddingTop: 8,
+            borderTop: "0.5px solid rgba(255,255,255,0.12)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <span
+            style={{
+              color: "#6e7681",
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+            }}
+          >
+            Edges
+          </span>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: "#c9d1d9",
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={edgeVisibility.shared_org}
+              onChange={() =>
+                patchEdgeVisibility({
+                  shared_org: !edgeVisRef.current.shared_org,
+                })
+              }
+            />
+            Shared org
+          </label>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: "#c9d1d9",
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={edgeVisibility.semantic_similarity}
+              onChange={() =>
+                patchEdgeVisibility({
+                  semantic_similarity: !edgeVisRef.current.semantic_similarity,
+                })
+              }
+            />
+            Semantic similarity
+          </label>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: "#c9d1d9",
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={edgeVisibility.live_match}
+              onChange={() =>
+                patchEdgeVisibility({
+                  live_match: !edgeVisRef.current.live_match,
+                })
+              }
+            />
+            Live match + particles
+          </label>
+        </div>
       </div>
 
       {selectedNode && (
@@ -462,6 +644,7 @@ export default function LandscapeV2() {
             node={selectedNode}
             allLinks={graphData.links}
             allNodes={graphData.nodes}
+            edgeVisibility={edgeVisibility}
           />
         </div>
       )}
@@ -489,7 +672,13 @@ export default function LandscapeV2() {
           }}
         >
           {projectCount} projects · {liveCallCount} live calls ·{" "}
-          {graphData.links.length} edges
+          {visibleEdgeCount} edges shown
+          {visibleEdgeCount !== graphData.links.length ? (
+            <span style={{ color: "#6e7681" }}>
+              {" "}
+              ({graphData.links.length} total)
+            </span>
+          ) : null}
         </div>
 
         <button

@@ -8,6 +8,12 @@ import { forceCollide, forceSimulation } from "d3-force";
 import type { Simulation, SimulationLinkDatum } from "d3-force";
 
 const PADDING = 60;
+/** Extra space around each node for collision (smaller = closer to raw UMAP). */
+const COLLIDE_PADDING = 5;
+/** After pins release, use a low alpha so separation is gentle, not a burst. */
+const LAYOUT_RELEASE_ALPHA = 0.22;
+
+export type LandscapeEdgeVisibility = Record<EdgeType, boolean>;
 
 export type SimNode = LandscapeNode & {
   index?: number;
@@ -33,6 +39,13 @@ export type CanvasOptions = {
   onReheatReady?: (fn: () => void) => void;
   /** Slider 0–100; default 20 */
   initialParticleSlider?: number;
+  /** If set, called each frame to decide which edge types to draw and animate. */
+  getEdgeVisibility?: () => LandscapeEdgeVisibility;
+  /**
+   * When true (default if unset), pins release and collision separates overlaps.
+   * When false, nodes stay pinned at UMAP canvas positions; drag still works.
+   */
+  getLayoutSpread?: () => boolean;
 };
 
 type Particle = { link: SimLink; progress: number };
@@ -42,6 +55,8 @@ type CanvasWithApi = HTMLCanvasElement & {
   __allLinks?: LandscapeLink[];
   __rebuildSim?: (nodes: SimNode[], links: LandscapeLink[]) => void;
   __setParticleSpeed?: (v: number) => void;
+  __respawnParticlesForEdges?: () => void;
+  __setLayoutSpreadMode?: (spread: boolean) => void;
 };
 
 function escapeHtml(s: string): string {
@@ -162,6 +177,84 @@ export function initCanvas(
   let particleSlider = options?.initialParticleSlider ?? 20;
   let particleSpeed = sliderToParticleSpeed(particleSlider);
 
+  function isEdgeTypeVisible(et: EdgeType): boolean {
+    const get = options?.getEdgeVisibility;
+    if (!get) return true;
+    return get()[et] !== false;
+  }
+
+  function layoutSpreadEnabled(): boolean {
+    return options?.getLayoutSpread?.() !== false;
+  }
+
+  function umapToCanvas(umapX: number, umapY: number) {
+    return {
+      x: PADDING + (umapX / 100) * (W - PADDING * 2),
+      y: PADDING + (umapY / 100) * (H - PADDING * 2),
+    };
+  }
+
+  function effectiveUmap(n: SimNode): { ux: number; uy: number } {
+    const ux = n.umapX ?? n.x ?? hashUmapComponent(n.id, "x");
+    const uy = n.umapY ?? n.y ?? hashUmapComponent(n.id, "y");
+    return { ux, uy };
+  }
+
+  /**
+   * Place every node at its UMAP screen position and pin there.
+   * @param freezeSim when true, collision loop stays off (strict UMAP mode).
+   */
+  function pinAllNodesAtUmap(freezeSim: boolean) {
+    for (const n of simNodes) {
+      const { ux, uy } = effectiveUmap(n);
+      n.umapX = ux;
+      n.umapY = uy;
+      const { x, y } = umapToCanvas(ux, uy);
+      n.x = x;
+      n.y = y;
+      n.fx = x;
+      n.fy = y;
+      n.vx = 0;
+      n.vy = 0;
+    }
+    layoutPinsReleased = false;
+    simSettledFrozen = freezeSim;
+  }
+
+  function scheduleSpreadPinRelease() {
+    if (pinReleaseTimer) {
+      clearTimeout(pinReleaseTimer);
+      pinReleaseTimer = null;
+    }
+    pinReleaseTimer = setTimeout(() => {
+      if (isDestroyed || !layoutSpreadEnabled()) return;
+      for (const n of simNodes) {
+        n.fx = null;
+        n.fy = null;
+        n.vx = 0;
+        n.vy = 0;
+      }
+      layoutPinsReleased = true;
+      simSettledFrozen = false;
+      sim?.alpha(LAYOUT_RELEASE_ALPHA);
+    }, 800);
+  }
+
+  function applyLayoutSpreadMode(spread: boolean) {
+    if (!sim || simNodes.length === 0) return;
+    if (spread) {
+      pinAllNodesAtUmap(false);
+      scheduleSpreadPinRelease();
+    } else {
+      if (pinReleaseTimer) {
+        clearTimeout(pinReleaseTimer);
+        pinReleaseTimer = null;
+      }
+      pinAllNodesAtUmap(true);
+      layoutPinsReleased = false;
+    }
+  }
+
   let rafId = 0;
   let isDestroyed = false;
   let pulsePhase = 0;
@@ -252,13 +345,18 @@ export function initCanvas(
     ty = H / 2 - (k * (y0 + y1)) / 2;
   }
 
-  function spawnParticles() {
+  function respawnParticlesForEdges() {
     particles = [];
+    if (!isEdgeTypeVisible("live_match")) return;
     for (const l of simLinks) {
       if (l.edge_type !== "live_match") continue;
       particles.push({ link: l, progress: 0 });
       particles.push({ link: l, progress: 0.5 });
     }
+  }
+
+  function spawnParticles() {
+    respawnParticlesForEdges();
   }
 
   function stopSim() {
@@ -303,23 +401,19 @@ export function initCanvas(
       .force(
         "collide",
         forceCollide<SimNode>()
-          .radius((d) => nodeRadius(d) + 10)
+          .radius((d) => nodeRadius(d) + COLLIDE_PADDING)
           .strength(0.9)
           .iterations(3),
       )
       .alphaDecay(0.04)
       .velocityDecay(0.6);
 
-    pinReleaseTimer = setTimeout(() => {
-      if (isDestroyed) return;
-      for (const n of simNodes) {
-        n.fx = null;
-        n.fy = null;
-      }
-      layoutPinsReleased = true;
-      simSettledFrozen = false;
-      sim?.alpha(1);
-    }, 800);
+    if (layoutSpreadEnabled()) {
+      scheduleSpreadPinRelease();
+    } else {
+      layoutPinsReleased = false;
+      simSettledFrozen = true;
+    }
 
     /** D3 starts an internal timer by default; we drive ticks from RAF only. */
     sim.stop();
@@ -379,6 +473,7 @@ export function initCanvas(
     const nodeById = new Map(simNodes.map((n) => [n.id, n]));
 
     for (const link of simLinks) {
+      if (!isEdgeTypeVisible(link.edge_type)) continue;
       const s =
         typeof link.source === "string"
           ? nodeById.get(link.source)
@@ -424,6 +519,7 @@ export function initCanvas(
     if (particleSpeed > 0) {
       for (const p of particles) {
         const l = p.link;
+        if (!isEdgeTypeVisible(l.edge_type)) continue;
         const sa =
           typeof l.source === "string" ? nodeById.get(l.source) : l.source;
         const ta =
@@ -564,6 +660,7 @@ export function initCanvas(
     }
     if (particleSpeed > 0) {
       for (const p of particles) {
+        if (!isEdgeTypeVisible(p.link.edge_type)) continue;
         p.progress = (p.progress + particleSpeed) % 1;
       }
     }
@@ -717,13 +814,15 @@ export function initCanvas(
   }
 
   function reheat() {
-    if (!sim || !layoutPinsReleased) return;
+    if (!sim || !layoutPinsReleased || !layoutSpreadEnabled()) return;
     simSettledFrozen = false;
     for (const n of simNodes) {
       n.fx = null;
       n.fy = null;
+      n.vx = 0;
+      n.vy = 0;
     }
-    sim.alpha(0.2);
+    sim.alpha(0.18);
   }
 
   function setParticleSpeed(v: number) {
@@ -746,6 +845,12 @@ export function initCanvas(
   };
 
   buildSimulation(fullNodes, fullLinks);
+  c.__respawnParticlesForEdges = () => {
+    respawnParticlesForEdges();
+  };
+  c.__setLayoutSpreadMode = (spread: boolean) => {
+    applyLayoutSpreadMode(spread);
+  };
   setParticleSpeed(particleSlider);
   fitAll();
   draw();
@@ -784,5 +889,7 @@ export function initCanvas(
     delete c.__allLinks;
     delete c.__rebuildSim;
     delete c.__setParticleSpeed;
+    delete c.__respawnParticlesForEdges;
+    delete c.__setLayoutSpreadMode;
   };
 }

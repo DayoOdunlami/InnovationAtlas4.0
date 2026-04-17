@@ -70,7 +70,8 @@ export async function loadLandscapeGraphData(
       pool.query<ProjectEdgeRow>(
         `SELECT source_id::text, target_id::text, edge_type, weight
          FROM atlas.project_edges
-         WHERE weight >= 0.7`,
+         WHERE edge_type IN ('shared_org', 'shared_topic', 'semantic')
+           AND weight >= 0.6`,
       ),
       pool.query<LiveCallEdgeRow>(
         `SELECT live_call_id::text, project_id::text, similarity_score

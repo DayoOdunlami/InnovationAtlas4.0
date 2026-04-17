@@ -3,6 +3,7 @@
 import type {
   LandscapeData,
   LandscapeLiveCall,
+  LandscapeOrganisation,
   LandscapeProject,
 } from "@/app/api/landscape/data/route";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import {
   inferThemeFromProject,
 } from "@/lib/landscape/infer-landscape-theme";
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -75,6 +76,31 @@ function DiamondDot({
   );
 }
 
+function TriangleDot({
+  cx,
+  cy,
+  fill,
+  payload,
+}: {
+  cx?: number;
+  cy?: number;
+  fill?: string;
+  payload?: { _opacity?: number; _size?: number };
+}) {
+  if (cx == null || cy == null) return null;
+  const s = payload?._size ?? 5;
+  const opacity = payload?._opacity ?? 0.88;
+  const points = `${cx},${cy - s} ${cx + s * 0.95},${cy + s * 0.55} ${cx - s * 0.95},${cy + s * 0.55}`;
+  return (
+    <polygon
+      points={points}
+      fill={fill ?? "#7F77DD"}
+      fillOpacity={opacity}
+      stroke="none"
+    />
+  );
+}
+
 // ── Tooltip ────────────────────────────────────────────────────────────────
 
 function formatAmount(val: number | string | null | undefined): string {
@@ -86,9 +112,24 @@ function formatAmount(val: number | string | null | undefined): string {
   return `£${n.toLocaleString()}`;
 }
 
+function orgFill(orgType: string): string {
+  switch (orgType) {
+    case "academic":
+      return "#7F77DD";
+    case "industry":
+      return "#1D9E75";
+    case "public_sector":
+      return "#D85A30";
+    case "catapult":
+      return "#6366f1";
+    default:
+      return "#6b7280";
+  }
+}
+
 type TooltipPayloadItem = {
-  payload: (LandscapeProject | LandscapeLiveCall) & {
-    _type: "project" | "live";
+  payload: (LandscapeProject | LandscapeLiveCall | LandscapeOrganisation) & {
+    _type: "project" | "live" | "org";
   };
 };
 
@@ -98,7 +139,40 @@ function LandscapeTooltip({
 }: { active?: boolean; payload?: TooltipPayloadItem[] }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
-  const isLive = d._type === "live";
+  const kind = d._type;
+
+  if (kind === "org") {
+    const o = d as LandscapeOrganisation & { _type: "org" };
+    return (
+      <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-md max-w-xs">
+        <div className="flex items-center gap-1.5 mb-1">
+          <TriangleDot
+            cx={8}
+            cy={8}
+            fill={orgFill(o.org_type)}
+            payload={{ _size: 4 }}
+          />
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Organisation
+          </span>
+        </div>
+        <p className="text-sm font-semibold leading-snug line-clamp-3">
+          {o.name}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1 capitalize">
+          {(o.org_type || "").replaceAll("_", " ")}
+        </p>
+        <p className="text-xs font-medium mt-0.5">
+          {o.project_count} project{o.project_count === 1 ? "" : "s"}
+          {o.total_funding != null && String(o.total_funding) !== "" && (
+            <> · {formatAmount(o.total_funding)}</>
+          )}
+        </p>
+      </div>
+    );
+  }
+
+  const isLive = kind === "live";
   const funder = isLive
     ? (d as LandscapeLiveCall).funder
     : (d as LandscapeProject).lead_funder;
@@ -124,7 +198,7 @@ function LandscapeTooltip({
         )}
       </div>
       <p className="text-sm font-semibold leading-snug line-clamp-3">
-        {d.title}
+        {(d as LandscapeProject | LandscapeLiveCall).title}
       </p>
       {funder && <p className="text-xs text-muted-foreground mt-1">{funder}</p>}
       {amount != null && String(amount) !== "" && (
@@ -144,9 +218,10 @@ function LandscapeTooltip({
 function LandscapeLegend({
   projects,
   liveCalls,
-}: { projects: number; liveCalls: number }) {
+  organisations,
+}: { projects: number; liveCalls: number; organisations: number }) {
   return (
-    <div className="flex items-center gap-5 text-sm text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
       <span className="flex items-center gap-2">
         <svg width="16" height="16" viewBox="0 0 16 16">
           <circle cx="8" cy="8" r="5" fill="#3b82f6" fillOpacity={0.75} />
@@ -163,6 +238,18 @@ function LandscapeLegend({
         </svg>
         Live calls ({liveCalls})
       </span>
+      {organisations > 0 && (
+        <span className="flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 16 16">
+            <polygon
+              points="8,2 14,13 2,13"
+              fill="#7F77DD"
+              fillOpacity={0.88}
+            />
+          </svg>
+          Organisations ({organisations})
+        </span>
+      )}
     </div>
   );
 }
@@ -172,12 +259,14 @@ function LandscapeLegend({
 interface LandscapeScatterProps {
   modeFilter?: string;
   showLiveCalls?: boolean;
+  showOrganisations?: boolean;
   highlightTheme?: string | null;
 }
 
 export const LandscapeScatter = memo(function LandscapeScatter({
   modeFilter = "All",
   showLiveCalls = true,
+  showOrganisations = false,
   highlightTheme = null,
 }: LandscapeScatterProps) {
   const [data, setData] = useState<LandscapeData | null>(null);
@@ -190,7 +279,9 @@ export const LandscapeScatter = memo(function LandscapeScatter({
     try {
       const res = await fetch("/api/landscape/data");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setData(await res.json());
+      const json = (await res.json()) as LandscapeData;
+      if (!json.organisations) json.organisations = [];
+      setData(json);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -202,11 +293,19 @@ export const LandscapeScatter = memo(function LandscapeScatter({
     load();
   }, [load]);
 
+  const orgList = data?.organisations ?? [];
+  const maxOrgProjects = useMemo(
+    () => Math.max(1, ...orgList.map((o) => o.project_count ?? 0)),
+    [orgList],
+  );
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
         <Loader2 className="size-8 animate-spin" />
-        <p className="text-sm">Loading {622} projects + live calls…</p>
+        <p className="text-sm">
+          Loading projects, live calls, and organisations…
+        </p>
       </div>
     );
   }
@@ -223,7 +322,6 @@ export const LandscapeScatter = memo(function LandscapeScatter({
     );
   }
 
-  // Annotate _type so tooltip can distinguish; apply mode filter opacity
   const projectPoints = data.projects.map((p) => {
     const modeMatch =
       modeFilter === "All" ||
@@ -266,12 +364,33 @@ export const LandscapeScatter = memo(function LandscapeScatter({
       })
     : [];
 
+  const orgPoints =
+    showOrganisations && orgList.length > 0
+      ? orgList.map((o) => {
+          const pc = o.project_count ?? 0;
+          const size = 3.5 + (pc / maxOrgProjects) * 7;
+          return {
+            ...o,
+            title: o.name,
+            _type: "org" as const,
+            x: Number(o.viz_x),
+            y: Number(o.viz_y),
+            _opacity: 0.88,
+            _size: size,
+            _fill: orgFill(o.org_type),
+          };
+        })
+      : [];
+
+  const legendOrgCount = showOrganisations ? orgPoints.length : 0;
+
   return (
     <div className="flex flex-col h-full gap-3">
       <div className="flex items-center justify-between px-1">
         <LandscapeLegend
           projects={projectPoints.length}
           liveCalls={livePoints.length}
+          organisations={legendOrgCount}
         />
         <Button variant="ghost" size="icon" onClick={load} title="Refresh data">
           <RefreshCw className="size-4" />
@@ -342,6 +461,29 @@ export const LandscapeScatter = memo(function LandscapeScatter({
               }) => <DiamondDot {...props} />}
               isAnimationActive={false}
             />
+            {orgPoints.length > 0 && (
+              <Scatter
+                name="Organisations"
+                data={orgPoints}
+                fill="#7F77DD"
+                shape={(props: {
+                  cx?: number;
+                  cy?: number;
+                  fill?: string;
+                  payload?: {
+                    _opacity?: number;
+                    _size?: number;
+                    _fill?: string;
+                  };
+                }) => (
+                  <TriangleDot
+                    {...props}
+                    fill={props.payload?._fill ?? "#7F77DD"}
+                  />
+                )}
+                isAnimationActive={false}
+              />
+            )}
             <Legend wrapperStyle={{ display: "none" }} />
           </ScatterChart>
         </ResponsiveContainer>

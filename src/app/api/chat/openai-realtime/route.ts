@@ -1,9 +1,9 @@
 import { AllowedMCPServer, VercelAIMcpTool } from "app-types/mcp";
 import { getSession } from "auth/server";
 import {
-  VOICE_REALTIME_RESPONSE_APPENDIX,
   buildMcpServerCustomizationsSystemPrompt,
   buildSpeechSystemPrompt,
+  buildVoiceRealtimeAppendix,
 } from "lib/ai/prompts";
 import { NextRequest } from "next/server";
 import {
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         agent,
       ),
       buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
-      VOICE_REALTIME_RESPONSE_APPENDIX,
+      buildVoiceRealtimeAppendix(agent),
     );
 
     const voiceDefaultToolsForSlice =
@@ -114,6 +114,19 @@ export async function POST(request: NextRequest) {
       ...voiceDefaultToolsForSlice,
     ];
 
+    // Model is env-flagged so we can A/B `gpt-4o-realtime-preview` (beta) vs
+    // `gpt-realtime` (GA) without redeploying. Voice must be compatible with
+    // the chosen model: `marin` is GA-only; preview still uses `ash`.
+    const realtimeModel =
+      process.env.OPENAI_REALTIME_MODEL ?? "gpt-4o-realtime-preview";
+    const defaultVoiceForModel =
+      realtimeModel === "gpt-realtime" ? "marin" : "ash";
+    // `gpt-4o-mini-transcribe` is only safe once we move to the GA endpoint
+    // (`/v1/realtime/calls`). On the beta `/v1/realtime/sessions` path we
+    // stay on `whisper-1` unless explicitly overridden. Always pin language.
+    const transcribeModel =
+      process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL ?? "whisper-1";
+
     const r = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
       headers: {
@@ -122,10 +135,11 @@ export async function POST(request: NextRequest) {
       },
 
       body: JSON.stringify({
-        model: "gpt-4o-realtime-preview",
-        voice: voice || "alloy",
+        model: realtimeModel,
+        voice: voice || defaultVoiceForModel,
         input_audio_transcription: {
-          model: "whisper-1",
+          model: transcribeModel,
+          language: "en",
         },
         instructions: systemPrompt,
         tools: bindingTools,

@@ -22,6 +22,7 @@ const LandscapeScatter = dynamic(
 interface LandscapeScatterLazyProps {
   modeFilter?: string;
   showLiveCalls?: boolean;
+  showOrganisations?: boolean;
   /** When set, emphasises nodes whose inferred theme matches (guided demo). */
   highlightTheme?: string | null;
 }
@@ -29,12 +30,14 @@ interface LandscapeScatterLazyProps {
 export function LandscapeScatterLazy({
   modeFilter = "All",
   showLiveCalls = true,
+  showOrganisations = false,
   highlightTheme = null,
 }: LandscapeScatterLazyProps) {
   return (
     <LandscapeScatter
       modeFilter={modeFilter}
       showLiveCalls={showLiveCalls}
+      showOrganisations={showOrganisations}
       highlightTheme={highlightTheme}
     />
   );

@@ -10,6 +10,7 @@ import {
   VoiceChatSession,
 } from "..";
 import {
+  OPENAI_REALTIME_WEBRTC_SDP_URL,
   OpenAIRealtimeServerEvent,
   OpenAIRealtimeSession,
 } from "./openai-realtime-event";
@@ -96,6 +97,8 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
 
   const { setTheme } = useTheme();
   const tracks = useRef<RTCRtpSender[]>([]);
+  /** True after we send `response.create` until the model finishes that response. */
+  const realtimeResponseInFlightRef = useRef(false);
 
   const startListening = useCallback(async () => {
     try {
@@ -202,7 +205,12 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
     }: { callId: string; toolName: string; args: string; id: string }) => {
       let payloadForRealtime: unknown = "success";
       let payloadForUi: unknown = "success";
-      stopListening();
+      // NOTE: We intentionally do NOT call stopListening() here. Disabling the
+      // mic during tool calls (a) breaks barge-in, and (b) creates
+      // `conversation_already_has_active_response` errors when the user
+      // speaks again before the in-flight response resolves. The mic stays
+      // hot; barge-in is handled via `response.cancel` on
+      // `input_audio_buffer.speech_started` below.
       const toolArgs = JSON.parse(args);
       if (DEFAULT_VOICE_TOOLS.some((t) => t.name === toolName)) {
         switch (toolName) {
@@ -238,7 +246,8 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
         payloadForRealtime = mcpResult;
         payloadForUi = mcpResult;
       }
-      startListening();
+      // NOTE: No startListening() here — see the matching note above where
+      // stopListening() was removed. The mic is never cut during tool calls.
       const resultText = JSON.stringify(payloadForRealtime).trim();
 
       const event = {
@@ -266,8 +275,19 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       });
       dataChannel.current?.send(JSON.stringify(event));
 
-      dataChannel.current?.send(JSON.stringify({ type: "response.create" }));
-      dataChannel.current?.send(JSON.stringify({ type: "response.create" }));
+      const dc = dataChannel.current;
+      if (dc && dc.readyState === "open") {
+        if (realtimeResponseInFlightRef.current) {
+          if (process.env.NODE_ENV === "development") {
+            console.debug(
+              "[voice] skip response.create — assistant response still in flight",
+            );
+          }
+        } else {
+          realtimeResponseInFlightRef.current = true;
+          dc.send(JSON.stringify({ type: "response.create" }));
+        }
+      }
     },
     [updateUIMessage],
   );
@@ -276,6 +296,23 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
     (event: OpenAIRealtimeServerEvent) => {
       switch (event.type) {
         case "input_audio_buffer.speech_started": {
+          // Barge-in: if the model is currently speaking (response still in
+          // flight) and the user starts talking, cancel the active response
+          // immediately so we don't talk over them. The server responds with
+          // `response.cancelled` which we handle below to clear the flag.
+          if (
+            realtimeResponseInFlightRef.current &&
+            dataChannel.current?.readyState === "open"
+          ) {
+            if (process.env.NODE_ENV === "development") {
+              console.debug(
+                "[voice] barge-in detected — sending response.cancel",
+              );
+            }
+            dataChannel.current.send(
+              JSON.stringify({ type: "response.cancel" }),
+            );
+          }
           const message = createUIMessage({
             role: "user",
             id: event.item_id,
@@ -286,6 +323,20 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
           });
           setIsUserSpeaking(true);
           setMessages((prev) => [...prev, message]);
+          break;
+        }
+        case "response.cancelled": {
+          realtimeResponseInFlightRef.current = false;
+          setIsAssistantSpeaking(false);
+          break;
+        }
+        case "session.updated": {
+          if (process.env.NODE_ENV === "development") {
+            console.debug(
+              "[voice] session.updated confirmed by server",
+              event.session?.turn_detection,
+            );
+          }
           break;
         }
         case "input_audio_buffer.committed": {
@@ -389,6 +440,34 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
           setIsAssistantSpeaking(false);
           break;
         }
+        case "error": {
+          const detail = event.error;
+          const msg = [detail?.message, detail?.code && `(${detail.code})`]
+            .filter(Boolean)
+            .join(" ");
+          console.error("[realtime-dc] error", detail ?? event);
+          if (
+            detail?.code === "conversation_already_has_active_response" ||
+            detail?.message?.includes(
+              "conversation_already_has_active_response",
+            )
+          ) {
+            realtimeResponseInFlightRef.current = false;
+          }
+          setError(
+            new Error(
+              msg.trim() || "OpenAI Realtime reported an error on the session.",
+            ),
+          );
+          break;
+        }
+        default: {
+          const t = (event as { type?: string }).type;
+          if (t === "response.done" || t === "response.completed") {
+            realtimeResponseInFlightRef.current = false;
+          }
+          break;
+        }
       }
     },
     [clientFunctionCall, updateUIMessage],
@@ -399,9 +478,9 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
     setIsLoading(true);
     setError(null);
     setMessages([]);
+    realtimeResponseInFlightRef.current = false;
     try {
       const session = await createSession();
-      console.log({ session });
       const sessionToken = session.client_secret.value;
       const pc = new RTCPeerConnection();
       if (!audioElement.current) {
@@ -429,6 +508,14 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       dc.addEventListener("message", async (e) => {
         try {
           const event = JSON.parse(e.data) as OpenAIRealtimeServerEvent;
+          if (process.env.NODE_ENV === "development") {
+            const eventType = event.type ?? "unknown";
+            if (eventType.includes("delta") || eventType.includes("partial")) {
+              console.debug("[realtime-dc]", eventType);
+            } else {
+              console.debug("[realtime-dc]", event);
+            }
+          }
           handleServerEvent(event);
         } catch (err) {
           console.error({
@@ -438,9 +525,52 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
         }
       });
       dc.addEventListener("open", () => {
+        // Configure VAD + noise reduction as soon as the data channel is up.
+        // `semantic_vad` with `eagerness: "low"` drastically reduces mid-
+        // sentence cut-offs compared to the default `server_vad`. Noise
+        // reduction cleans up near-field mic audio. Set
+        // `NEXT_PUBLIC_VOICE_VAD_MODE=server_vad` to roll back instantly.
+        const vadMode =
+          process.env.NEXT_PUBLIC_VOICE_VAD_MODE === "server_vad"
+            ? "server_vad"
+            : "semantic_vad";
+        try {
+          dc.send(
+            JSON.stringify({
+              type: "session.update",
+              session: {
+                turn_detection: {
+                  type: vadMode,
+                  ...(vadMode === "semantic_vad"
+                    ? { eagerness: "low", interrupt_response: true }
+                    : { create_response: true, interrupt_response: true }),
+                },
+                input_audio_noise_reduction: { type: "near_field" },
+              },
+            }),
+          );
+          if (process.env.NODE_ENV === "development") {
+            console.debug(
+              `[voice] session.update sent (turn_detection=${vadMode})`,
+            );
+          }
+        } catch (err) {
+          console.error("[voice] failed to send session.update", err);
+        }
         setIsActive(true);
         setIsListening(true);
         setIsLoading(false);
+        const greeting = props?.connectedGreeting?.trim();
+        if (greeting) {
+          setMessages((prev) => [
+            ...prev,
+            createUIMessage({
+              role: "assistant",
+              content: { type: "text", text: greeting },
+              completed: true,
+            }),
+          ]);
+        }
       });
       dc.addEventListener("close", () => {
         setIsActive(false);
@@ -459,7 +589,7 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       });
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      const sdpResponse = await fetch(`https://api.openai.com/v1/realtime`, {
+      const sdpResponse = await fetch(OPENAI_REALTIME_WEBRTC_SDP_URL, {
         method: "POST",
         body: offer.sdp,
         headers: {
@@ -467,9 +597,16 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
           "Content-Type": "application/sdp",
         },
       });
+      const answerSdp = await sdpResponse.text();
+      if (!sdpResponse.ok) {
+        throw new Error(
+          answerSdp ||
+            `OpenAI Realtime SDP failed with HTTP ${sdpResponse.status}`,
+        );
+      }
       const answer: RTCSessionDescriptionInit = {
         type: "answer",
-        sdp: await sdpResponse.text(),
+        sdp: answerSdp,
       };
       await pc.setRemoteDescription(answer);
       peerConnection.current = pc;
@@ -479,7 +616,14 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       setIsListening(false);
       setIsLoading(false);
     }
-  }, [isActive, isLoading, createSession, handleServerEvent, voice]);
+  }, [
+    isActive,
+    isLoading,
+    createSession,
+    handleServerEvent,
+    voice,
+    props?.connectedGreeting,
+  ]);
 
   const stop = useCallback(async () => {
     try {
@@ -493,6 +637,7 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       }
       tracks.current = [];
       stopListening();
+      realtimeResponseInFlightRef.current = false;
       setIsActive(false);
       setIsListening(false);
       setIsLoading(false);

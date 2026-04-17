@@ -29,9 +29,20 @@ export type LandscapeLiveCall = {
   description: string | null;
 };
 
+export type LandscapeOrganisation = {
+  id: string;
+  name: string;
+  org_type: string;
+  project_count: number;
+  total_funding: string | number | null;
+  viz_x: number;
+  viz_y: number;
+};
+
 export type LandscapeData = {
   projects: LandscapeProject[];
   liveCalls: LandscapeLiveCall[];
+  organisations: LandscapeOrganisation[];
 };
 
 export async function GET() {
@@ -41,7 +52,7 @@ export async function GET() {
 
   const pool = getPassportPool();
   try {
-    const [projectsResult, liveCallsResult] = await Promise.all([
+    const [projectsResult, liveCallsResult, orgsResult] = await Promise.all([
       pool.query<LandscapeProject>(
         `SELECT id, title, lead_funder, funding_amount, viz_x, viz_y,
                 transport_relevance_score, status, abstract, cpc_modes,
@@ -63,11 +74,21 @@ export async function GET() {
              OR relevance_tag <> 'irrelevant'
            )`,
       ),
+      pool.query<LandscapeOrganisation>(
+        `SELECT id::text, name, org_type,
+                project_count::int AS project_count,
+                total_funding::text,
+                viz_x::float, viz_y::float
+         FROM atlas.organisations
+         WHERE viz_x IS NOT NULL AND viz_y IS NOT NULL
+         ORDER BY project_count DESC NULLS LAST, name`,
+      ),
     ]);
 
     return NextResponse.json({
       projects: projectsResult.rows,
       liveCalls: liveCallsResult.rows,
+      organisations: orgsResult.rows,
     } satisfies LandscapeData);
   } finally {
     await pool.end();

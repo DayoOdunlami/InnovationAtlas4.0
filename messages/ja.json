@@ -126,7 +126,11 @@
       "searchOptionsDescription": "検索結果の最大数、検索日時など、チャットボットに検索オプションを渡すことができます。",
       "defaultToolKit": {
         "visualization": "データ可視化",
-        "webSearch": "ウェブを検索"
+        "webSearch": "ウェブを検索",
+        "research": "学術研究（OpenAlex）",
+        "http": "HTTP リクエスト",
+        "code": "コード実行",
+        "passport": "Innovation Passport"
       },
       "agent": "エージェント",
       "mention": "メンション",
@@ -157,7 +161,9 @@
       "readyWhenYouAreJustStartTalking": "準備ができました。話しかけてください。",
       "yourMicIsOff": "マイクがオフになっています。",
       "preparing": "準備中...",
-      "startVoiceChat": "音声チャットを開始しますか？"
+      "startVoiceChat": "音声チャットを開始しますか？",
+      "connectedAssistantHello": "こんにちは、{name}です。音声は接続済みです。いつでも話し始めてください。",
+      "connectedVoiceHello": "音声は接続済みです。聞いています。いつでも話し始めてください。"
     },
     "Thread": {
       "chat": "チャット",

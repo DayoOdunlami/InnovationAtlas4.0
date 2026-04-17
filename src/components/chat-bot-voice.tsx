@@ -135,6 +135,14 @@ export function ChatBotVoice() {
     );
   }, [agentId, agent, mcpList, allowedMcpServers]);
 
+  const connectedGreeting = useMemo(() => {
+    const name = agent?.name?.trim();
+    if (name) {
+      return t("VoiceChat.connectedAssistantHello", { name });
+    }
+    return t("VoiceChat.connectedVoiceHello");
+  }, [agent?.name, t]);
+
   const {
     isListening,
     isAssistantSpeaking,
@@ -151,6 +159,7 @@ export function ChatBotVoice() {
     toolMentions,
     agentId,
     allowedMcpServers,
+    connectedGreeting,
     ...voiceChat.options.providerOptions,
   });
 

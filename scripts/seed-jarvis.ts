@@ -15,13 +15,25 @@
  */
 
 import "load-env";
+import type { MCPServerConfig, McpServerInsert } from "app-types/mcp";
 import { auth } from "auth/auth-instance";
 import { asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { ATLAS_SYSTEM_PROMPT } from "lib/ai/prompts/atlas-strategist";
+import { HYVE_SYSTEM_PROMPT } from "lib/ai/prompts/hyve";
 import { AgentTable, UserTable } from "lib/db/pg/schema.pg";
+import { mcpRepository } from "lib/db/repository";
 import { generateUUID } from "lib/utils";
 import { Pool } from "pg";
+
+const SUPABASE_HIVE_MCP_SERVER_INSTRUCTIONS =
+  "READ ONLY. SELECT queries only on hive schema. NEVER INSERT, UPDATE, DELETE, or ALTER any records. This is a live DfT-commissioned production database.";
+
+const SUPABASE_ATLAS_MCP_SERVER_INSTRUCTIONS =
+  "READ ONLY. SELECT queries only on atlas schema. NEVER INSERT, UPDATE, DELETE, or ALTER. " +
+  "Correct column names on atlas.projects: id, title, abstract, lead_funder, lead_org_name, " +
+  "funding_amount, start_date, end_date, research_topics[], embedding, transport_relevance_score, viz_x, viz_y. " +
+  "Never use lead_org (column does not exist); always use lead_org_name for the lead organisation name.";
 
 // ────────────────────────────────────────────────────────────────────────────
 // JARVIS system prompt — Notion: JARVIS Prompt Redesign + Passport Examples
@@ -29,6 +41,39 @@ import { Pool } from "pg";
 // ────────────────────────────────────────────────────────────────────────────
 const JARVIS_SYSTEM_PROMPT = [
   `You are JARVIS — the strategic intelligence assistant for Connected Places Catapult's Transport Business Unit. You help transport innovators discover cross-sector funding opportunities, understand what evidence they have, and identify what's missing.`,
+
+  `## CRITICAL RULE — QUERY BEFORE SPEAKING
+You MUST query supabase-atlas BEFORE making ANY substantive claim about the Atlas corpus, funded projects, organisations, funding amounts, or the innovation landscape. Do NOT speak from training knowledge when the user asks what the data shows. Do NOT fabricate project titles, funding amounts, funders, or organisation names. If a query returns no results, say: "I searched the corpus and found nothing on that specific topic. Want me to try a different search?" Query first, speak second. This is non-negotiable — it is the single biggest reason users lose trust in the agent.`,
+
+  `## LANGUAGE
+Always respond in English unless the user explicitly writes or speaks in another language AND asks you to respond in that language. If a user accidentally triggers another language, respond in English and ask: "Just to confirm — shall I continue in English?"`,
+
+  `## PERSONALITY & TONE
+
+You are Sarah's strategic sidekick — knowledgeable, direct, and mildly dry. Not a chipper chatbot.
+- Register: British English, plain, confident, insight-first. No "Absolutely!", "Certainly!", or "I'd be happy to help". No "As an AI".
+- Keep it concrete. Prefer "Three projects in the corpus match this shape, led by Arup, Siemens, and Network Rail" over "There are several relevant projects you might find interesting".
+- Show your working when it matters (claim → match reason → conditions flag → economic framing). Hide it when it's obvious.
+- Push back politely if the user asks you to fabricate or skip verification. "I can't claim that without a corpus match — let me run one first."
+- Voice mode: short, conversational, check in at ~150 words. Never read JSON or UUIDs aloud. Never read a claim preview verbatim — summarise it ("I extracted nine claims, three about performance, three about certification, and three about evidence. Where should I save them?").`,
+
+  `## REFERENCE PRONUNCIATIONS
+
+When reading these aloud, use the phonetic forms in brackets:
+- JARVIS → 'jar-viss'.
+- CPC → 'see-pee-see'.
+- GtR → 'gee-tee-are' (Gateway to Research).
+- IUK → 'eye-you-kay' (Innovate UK).
+- DfT → 'dee-eff-tee'.
+- UKRI → 'you-kay-are-eye'.
+- MCA → 'em-see-ay'. CAA → 'see-double-ay'. NRIL → 'en-are-eye-ell'.
+- HAZOP → 'haz-op'. TRL → 'tee-are-ell' + number ("TRL six").
+- ISCF → 'eye-ess-see-eff'. DSQTA → 'dee-ess-cue-tee-ay' (say it letter by letter).
+- eVTOL → 'ee-vee-toll'. CAV → 'see-ay-vee'.
+- Funding amounts: "£885,657" aloud → "about eight hundred and eighty-five thousand pounds". Keep full precision in text.
+- UUIDs: never read aloud — always refer by passport name, e.g. "your GPS-Denied Rail UAS Trial 2025 passport". Pass the UUID silently in tool calls.
+- Claim metadata aloud: say the fields in plain English ("self-reported", "AI-inferred", "verified"), not as raw enum values.
+- Years: "2025" → "twenty twenty-five".`,
 
   `## WHO YOU ARE TALKING TO
 
@@ -262,15 +307,23 @@ The upload triggers extraction automatically. After extraction completes:
   `## DATABASE ACCESS
 
 Use supabase-atlas MCP for reads. Key tables:
-- atlas.projects (622 rows): id, title, abstract, lead_funder, funding_amount, research_topics, transport_relevance_score, embedding
-- atlas.live_calls (31 rows, 3 open): live Horizon Europe funding calls
+- atlas.projects (622 rows): id, title, abstract, lead_funder, lead_org_name, funding_amount, start_date, end_date, research_topics[], embedding, transport_relevance_score, viz_x, viz_y (never use lead_org — use lead_org_name)
+- atlas.organisations (319 rows): name, org_type, project_count, total_funding, funders, research_topics, embedding, viz_x, viz_y
+- atlas.project_edges: shared_org, shared_topic, semantic (derived from projects)
+- atlas.live_calls: live funding calls (Horizon, Innovate UK, etc.)
 - atlas.project_outcomes: further_funding events (commercial viability signal)
 - atlas.lens_categories (14 rows): CPC and IUK taxonomy
 - atlas.passports, atlas.passport_claims, atlas.matches: user evidence data
 
 Keyword search: SELECT id, title, lead_funder, funding_amount FROM atlas.projects WHERE title ILIKE '%keyword%' OR abstract ILIKE '%keyword%' ORDER BY transport_relevance_score DESC LIMIT 20;
 
-Semantic matching: Use the runMatching tool — do not attempt pgvector queries manually.`,
+Semantic matching: Use the runMatching tool — do not attempt pgvector queries manually.
+
+## ACADEMIC LITERATURE (OpenAlex — surfaceResearch)
+
+When Sarah asks what **peer-reviewed research** or the **academic literature** says about a technical topic — "what does the research say", published evidence, empirical studies — use the \`surfaceResearch\` tool. It returns OpenAlex articles with authors, institutions, year, citation count, and a one-sentence finding lead from each abstract.
+
+Do **not** use \`surfaceResearch\` for funding calls, open competitions, grant deadlines, "what's funded this month", Atlas/GtR corpus queries, or operational logistics. For those, use supabase-atlas MCP reads and web search. Follow the tool's description for triggering edge cases.`,
 
   `## CPC TAXONOMY — LENS, NOT CLASSIFICATION
 
@@ -292,7 +345,8 @@ const JARVIS_INSTRUCTIONS = {
       type: "mcpServer" as const,
       name: "supabase-atlas",
       description:
-        "Direct SQL access to Supabase atlas schema (projects, lens_categories, passports, claims, matches). NEVER touch hive.* or public.*.",
+        "Direct SQL access to Supabase atlas schema: atlas.projects (622), atlas.organisations (319), atlas.project_edges (shared_org, shared_topic, semantic), atlas.lens_categories (14), passports, claims, matches. NEVER touch hive.* or public.*. " +
+        SUPABASE_ATLAS_MCP_SERVER_INSTRUCTIONS,
       serverId: "supabase-atlas",
     },
   ],
@@ -306,7 +360,32 @@ const ATLAS_INSTRUCTIONS = {
       type: "mcpServer" as const,
       name: "supabase-atlas",
       description:
-        "Direct SQL access to Supabase atlas schema (projects, lens_categories, live_calls, project_outcomes). NEVER touch hive.* or public.*.",
+        "Direct SQL access to Supabase atlas schema: atlas.projects (622), atlas.organisations (319), atlas.project_edges, atlas.live_calls, atlas.project_outcomes, atlas.lens_categories (14). NEVER touch hive.* or public.*. " +
+        SUPABASE_ATLAS_MCP_SERVER_INSTRUCTIONS,
+      serverId: "supabase-atlas",
+    },
+  ],
+};
+
+// supabase-hive — same Supabase Postgres project as Atlas; use DATABASE_URL (not HIVE_SUPABASE_*).
+// For Cursor MCP / .mcp-config.json, set serverInstructions exactly as below (read-only contract).
+
+const HYVE_INSTRUCTIONS = {
+  role: "climate adaptation intelligence — HIVE evidence, Atlas funding corpus, academic research",
+  systemPrompt: HYVE_SYSTEM_PROMPT,
+  mentions: [
+    {
+      type: "mcpServer" as const,
+      name: "supabase-hive",
+      description: `${SUPABASE_HIVE_MCP_SERVER_INSTRUCTIONS} Query hive.articles, hive.document_chunks, hive.sources, hive.options. Always use hive.* schema qualification. NEVER atlas.* or public.* on this connection.`,
+      serverId: "supabase-hive",
+    },
+    {
+      type: "mcpServer" as const,
+      name: "supabase-atlas",
+      description:
+        "Innovation Atlas corpus: atlas.projects, atlas.organisations, atlas.project_edges, atlas.live_calls, atlas.project_outcomes, atlas.lens_categories. NEVER hive.* or public.*. " +
+        SUPABASE_ATLAS_MCP_SERVER_INSTRUCTIONS,
       serverId: "supabase-atlas",
     },
   ],
@@ -372,11 +451,96 @@ Options:
   return newAdmin;
 }
 
+/**
+ * DB-backed MCP registration (same persistence as POST /api/mcp → saveMcpClientAction
+ * → mcpClientsManager.persistClient → mcpRepository.save).
+ * Config matches Master Handoff stdio postgres MCP; connection URI is resolved from env
+ * (same as app db.pg.ts — literal "${DATABASE_URL}" is not executable by npx).
+ */
+async function ensureSupabaseHiveMcpServer(adminUserId: string): Promise<void> {
+  const raw =
+    process.env.POSTGRES_URL ??
+    process.env.DATABASE_URL ??
+    (() => {
+      throw new Error(
+        "POSTGRES_URL or DATABASE_URL is required to register supabase-hive MCP.",
+      );
+    })();
+  const pooled = raw.replace(/[?&]sslmode=[^&]*/g, "");
+
+  const config = {
+    command: "npx",
+    args: ["-y", "@modelcontextprotocol/server-postgres", pooled],
+    env: { NODE_TLS_REJECT_UNAUTHORIZED: "0" },
+    serverInstructions: SUPABASE_HIVE_MCP_SERVER_INSTRUCTIONS,
+  } as unknown as MCPServerConfig;
+
+  const existing = await mcpRepository.selectByServerName("supabase-hive");
+  const row: McpServerInsert = {
+    name: "supabase-hive",
+    config,
+    userId: adminUserId,
+    visibility: "public",
+    ...(existing ? { id: existing.id } : {}),
+  };
+
+  const saved = await mcpRepository.save(row);
+  const verify = await mcpRepository.selectByServerName("supabase-hive");
+  if (!verify?.id) {
+    throw new Error("supabase-hive MCP was not persisted to mcp_server.");
+  }
+  console.log(
+    `✅ MCP server supabase-hive ${existing ? "updated" : "created"} (id: ${saved.id}, visibility: ${saved.visibility})`,
+  );
+}
+
+async function ensureSupabaseAtlasMcpServer(
+  adminUserId: string,
+): Promise<void> {
+  const raw =
+    process.env.POSTGRES_URL ??
+    process.env.DATABASE_URL ??
+    (() => {
+      throw new Error(
+        "POSTGRES_URL or DATABASE_URL is required to register supabase-atlas MCP.",
+      );
+    })();
+  const pooled = raw.replace(/[?&]sslmode=[^&]*/g, "");
+
+  const config = {
+    command: "npx",
+    args: ["-y", "@modelcontextprotocol/server-postgres", pooled],
+    env: { NODE_TLS_REJECT_UNAUTHORIZED: "0" },
+    serverInstructions: SUPABASE_ATLAS_MCP_SERVER_INSTRUCTIONS,
+  } as unknown as MCPServerConfig;
+
+  const existing = await mcpRepository.selectByServerName("supabase-atlas");
+  const row: McpServerInsert = {
+    name: "supabase-atlas",
+    config,
+    userId: adminUserId,
+    visibility: "public",
+    ...(existing ? { id: existing.id } : {}),
+  };
+
+  const saved = await mcpRepository.save(row);
+  const verify = await mcpRepository.selectByServerName("supabase-atlas");
+  if (!verify?.id) {
+    throw new Error("supabase-atlas MCP was not persisted to mcp_server.");
+  }
+  console.log(
+    `✅ MCP server supabase-atlas ${existing ? "updated" : "created"} (id: ${saved.id}, visibility: ${saved.visibility})`,
+  );
+}
+
 async function seedJarvis() {
   console.log("🤖 Seeding JARVIS agent for Innovation Atlas…");
 
   const admin = await ensureAdminUser();
   console.log(`✅ Using admin: ${admin.email} (${admin.id})`);
+
+  await ensureSupabaseHiveMcpServer(admin.id);
+  await ensureSupabaseAtlasMcpServer(admin.id);
 
   const upsertPublicAgent = async (opts: {
     name: string;
@@ -460,6 +624,17 @@ async function seedJarvis() {
 
   console.log(`✅ ${atlasResult.action} ATLAS agent (id: ${atlasResult.id})`);
 
+  const hyveResult = await upsertPublicAgent({
+    name: "HYVE",
+    description:
+      "Climate adaptation intelligence — HIVE case studies and guidance, Atlas GtR corpus, OpenAlex research, and live web context.",
+    iconValue: "🌿",
+    iconBackgroundColor: "#166534",
+    instructions: HYVE_INSTRUCTIONS,
+  });
+
+  console.log(`✅ ${hyveResult.action} HYVE agent (id: ${hyveResult.id})`);
+
   // Check if JARVIS already exists for this admin
   const existing = await db
     .select({ id: AgentTable.id })
@@ -469,12 +644,17 @@ async function seedJarvis() {
   if (existing.length === 0) throw new Error("Failed to create JARVIS agent");
 
   console.log(`
-📋 JARVIS agent is ready.
+📋 Public agents (JARVIS, ATLAS, HYVE) are ready.
 
-  • Visibility: public (all users can see and use both JARVIS + ATLAS)
+  • Visibility: public (all users can see and use JARVIS, ATLAS, and HYVE)
   • Model to select in chat: anthropic / sonnet-4-6 (claude-sonnet-4-6)
-  • MCP attached: supabase-atlas → atlas.projects (622 rows), atlas.lens_categories (14 rows)
-  • To switch from file-based MCP to DB-based: add supabase-atlas via the app UI,
+  • MCP: supabase-atlas (atlas.*) — JARVIS, ATLAS, HYVE
+  • MCP: supabase-hive (hive.*, READ ONLY) — HYVE only; same DATABASE_URL as Atlas
+  • supabase-hive serverInstructions (verbatim for MCP config):
+    ${SUPABASE_HIVE_MCP_SERVER_INSTRUCTIONS}
+  • supabase-atlas serverInstructions (verbatim for MCP config):
+    ${SUPABASE_ATLAS_MCP_SERVER_INSTRUCTIONS}
+  • To switch from file-based MCP to DB-based: add MCP servers via the app UI,
     then set FILE_BASED_MCP_CONFIG=false in .env
 `);
 }

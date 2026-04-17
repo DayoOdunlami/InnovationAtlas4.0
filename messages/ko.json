@@ -127,7 +127,11 @@
       "searchOptionsDescription": "검색 결과의 최대 개수, 검색 날짜 등의 검색 옵션을 챗봇에 전달할 수 있습니다.",
       "defaultToolKit": {
         "visualization": "데이터 시각화",
-        "webSearch": "웹 검색"
+        "webSearch": "웹 검색",
+        "research": "학술 연구 (OpenAlex)",
+        "http": "HTTP 요청",
+        "code": "코드 실행",
+        "passport": "Innovation Passport"
       },
       "agent": "에이전트",
       "mention": "멘션",
@@ -158,7 +162,9 @@
       "readyWhenYouAreJustStartTalking": "준비됐어요. 언제든 이야기해 주세요",
       "yourMicIsOff": "마이크를 꺼두셨어요.",
       "preparing": "준비중이에요...",
-      "startVoiceChat": "대화를 시작해볼까요?"
+      "startVoiceChat": "대화를 시작해볼까요?",
+      "connectedAssistantHello": "안녕하세요, {name}입니다. 음성이 연결되었습니다. 준비되면 말씀해 주세요.",
+      "connectedVoiceHello": "음성이 연결되었습니다. 듣고 있습니다. 준비되면 말씀해 주세요."
     },
     "Thread": {
       "chat": "채팅",

@@ -1,6 +1,10 @@
 export type NodeType = "project" | "live_call";
 
-export type EdgeType = "shared_org" | "semantic_similarity" | "live_match";
+export type EdgeType =
+  | "shared_org"
+  | "semantic"
+  | "shared_topic"
+  | "live_match";
 
 export type LiveCallSource = "innovate_uk" | "horizon_europe" | "find_a_tender";
 

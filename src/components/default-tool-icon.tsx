@@ -2,14 +2,15 @@
 import { DefaultToolName } from "lib/ai/tools";
 import { cn } from "lib/utils";
 import {
-  TrendingUpIcon,
   ChartColumnIcon,
   ChartPieIcon,
-  GlobeIcon,
-  HardDriveUploadIcon,
   CodeIcon,
+  GlobeIcon,
+  GraduationCap,
   HammerIcon,
+  HardDriveUploadIcon,
   TableOfContents,
+  TrendingUpIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 
@@ -43,6 +44,11 @@ export function DefaultToolIcon({
     }
     if (name === DefaultToolName.WebContent) {
       return <GlobeIcon className={cn("size-3.5 text-blue-400", className)} />;
+    }
+    if (name === DefaultToolName.SurfaceResearch) {
+      return (
+        <GraduationCap className={cn("size-3.5 text-violet-500", className)} />
+      );
     }
     if (name === DefaultToolName.Http) {
       return (

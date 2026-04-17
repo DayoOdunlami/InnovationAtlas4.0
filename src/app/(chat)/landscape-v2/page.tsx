@@ -143,7 +143,8 @@ function ConnectedNodes({
 
 const DEFAULT_EDGE_VISIBILITY: LandscapeEdgeVisibility = {
   shared_org: true,
-  semantic_similarity: true,
+  semantic: true,
+  shared_topic: true,
   live_match: true,
 };
 
@@ -484,14 +485,35 @@ export default function LandscapeV2() {
           >
             <input
               type="checkbox"
-              checked={edgeVisibility.semantic_similarity}
+              checked={edgeVisibility.semantic}
               onChange={() =>
                 patchEdgeVisibility({
-                  semantic_similarity: !edgeVisRef.current.semantic_similarity,
+                  semantic: !edgeVisRef.current.semantic,
                 })
               }
             />
             Semantic similarity
+          </label>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: "#c9d1d9",
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={edgeVisibility.shared_topic}
+              onChange={() =>
+                patchEdgeVisibility({
+                  shared_topic: !edgeVisRef.current.shared_topic,
+                })
+              }
+            />
+            Shared topics
           </label>
           <label
             style={{

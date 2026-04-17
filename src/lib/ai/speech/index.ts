@@ -25,6 +25,8 @@ export type VoiceChatOptions = {
   allowedMcpServers?: Record<string, AllowedMCPServer>;
   model?: string;
   voice?: string;
+  /** First assistant line when the Realtime data channel opens (connection OK). */
+  connectedGreeting?: string;
 };
 
 export type VoiceChatHook = (props?: {

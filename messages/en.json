@@ -246,8 +246,10 @@
       "defaultToolKit": {
         "visualization": "Data Visualization",
         "webSearch": "Search the Web",
+        "research": "Academic research (OpenAlex)",
         "http": "HTTP Request",
-        "code": "Code Execution"
+        "code": "Code Execution",
+        "passport": "Innovation Passport"
       },
       "agent": "Agent",
       "mention": "Mention",
@@ -283,7 +285,9 @@
       "readyWhenYouAreJustStartTalking": "Ready when you are—just start talking.",
       "yourMicIsOff": "Your mic is off.",
       "preparing": "Preparing...",
-      "startVoiceChat": "Start voice chat?"
+      "startVoiceChat": "Start voice chat?",
+      "connectedAssistantHello": "Hello! I'm {name}. Voice is connected—start talking whenever you're ready.",
+      "connectedVoiceHello": "Voice is connected. I'm listening—start talking whenever you're ready."
     },
     "Thread": {
       "chat": "Chat",
@@ -773,6 +777,35 @@
       "actionSuccess": "Saved.",
       "deleteDialogTitle": "Delete passport permanently?",
       "deleteDialogBody": "This removes “{title}” from the database. This cannot be undone. Only passports with zero claims can be deleted here."
+    },
+    "Usage": {
+      "title": "Usage & estimates",
+      "description": "Token totals from assistant messages saved in this app (metadata on each finished reply). Dollar amounts are rough estimates from public list prices for a few common models; unknown models show “—”. For authoritative spend and quota, use your provider dashboards (links below). Optional window: add ?days=7 through ?days=365 to the URL.",
+      "period": "Window",
+      "summaryHeading": "Summary",
+      "assistantMessages": "Assistant messages with usage",
+      "threadsTouched": "Chat threads touched",
+      "inputTokens": "Input tokens (sum)",
+      "outputTokens": "Output tokens (sum)",
+      "totalTokens": "Total tokens (sum)",
+      "approxCost": "Estimated cost (sum of known models)",
+      "approxCostUnknown": "— (no priced model mix)",
+      "externalBilling": "Provider billing",
+      "externalBillingBody": "This page does not call OpenAI billing APIs. Quota errors (e.g. insufficient_quota) and invoices are only visible in the provider console.",
+      "byModelHeading": "By model",
+      "byDayHeading": "By day (UTC)",
+      "topUsersHeading": "Top users by tokens",
+      "colModel": "Model",
+      "colMessages": "Messages",
+      "colIn": "In",
+      "colOut": "Out",
+      "colTotal": "Total",
+      "colApprox": "Est. $",
+      "colDay": "Day",
+      "colUser": "User",
+      "colEmail": "Email",
+      "noData": "No assistant messages with usage in this period.",
+      "disclaimer": "Voice Realtime and failed requests are usually not stored as assistant rows here. Estimates exclude discounts, cached tokens, and non-OpenAI pricing accuracy."
     },
     "UserDelete": {
       "title": "Delete User Account",

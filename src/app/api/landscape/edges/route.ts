@@ -34,7 +34,7 @@ export async function GET() {
                PARTITION BY source_id ORDER BY weight DESC
              ) AS rn
            FROM atlas.project_edges
-           WHERE edge_type IN ('shared_org', 'semantic_similarity')
+           WHERE edge_type IN ('shared_org', 'semantic')
          )
          SELECT source_id, target_id, weight, edge_type
          FROM top_edges
@@ -46,33 +46,19 @@ export async function GET() {
       layoutEdges = [];
     }
 
-    // shared_topics — display-only (not used by force link simulation)
-    let sharedTopicsEdges: ProjectEdge[] = [];
+    // shared_topic — display-only (not used by force link simulation)
+    let sharedTopicEdges: ProjectEdge[] = [];
     try {
       const stResult = await pool.query<ProjectEdge>(
         `SELECT source_id, target_id, weight, edge_type
          FROM atlas.project_edges
-         WHERE edge_type = 'shared_topics' AND weight > 0.6
+         WHERE edge_type = 'shared_topic' AND weight >= 0.6
          ORDER BY weight DESC
          LIMIT 8000`,
       );
-      sharedTopicsEdges = stResult.rows;
+      sharedTopicEdges = stResult.rows;
     } catch {
-      sharedTopicsEdges = [];
-    }
-
-    // same_funder edges (weight 0.4 — fetched separately; client toggles visibility)
-    let sameFunderEdges: ProjectEdge[] = [];
-    try {
-      const sfResult = await pool.query<ProjectEdge>(
-        `SELECT source_id, target_id, weight, edge_type
-         FROM atlas.project_edges
-         WHERE edge_type = 'same_funder'
-         LIMIT 2000`,
-      );
-      sameFunderEdges = sfResult.rows;
-    } catch {
-      // Table or type may not exist yet
+      sharedTopicEdges = [];
     }
 
     // Live-call-to-project edges (table may not exist yet)
@@ -114,8 +100,7 @@ export async function GET() {
     return NextResponse.json({
       edges: [
         ...layoutEdges,
-        ...sharedTopicsEdges,
-        ...sameFunderEdges,
+        ...sharedTopicEdges,
         ...liveCallEdges,
         ...callToCallEdges,
       ],

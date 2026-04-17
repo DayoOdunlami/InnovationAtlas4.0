@@ -89,6 +89,7 @@ const initialState: AppState = {
     AppDefaultToolkit.Code,
     AppDefaultToolkit.Visualization,
     AppDefaultToolkit.Passport,
+    AppDefaultToolkit.Research,
   ],
   toolPresets: [],
   chatModel: undefined,

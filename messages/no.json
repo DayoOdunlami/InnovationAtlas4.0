@@ -246,8 +246,10 @@
       "defaultToolKit": {
         "visualization": "Datavisualisering",
         "webSearch": "Søk på nettet",
+        "research": "Forskning (OpenAlex)",
         "http": "HTTP-forespørsel",
-        "code": "Kodekjøring"
+        "code": "Kodekjøring",
+        "passport": "Innovation Passport"
       },
       "agent": "Agent",
       "mention": "Nevning",
@@ -278,7 +280,9 @@
       "readyWhenYouAreJustStartTalking": "Klar når du er – bare begynn å snakke.",
       "yourMicIsOff": "Mikrofonen din er av.",
       "preparing": "Forbereder...",
-      "startVoiceChat": "Starte talechat?"
+      "startVoiceChat": "Starte talechat?",
+      "connectedAssistantHello": "Hei! Jeg er {name}. Stemmen er tilkoblet—begynn å snakke når du er klar.",
+      "connectedVoiceHello": "Stemmen er tilkoblet. Jeg lytter—begynn å snakke når du er klar."
     },
     "Thread": {
       "chat": "Chat",
@@ -768,6 +772,35 @@
       "actionSuccess": "Lagret.",
       "deleteDialogTitle": "Slette pass permanent?",
       "deleteDialogBody": "Dette fjerner «{title}» fra databasen. Kan ikke angres. Bare passporter uten krav kan slettes her."
+    },
+    "Usage": {
+      "title": "Bruk og estimater",
+      "description": "Token summer fra assistentmeldinger lagret i denne appen (metadata på hvert ferdig svar). Dollarbeløp er grove estimater fra offentlige listepriser for noen vanlige modeller; ukjente modeller vises som «—». For faktisk forbruk og kvote, bruk leverandørdashbord (lenker nedenfor). Valgfritt vindu: legg til ?days=7 til ?days=365 i URL-en.",
+      "period": "Periode",
+      "summaryHeading": "Sammendrag",
+      "assistantMessages": "Assistentmeldinger med usage",
+      "threadsTouched": "Samtaletråder berørt",
+      "inputTokens": "Inndata-tokens (sum)",
+      "outputTokens": "Utdata-tokens (sum)",
+      "totalTokens": "Totalt tokens (sum)",
+      "approxCost": "Estimert kostnad (kjente modeller)",
+      "approxCostUnknown": "— (ingen priset modellmix)",
+      "externalBilling": "Leverandørfakturering",
+      "externalBillingBody": "Denne siden kaller ikke OpenAI fakturerings-API-er. Kvote-feil (f.eks. insufficient_quota) og fakturaer finnes bare i leverandørkonsollen.",
+      "byModelHeading": "Per modell",
+      "byDayHeading": "Per dag (UTC)",
+      "topUsersHeading": "Topp brukere etter tokens",
+      "colModel": "Modell",
+      "colMessages": "Meldinger",
+      "colIn": "Inn",
+      "colOut": "Ut",
+      "colTotal": "Totalt",
+      "colApprox": "Est. $",
+      "colDay": "Dag",
+      "colUser": "Bruker",
+      "colEmail": "E-post",
+      "noData": "Ingen assistentmeldinger med usage i denne perioden.",
+      "disclaimer": "Voice Realtime og mislykkede forespørsler lagres vanligvis ikke som assistent-rader her. Estimater utelater rabatter, bufrede tokens og prisnøyaktighet utenfor OpenAI."
     },
     "UserDelete": {
       "title": "Slett brukerkonto",

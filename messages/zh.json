@@ -127,7 +127,11 @@
       "searchOptionsDescription": "您可以向聊天机器人传递搜索选项，例如搜索结果的最大数量、搜索日期等。",
       "defaultToolKit": {
         "visualization": "数据可视化",
-        "webSearch": "网页搜寻"
+        "webSearch": "网页搜寻",
+        "research": "学术研究（OpenAlex）",
+        "http": "HTTP 请求",
+        "code": "代码执行",
+        "passport": "Innovation Passport"
       },
       "agent": "智能体",
       "mention": "提及",
@@ -158,7 +162,9 @@
       "readyWhenYouAreJustStartTalking": "准备就绪—请开始说话。",
       "yourMicIsOff": "您的麦克风已关闭。",
       "preparing": "准备中...",
-      "startVoiceChat": "开始语音聊天？"
+      "startVoiceChat": "开始语音聊天？",
+      "connectedAssistantHello": "你好！我是{name}。语音已连接——随时可以开始说话。",
+      "connectedVoiceHello": "语音已连接。我在听——随时可以开始说话。"
     },
     "Thread": {
       "chat": "聊天",

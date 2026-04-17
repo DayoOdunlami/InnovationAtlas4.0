@@ -132,6 +132,28 @@ ${userPreferences.responseStyleExample}
   return prompt.trim();
 };
 
+/**
+ * Prepended to every voice-mode system prompt. Tight rules the model must obey
+ * across ALL agents before anything agent-specific kicks in.
+ *
+ * Kept short on purpose — the realtime model weighs the first tokens heavily.
+ */
+export const VOICE_MODE_PREAMBLE = `
+<voice_mode_preamble>
+You are currently operating in VOICE MODE over OpenAI Realtime.
+
+Hard rules (apply to every turn):
+- Speak English only, unless the user explicitly asks for another language.
+- Never read markdown, lists, headers, bullets, tables, or raw JSON aloud. They do not survive text-to-speech.
+- Never read tool output JSON, SQL, UUIDs, table names, or other raw payload fields aloud. Summarise the meaning in plain English instead.
+- Keep each spoken turn conversational: 1–3 short paragraphs, or roughly 120–150 spoken words, then stop and let the user respond.
+- Lead with the insight. Evidence and reasoning come after.
+- If you need to run a tool, announce it naturally first ("Let me check the corpus on that…"), then call it. Never leave silence while a tool runs.
+- If the user starts speaking while you are talking, stop immediately and listen. Do not talk over them.
+- If you are unsure what the user means, ask ONE short clarifying question instead of guessing.
+</voice_mode_preamble>
+`.trim();
+
 export const buildSpeechSystemPrompt = (
   user: User,
   userPreferences?: UserPreferences,
@@ -140,7 +162,7 @@ export const buildSpeechSystemPrompt = (
   const assistantName = agent?.name || userPreferences?.botName || "Assistant";
   const currentTime = format(new Date(), "EEEE, MMMM d, yyyy 'at' h:mm:ss a");
 
-  let prompt = `You are ${assistantName}`;
+  let prompt = `${VOICE_MODE_PREAMBLE}\n\nYou are ${assistantName}`;
 
   if (agent?.instructions?.role) {
     prompt += `. You are an expert in ${agent.instructions.role}`;
@@ -221,15 +243,34 @@ ${userPreferences.responseStyleExample}
   return prompt.trim();
 };
 
-/** Appended to OpenAI Realtime session instructions (Phase A voice UX). */
-export const VOICE_REALTIME_RESPONSE_APPENDIX = `
-<voice_realtime_output_rules>
-When responding by voice: give a spoken summary of maximum 3 sentences.
-Then say exactly: 'I have rendered the full details in the voice panel.'
+/**
+ * Shared voice appendix — appended to EVERY agent's realtime session instructions.
+ * Contains rules that apply regardless of which agent is loaded
+ * (chart fabrication, tool-output truncation, lists-aloud, etc.).
+ */
+export const VOICE_REALTIME_RESPONSE_APPENDIX_SHARED = `
+<voice_realtime_output_rules_shared>
+When responding by voice: give a spoken summary of maximum 3 sentences, then
+say exactly: 'I have rendered the full details in the voice panel.'
 Never read lists aloud — say the count and the top item only, then stop.
 Tool outputs are capped at 15,000 characters — treat any truncated JSON as
 incomplete and tell the user to check the voice panel for the full result.
-Never attempt to read or summarise raw JSON output.
+Never attempt to read or summarise raw JSON output, SQL, or UUIDs aloud.
+
+CHART AND TABLE DATA RULE: When calling createBarChart, createLineChart,
+createPieChart, or createTable, only include data you have actually received
+from a prior tool call in this conversation.
+Do NOT invent, estimate, or fabricate row labels, segment names, series values,
+or any data points. If you do not have real data from a prior tool call to
+populate the chart, say so verbally and ask the user to request the data first.
+</voice_realtime_output_rules_shared>`.trim();
+
+/**
+ * JARVIS-only voice appendix — passport workflow safeguards. Only appended
+ * when the active agent is JARVIS, to keep ATLAS and HYVE prompts clean.
+ */
+export const VOICE_REALTIME_RESPONSE_APPENDIX_JARVIS = `
+<voice_realtime_output_rules_jarvis>
 When calling runMatching, say "Running cross-sector matching now — this
 typically takes around 30 seconds, please wait" BEFORE invoking the tool.
 Do not leave silence while matching runs.
@@ -241,15 +282,6 @@ archivePassport, or createDraftPitch, you MUST call listPassports first if you d
 the UUID for the requested passport in this conversation.
 Extract the UUID from the listPassports result, then use it in the subsequent call.
 Never attempt to guess, construct, or infer a UUID.
-
-CHART AND TABLE DATA RULE: When calling createBarChart, createLineChart,
-createPieChart, or createTable, only include data you have actually received
-from a prior tool call in this conversation — such as passport names from
-listPassports, match titles and scores from showMatchList, or claim counts
-from showClaimExtraction.
-Do NOT invent, estimate, or fabricate row labels, segment names, series values,
-or any data points. If you do not have real data from a prior tool call to
-populate the chart, say so verbally and ask the user to request the data first.
 
 CLAIM SAVING: After extractClaimsPreview, you will receive a pending_batch_id.
 Always ask the user which passport to save to before calling saveClaimsToPassport.
@@ -265,7 +297,26 @@ When the user asks to verify a claim, say:
 it as confirmed. This is a deliberate safeguard: AI cannot self-verify evidence
 in Innovation Atlas."
 Do not call any verify tool. The Verify button in the chat UI is the only valid path.
-</voice_realtime_output_rules>`.trim();
+</voice_realtime_output_rules_jarvis>`.trim();
+
+/**
+ * @deprecated Kept as an alias for backward compatibility. Prefer
+ * {@link VOICE_REALTIME_RESPONSE_APPENDIX_SHARED} (all agents) and
+ * {@link VOICE_REALTIME_RESPONSE_APPENDIX_JARVIS} (JARVIS only).
+ */
+export const VOICE_REALTIME_RESPONSE_APPENDIX =
+  VOICE_REALTIME_RESPONSE_APPENDIX_SHARED;
+
+/**
+ * Returns the correct voice appendix stack for the active agent. Always
+ * includes the shared rules; JARVIS gets an extra passport-safety layer.
+ */
+export const buildVoiceRealtimeAppendix = (agent?: Agent): string => {
+  if (agent?.name === "JARVIS") {
+    return `${VOICE_REALTIME_RESPONSE_APPENDIX_SHARED}\n\n${VOICE_REALTIME_RESPONSE_APPENDIX_JARVIS}`;
+  }
+  return VOICE_REALTIME_RESPONSE_APPENDIX_SHARED;
+};
 
 export const buildMcpServerCustomizationsSystemPrompt = (
   instructions: Record<string, McpServerCustomizationsPrompt>,

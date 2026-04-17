@@ -15,6 +15,7 @@ import { showMatchListTool } from "./passport/match-list-tool";
 import { rejectClaimByDescriptionTool } from "./passport/reject-claim-by-description-tool";
 import { runMatchingTool } from "./passport/run-matching-tool";
 import { saveClaimsToPassportTool } from "./passport/save-claims-to-passport-tool";
+import { surfaceResearchTool } from "./research-surface";
 import { createBarChartTool } from "./visualization/create-bar-chart";
 import { createLineChartTool } from "./visualization/create-line-chart";
 import { createPieChartTool } from "./visualization/create-pie-chart";
@@ -34,6 +35,9 @@ export const APP_DEFAULT_TOOL_KIT: Record<
   [AppDefaultToolkit.WebSearch]: {
     [DefaultToolName.WebSearch]: exaSearchTool,
     [DefaultToolName.WebContent]: exaContentsTool,
+  },
+  [AppDefaultToolkit.Research]: {
+    [DefaultToolName.SurfaceResearch]: surfaceResearchTool,
   },
   [AppDefaultToolkit.Http]: {
     [DefaultToolName.Http]: httpFetchTool,

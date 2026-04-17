@@ -42,6 +42,12 @@ const AppSidebarAdmin = () => {
         url: "/admin/passports",
         isActive: pathname.startsWith("/admin/passports"),
       },
+      {
+        id: "usage",
+        title: t("Usage.title"),
+        url: "/admin/usage",
+        isActive: pathname.startsWith("/admin/usage"),
+      },
     ],
     [t, pathname],
   );

@@ -100,15 +100,14 @@ export const findConsortiumPartnersTool = createTool({
                                                                       AS most_recent_project_title,
           (ARRAY_AGG(p.lead_funder ORDER BY p.start_date DESC NULLS LAST))[1]
                                                                       AS most_recent_funder,
-          o.companies_house_status,
-          o.sic_codes
+          NULL::text                                                AS companies_house_status,
+          NULL::text[]                                              AS sic_codes
         FROM atlas.projects p
         LEFT JOIN LATERAL unnest(p.research_topics) AS elem ON TRUE
-        LEFT JOIN atlas.organisations o ON o.name = p.lead_org_name
         WHERE p.lead_org_name IS NOT NULL
           AND (${keywordConditions})
           ${sectorCondition}
-        GROUP BY p.lead_org_name, o.companies_house_status, o.sic_codes
+        GROUP BY p.lead_org_name
         HAVING COUNT(p.id) >= $${minProjectsIdx}
         ORDER BY COUNT(p.id) DESC, SUM(p.funding_amount) DESC NULLS LAST
         LIMIT $${limitIdx}

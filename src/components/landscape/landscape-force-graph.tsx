@@ -85,16 +85,14 @@ function edgeColor(edge_type: string): string {
   switch (edge_type) {
     case "shared_org":
       return "#6366f1"; // indigo
-    case "semantic_similarity":
+    case "semantic":
       return "#8b5cf6"; // violet
     case "live_call":
       return "#f59e0b"; // amber  (call → project)
     case "live_call_similarity":
       return "#ea580c"; // orange (call → call)
-    case "same_funder":
-      return "#22c55e"; // green  (funder link)
     default:
-      return "#a78bfa"; // shared_topics / shared_research_area
+      return "#a78bfa"; // shared_topic
   }
 }
 
@@ -102,16 +100,14 @@ function edgeBaseOpacity(edge_type: string): number {
   switch (edge_type) {
     case "shared_org":
       return 0.5;
-    case "semantic_similarity":
+    case "semantic":
       return 0.35;
     case "live_call":
       return 0.5;
     case "live_call_similarity":
       return 0.55;
-    case "same_funder":
-      return 0.3;
     default:
-      return 0.2; // shared_topics / shared_research_area
+      return 0.2; // shared_topic
   }
 }
 
@@ -138,7 +134,7 @@ function nodeId(n: string | FGNode): string {
 }
 
 /** Edge types that participate in the D3 link force (sparse layout layer). */
-const LAYOUT_PHYSICS_TYPES = new Set(["shared_org", "semantic_similarity"]);
+const LAYOUT_PHYSICS_TYPES = new Set(["shared_org", "semantic"]);
 
 export type LandscapeGroupBy = "semantic" | "funder" | "theme";
 
@@ -249,7 +245,6 @@ function makeClusterForce(
 interface LandscapeForceGraphProps {
   modeFilter: string;
   showLiveCalls: boolean;
-  showFunderLinks: boolean;
   searchTerm: string;
   searchTrigger: number; // increments when user presses Enter to zoom to first match
   groupBy: LandscapeGroupBy;
@@ -263,7 +258,6 @@ interface LandscapeForceGraphProps {
 export const LandscapeForceGraph = memo(function LandscapeForceGraph({
   modeFilter,
   showLiveCalls,
-  showFunderLinks,
   searchTerm,
   searchTrigger,
   groupBy,
@@ -635,7 +629,6 @@ export const LandscapeForceGraph = memo(function LandscapeForceGraph({
     const displayEdges: ProjectEdge[] = edges.filter((e) => {
       if (!passesNodes(e)) return false;
       if (LAYOUT_PHYSICS_TYPES.has(e.edge_type)) return false;
-      if (e.edge_type === "same_funder" && !showFunderLinks) return false;
       return true;
     });
 
@@ -645,7 +638,6 @@ export const LandscapeForceGraph = memo(function LandscapeForceGraph({
     edges,
     modeFilter,
     showLiveCalls,
-    showFunderLinks,
     clusterSpec,
     physicsMode,
     devSettings.umapScale,
@@ -925,7 +917,7 @@ export const LandscapeForceGraph = memo(function LandscapeForceGraph({
       ctx.lineWidth = Math.max(0.35, edgeLineWidth(l.edge_type) / gs);
 
       const animated =
-        l.edge_type === "semantic_similarity" ||
+        l.edge_type === "semantic" ||
         l.edge_type === "live_call" ||
         l.edge_type === "live_call_similarity";
 
@@ -933,7 +925,7 @@ export const LandscapeForceGraph = memo(function LandscapeForceGraph({
         case "shared_org":
           ctx.setLineDash([]);
           break;
-        case "semantic_similarity":
+        case "semantic":
           ctx.setLineDash([4, 4]);
           break;
         case "live_call":
@@ -942,10 +934,7 @@ export const LandscapeForceGraph = memo(function LandscapeForceGraph({
         case "live_call_similarity":
           ctx.setLineDash([8, 4]);
           break;
-        case "same_funder":
-          ctx.setLineDash([2, 4]); // short dashes — subtle secondary connection
-          break;
-        default: // shared_topics / shared_research_area
+        default:
           ctx.setLineDash([1, 3]);
       }
       if (animated) ctx.lineDashOffset = dashOffsetRef.current;
@@ -1007,9 +996,6 @@ export const LandscapeForceGraph = memo(function LandscapeForceGraph({
             break;
           case "live_call_similarity":
             ctx.setLineDash([8, 4]);
-            break;
-          case "same_funder":
-            ctx.setLineDash([2, 4]);
             break;
           default:
             ctx.setLineDash([1, 3]);
@@ -1195,25 +1181,6 @@ export const LandscapeForceGraph = memo(function LandscapeForceGraph({
                 Call→Call
               </span>
             </>
-          )}
-          {showFunderLinks && (
-            <span
-              className="flex items-center gap-1"
-              title="Projects funded by the same lead funder"
-            >
-              <svg width="20" height="6" viewBox="0 0 20 6">
-                <line
-                  x1="0"
-                  y1="3"
-                  x2="20"
-                  y2="3"
-                  stroke="#22c55e"
-                  strokeWidth="1"
-                  strokeDasharray="2 4"
-                />
-              </svg>
-              Same funder
-            </span>
           )}
         </div>
       )}

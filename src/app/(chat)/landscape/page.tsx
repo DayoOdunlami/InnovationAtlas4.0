@@ -31,14 +31,13 @@ const EDGE_LEGEND = [
   { label: "Semantic similarity", color: "#8b5cf6", dash: "4 4" },
   { label: "Shared topics", color: "#a78bfa", dash: "1 3" },
   { label: "Live call opportunity", color: "#f59e0b", dash: "6 3" },
-  { label: "Same funder", color: "#22c55e", dash: "2 4" },
 ] as const;
 
 export default function LandscapePage() {
   const [view, setView] = useState<"scatter" | "force">("scatter");
   const [modeFilter, setModeFilter] = useState<Mode>("All");
   const [showLiveCalls, setShowLiveCalls] = useState(true);
-  const [showFunderLinks, setShowFunderLinks] = useState(false);
+  const [showOrganisations, setShowOrganisations] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchTrigger, setSearchTrigger] = useState(0);
   const [groupBy, setGroupBy] = useState<LandscapeGroupBy>("semantic");
@@ -119,23 +118,20 @@ export default function LandscapePage() {
           Show live calls
         </button>
 
-        {/* Funder links toggle — force graph only */}
-        {isForce && (
-          <button
-            type="button"
-            onClick={() => setShowFunderLinks((v) => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-lg border font-medium transition-colors ${
-              showFunderLinks
-                ? "bg-green-50 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300"
-                : "border-border/60 text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <span
-              className={`size-2 rounded-full inline-block ${showFunderLinks ? "bg-green-500" : "bg-muted-foreground"}`}
-            />
-            Show funder links
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setShowOrganisations((v) => !v)}
+          className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-lg border font-medium transition-colors ${
+            showOrganisations
+              ? "bg-violet-50 border-violet-300 text-violet-800 dark:bg-violet-950/40 dark:border-violet-700 dark:text-violet-200"
+              : "border-border/60 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <span
+            className={`size-0 border-l-[5px] border-r-[5px] border-b-[8px] border-l-transparent border-r-transparent border-b-current inline-block ${showOrganisations ? "text-violet-600" : "text-muted-foreground"}`}
+          />
+          Show organisations
+        </button>
 
         {/* Group by — force graph layout / clustering */}
         {isForce && (
@@ -252,7 +248,6 @@ export default function LandscapePage() {
           <LandscapeForceGraph
             modeFilter={modeFilter}
             showLiveCalls={showLiveCalls}
-            showFunderLinks={showFunderLinks}
             searchTerm={searchTerm}
             searchTrigger={searchTrigger}
             groupBy={groupBy}
@@ -263,6 +258,7 @@ export default function LandscapePage() {
           <LandscapeScatterLazy
             modeFilter={modeFilter}
             showLiveCalls={showLiveCalls}
+            showOrganisations={showOrganisations}
             highlightTheme={demoHighlightTheme}
           />
         )}

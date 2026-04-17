@@ -126,7 +126,11 @@
       "searchOptionsDescription": "Vous pouvez passer des options de recherche au chatbot, comme le nombre maximum de résultats de recherche, la date de recherche, etc.",
       "defaultToolKit": {
         "visualization": "Visualisation de données",
-        "webSearch": "Rechercher sur le le Web"
+        "webSearch": "Rechercher sur le le Web",
+        "research": "Recherche académique (OpenAlex)",
+        "http": "Requête HTTP",
+        "code": "Exécution de code",
+        "passport": "Innovation Passport"
       },
       "agent": "Agent",
       "mention": "Mention",
@@ -157,7 +161,9 @@
       "readyWhenYouAreJustStartTalking": "Prêt quand vous l'êtes—commencez simplement à parler.",
       "yourMicIsOff": "Votre micro est éteint.",
       "preparing": "Préparation...",
-      "startVoiceChat": "Démarrer le chat vocal ?"
+      "startVoiceChat": "Démarrer le chat vocal ?",
+      "connectedAssistantHello": "Bonjour ! Je suis {name}. La voix est connectée—parlez quand vous voulez.",
+      "connectedVoiceHello": "La voix est connectée. J'écoute—parlez quand vous voulez."
     },
     "Thread": {
       "chat": "Chat",

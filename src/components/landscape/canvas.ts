@@ -500,7 +500,7 @@ export function initCanvas(
       if (link.edge_type === "shared_org") {
         ctx.strokeStyle = "rgba(63,185,80,0.45)";
         ctx.lineWidth = 1.5;
-      } else if (link.edge_type === "semantic_similarity") {
+      } else if (link.edge_type === "semantic") {
         ctx.strokeStyle = "rgba(139,148,158,0.18)";
         ctx.lineWidth = 0.5;
         ctx.setLineDash([4, 3]);

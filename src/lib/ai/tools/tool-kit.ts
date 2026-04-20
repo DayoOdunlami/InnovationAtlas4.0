@@ -1,5 +1,13 @@
 import { Tool } from "ai";
 import { AppDefaultToolkit, DefaultToolName } from ".";
+import {
+  colorByLensCategoryTool,
+  filterByQueryTool,
+  focusOnOrgTool,
+  focusOnProjectTool,
+  highlightClusterTool,
+  resetCameraTool,
+} from "./canvas/write-tools";
 import { jsExecutionTool } from "./code/js-run-tool";
 import { pythonExecutionTool } from "./code/python-run-tool";
 import { httpFetchTool } from "./http/fetch";
@@ -70,7 +78,13 @@ export const APP_DEFAULT_TOOL_KIT: Record<
   // behaviour is identical to pre-Commit-2.
   // ---------------------------------------------------------------------
   [AppDefaultToolkit.Canvas]: {
-    // Populated in Brief X Commits 5 (write tools) and 6 (read tool).
+    // Write tools (Commit 5). Read tool lands in Commit 6.
+    [DefaultToolName.FocusOnProject]: focusOnProjectTool,
+    [DefaultToolName.FocusOnOrg]: focusOnOrgTool,
+    [DefaultToolName.HighlightCluster]: highlightClusterTool,
+    [DefaultToolName.ColorByLensCategory]: colorByLensCategoryTool,
+    [DefaultToolName.FilterByQuery]: filterByQueryTool,
+    [DefaultToolName.ResetCamera]: resetCameraTool,
   },
   [AppDefaultToolkit.Briefing]: {
     // Populated in Brief X Commit 12.

@@ -5,6 +5,10 @@ export enum AppDefaultToolkit {
   Http = "http",
   Code = "code",
   Passport = "passport",
+  // Sprint X — registered in Commit 2. Tool implementations land in
+  // Commits 5–6 (Canvas) and Commit 12 (Briefing).
+  Canvas = "canvas",
+  Briefing = "briefing",
 }
 
 export enum DefaultToolName {
@@ -35,6 +39,28 @@ export enum DefaultToolName {
   ArchivePassport = "archivePassport",
   // Consortium discovery
   FindConsortiumPartners = "findConsortiumPartners",
+  // Canvas write tools (Sprint X Commits 5–6). Each returns
+  // { status, newState } so the tool call is the authoritative proof the
+  // mutation happened — see Atlas Canvas State Contract.
+  FocusOnProject = "focusOnProject",
+  FocusOnOrg = "focusOnOrg",
+  HighlightCluster = "highlightCluster",
+  ColorByLensCategory = "colorByLensCategory",
+  FilterByQuery = "filterByQuery",
+  ResetCamera = "resetCamera",
+  // Canvas read tool (Sprint X Commit 6). Lazy-called when the agent needs
+  // to resolve ambiguous references like "this project". Never polled.
+  GetCanvasState = "getCanvasState",
+  // Briefing write tools (Sprint X Commit 12). Block IDs are stable across
+  // updates so update/remove never race with append.
+  AppendBriefingBlock = "appendBriefingBlock",
+  UpdateBriefingBlock = "updateBriefingBlock",
+  RemoveBriefingBlock = "removeBriefingBlock",
+  SetBriefingTitle = "setBriefingTitle",
+  ClearBriefing = "clearBriefing",
+  // Briefing read tool (Sprint X Commit 12). Same lazy-call contract as
+  // getCanvasState.
+  GetBriefing = "getBriefing",
 }
 
 export const SequentialThinkingToolName = "sequential-thinking";

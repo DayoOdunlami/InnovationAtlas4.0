@@ -60,4 +60,19 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     [DefaultToolName.ArchivePassport]: archivePassportTool,
     [DefaultToolName.FindConsortiumPartners]: findConsortiumPartnersTool,
   },
+  // ---------------------------------------------------------------------
+  // Sprint X — Canvas + Briefing kits
+  //
+  // Registered here in Commit 2 so the `Record<AppDefaultToolkit, …>` type
+  // remains total. The tool implementations are deliberately absent until
+  // Brief X Commits 5–6 (Canvas) and Commit 12 (Briefing). Leaving these
+  // kits empty means the model sees no new tools to call and runtime
+  // behaviour is identical to pre-Commit-2.
+  // ---------------------------------------------------------------------
+  [AppDefaultToolkit.Canvas]: {
+    // Populated in Brief X Commits 5 (write tools) and 6 (read tool).
+  },
+  [AppDefaultToolkit.Briefing]: {
+    // Populated in Brief X Commit 12.
+  },
 };

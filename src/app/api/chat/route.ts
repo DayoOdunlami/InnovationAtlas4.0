@@ -16,6 +16,7 @@ import {
   chatApiSchemaRequestBodySchema,
 } from "app-types/chat";
 import {
+  buildCanvasContextSystemPrompt,
   buildMcpServerCustomizationsSystemPrompt,
   buildToolCallUnsupportedModelSystemPrompt,
   buildUserSystemPrompt,
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
       imageTool,
       mentions = [],
       attachments = [],
+      canvasContext,
     } = chatApiSchemaRequestBodySchema.parse(json);
 
     const model = customModelProvider.getModel(chatModel);
@@ -265,6 +267,7 @@ export async function POST(request: Request) {
 
         const systemPrompt = mergeSystemPrompt(
           buildUserSystemPrompt(session.user, userPreferences, agent),
+          buildCanvasContextSystemPrompt(canvasContext),
           buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
           !supportToolCall && buildToolCallUnsupportedModelSystemPrompt,
         );

@@ -318,6 +318,63 @@ export const buildVoiceRealtimeAppendix = (agent?: Agent): string => {
   return VOICE_REALTIME_RESPONSE_APPENDIX_SHARED;
 };
 
+// ---------------------------------------------------------------------------
+// Canvas context (Sprint X Commit 8)
+//
+// Injects a compact, human-readable snapshot of `appStore.canvas` into the
+// system prompt so the agent can see what the user has on screen WITHOUT
+// calling `getCanvasState` first. `getCanvasState` remains as a refresher
+// in mid-turn when the agent wants the freshest state.
+//
+// Also includes a short tool-selection guide so the model picks the right
+// canvas tool instead of defaulting to filterByQuery for every request.
+// ---------------------------------------------------------------------------
+
+import type { ChatCanvasContext } from "app-types/chat";
+
+export const buildCanvasContextSystemPrompt = (
+  ctx: ChatCanvasContext | undefined,
+) => {
+  if (!ctx) return "";
+
+  const filterParts: string[] = [];
+  if (ctx.filter.funder) filterParts.push(`funder=${ctx.filter.funder}`);
+  if (ctx.filter.mode) filterParts.push(`mode=${ctx.filter.mode}`);
+  if (ctx.filter.query) filterParts.push(`query="${ctx.filter.query}"`);
+  if (ctx.filter.lensCategoryId)
+    filterParts.push(`lensCategoryId=${ctx.filter.lensCategoryId}`);
+  const filterLine = filterParts.length
+    ? filterParts.join(", ")
+    : "none (showing all)";
+
+  const selectionLine = ctx.selectedNodeId
+    ? `selectedNodeId=${ctx.selectedNodeId} (type=${ctx.selectedNodeType ?? "unknown"})`
+    : "no selection";
+  const hoverLine = ctx.hoveredNodeId
+    ? `hoveredNodeId=${ctx.hoveredNodeId}`
+    : "no hover";
+
+  return `
+### Canvas state (live — refreshed each turn)
+- Active lens: ${ctx.activeLens}
+- Filter: ${filterLine}
+- Selection: ${selectionLine}
+- Hover: ${hoverLine}
+- Colour mode: ${ctx.colorMode}
+- Last action: ${ctx.lastActionType ?? "none"}${ctx.lastActionAt ? ` (${new Date(ctx.lastActionAt).toISOString()})` : ""}
+
+### Canvas tool-selection guide
+- The user is currently on the Canvas surface. Prefer Canvas tools over describing the state in prose.
+- Use \`filterByQuery\` when the user asks to **narrow the view** ("show me rail projects", "only Innovate UK", "filter to 2023"). You can pass \`funder\`, \`mode\`, and \`query\` together. Mode values must be one of: rail, aviation, maritime, highways.
+- Use \`highlightCluster\` when the user asks to **highlight a group together** ("highlight all rail decarbonisation projects", "show the hydrogen cluster"). Requires a non-empty list of nodeIds; if you don't have ids, call \`filterByQuery\` instead.
+- Use \`focusOnProject\` / \`focusOnOrg\` when the user names a **single** project or organisation to zoom into.
+- Use \`colorByLensCategory\` when the user wants to **re-stain the graph** ("colour by TRL", "by funder family"). Pass \`categoryId: null\` to revert.
+- Use \`resetCamera\` to zoom back out and drop selection.
+- \`getCanvasState\` is available as a refresher, but you already have the live state above — only call it if the user's question demands confirmation of what was just done.
+- After any Canvas tool call, briefly confirm what you did in one sentence and invite the next action. Do NOT narrate tool outputs verbatim.
+`.trim();
+};
+
 export const buildMcpServerCustomizationsSystemPrompt = (
   instructions: Record<string, McpServerCustomizationsPrompt>,
 ) => {

@@ -236,6 +236,55 @@ function filterNodes(nodes: Graph3DNode[], filter: string): Graph3DNode[] {
   return nodes;
 }
 
+// Sprint X Commit 8: structured canvas-filter stage.
+//
+// `filterNodes` above only understands legacy funder buttons. Canvas write
+// tools (filterByQuery) can also set `mode` and `query`. Until the dataset
+// carries a structured mode/sector field, we substring-match the node title
+// case-insensitively. Mode keywords are expanded (e.g. "rail" also matches
+// "railway", "train") to avoid user frustration.
+const MODE_KEYWORDS: Record<string, string[]> = {
+  rail: ["rail", "railway", "train", "track", "locomotive"],
+  aviation: ["aviation", "aircraft", "airport", "airline", "drone", "uav"],
+  maritime: ["maritime", "port", "ship", "vessel", "ferry", "shipping"],
+  highways: ["highway", "road", "motorway", "vehicle", "truck", "haulage"],
+};
+
+function applyStructuredCanvasFilter(
+  nodes: Graph3DNode[],
+  filter: CanvasFilter,
+): Graph3DNode[] {
+  let out = nodes;
+
+  if (filter.mode && filter.mode !== "live") {
+    const keywords = MODE_KEYWORDS[filter.mode] ?? [filter.mode];
+    const matches = keywords.map((k) => k.toLowerCase());
+    out = out.filter((n) => {
+      if (n.type === "live_call") return true;
+      const title = (n.title ?? "").toLowerCase();
+      return matches.some((kw) => title.includes(kw));
+    });
+  }
+
+  if (filter.query?.trim()) {
+    const needle = filter.query.trim().toLowerCase();
+    out = out.filter((n) => {
+      if (n.type === "live_call") return true;
+      return (n.title ?? "").toLowerCase().includes(needle);
+    });
+  }
+
+  return out;
+}
+
+function describeCanvasFilter(filter: CanvasFilter): string | null {
+  const parts: string[] = [];
+  if (filter.funder) parts.push(filter.funder);
+  if (filter.mode) parts.push(`mode:${filter.mode}`);
+  if (filter.query?.trim()) parts.push(`"${filter.query.trim()}"`);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 function buildLinks(
   links: LandscapeLink[],
   nodeIds: Set<string>,
@@ -487,7 +536,8 @@ export default function Landscape3DPage() {
   const baseNodes = useMemo(() => buildBaseNodes(LANDSCAPE_SNAPSHOT), []);
 
   const graphData = useMemo(() => {
-    const filtered = filterNodes(baseNodes, activeFilter);
+    const byButton = filterNodes(baseNodes, activeFilter);
+    const filtered = applyStructuredCanvasFilter(byButton, canvasFilter);
     const nodeIds = new Set(filtered.map((n) => n.id));
     const links = buildLinks(
       LANDSCAPE_SNAPSHOT.links,
@@ -557,6 +607,7 @@ export default function Landscape3DPage() {
     return { nodes: applyLayoutMode(validNodes, layoutSpread), links };
   }, [
     activeFilter,
+    canvasFilter,
     baseNodes,
     edgeVisibility,
     gravityMode,
@@ -1114,26 +1165,60 @@ export default function Landscape3DPage() {
           X/Y = UMAP coordinates · Z mode = {gravityMode ? "gravity" : zMode}
         </div>
       </div>
-      <div
-        title="This page is instrumented for the Atlas Canvas State Contract. Selection, filter, hover and active lens are mirrored to appStore.canvas. Write/read tools land in Sprint X Commits 5–6."
-        style={{
-          position: "absolute",
-          bottom: 12,
-          right: 12,
-          padding: "4px 10px",
-          borderRadius: 999,
-          background: "rgba(121,192,255,0.1)",
-          border: "0.5px solid rgba(121,192,255,0.35)",
-          color: "#79c0ff",
-          fontFamily: "ui-monospace, monospace",
-          fontSize: 10,
-          letterSpacing: "0.04em",
-          pointerEvents: "auto",
-          cursor: "help",
-        }}
-      >
-        Canvas-wired · WIP
-      </div>
+      {(() => {
+        const canvasFilterLabel = describeCanvasFilter(canvasFilter);
+        return (
+          <>
+            {canvasFilterLabel ? (
+              <div
+                title="Active canvas filter applied via chat or UI controls. Click 'All' on the left panel to clear."
+                style={{
+                  position: "absolute",
+                  bottom: 44,
+                  right: 12,
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  background: "rgba(88,166,255,0.15)",
+                  border: "0.5px solid rgba(88,166,255,0.5)",
+                  color: "#79c0ff",
+                  fontFamily: "ui-monospace, monospace",
+                  fontSize: 11,
+                  letterSpacing: "0.04em",
+                  pointerEvents: "auto",
+                  cursor: "help",
+                  maxWidth: 320,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Filter: {canvasFilterLabel} ·{" "}
+                {graphData.nodes.filter((n) => n.id !== "__sun__").length} nodes
+              </div>
+            ) : null}
+            <div
+              title="This page is instrumented for the Atlas Canvas State Contract. Selection, filter, hover and active lens are mirrored to appStore.canvas."
+              style={{
+                position: "absolute",
+                bottom: 12,
+                right: 12,
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: "rgba(121,192,255,0.1)",
+                border: "0.5px solid rgba(121,192,255,0.35)",
+                color: "#79c0ff",
+                fontFamily: "ui-monospace, monospace",
+                fontSize: 10,
+                letterSpacing: "0.04em",
+                pointerEvents: "auto",
+                cursor: "help",
+              }}
+            >
+              Canvas-wired · WIP
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

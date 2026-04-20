@@ -330,6 +330,7 @@ export const buildVoiceRealtimeAppendix = (agent?: Agent): string => {
 // canvas tool instead of defaulting to filterByQuery for every request.
 // ---------------------------------------------------------------------------
 
+import { formatFeatureStatusForPrompt } from "@/lib/canvas/feature-status";
 import type { ChatCanvasContext } from "app-types/chat";
 
 export const buildCanvasContextSystemPrompt = (
@@ -372,6 +373,8 @@ export const buildCanvasContextSystemPrompt = (
 - Use \`resetCamera\` to zoom back out and drop selection.
 - \`getCanvasState\` is available as a refresher, but you already have the live state above — only call it if the user's question demands confirmation of what was just done.
 - After any Canvas tool call, briefly confirm what you did in one sentence and invite the next action. Do NOT narrate tool outputs verbatim.
+
+${formatFeatureStatusForPrompt()}
 `.trim();
 };
 

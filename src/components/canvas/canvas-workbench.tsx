@@ -25,9 +25,12 @@
 // is discoverable without tripping the voice stack.
 // ---------------------------------------------------------------------------
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
-import { toast } from "sonner";
+import { appStore } from "@/app/store";
+import type { CanvasLensId } from "@/app/store";
+import { CanvasStatusPopover } from "@/components/canvas/canvas-status-popover";
+import ChatBot from "@/components/chat-bot";
+import { AppDefaultToolkit } from "@/lib/ai/tools";
+import { cn } from "lib/utils";
 import {
   CircleDot,
   GitBranch,
@@ -36,11 +39,9 @@ import {
   Mic,
   Timer,
 } from "lucide-react";
-import { cn } from "lib/utils";
-import { appStore } from "@/app/store";
-import type { CanvasLensId } from "@/app/store";
-import ChatBot from "@/components/chat-bot";
-import { AppDefaultToolkit } from "@/lib/ai/tools";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 // Defer the heavy force-graph component (uses react-force-graph-3d + three)
 // to the client-only bundle so /canvas SSR is cheap and predictable.
@@ -147,69 +148,81 @@ export function CanvasWorkbench({
   }, []);
 
   return (
-    <div className="flex h-full min-h-[calc(100vh-3.5rem)] w-full overflow-hidden">
-      {/* Icon rail — lens switcher */}
-      <aside
-        aria-label="Canvas lens switcher"
-        className="flex w-14 flex-col items-center gap-1 border-r border-border bg-muted/10 py-3"
-      >
-        {LENSES.map((lens) => {
-          const Icon = lens.icon;
-          const isActive = activeLens === lens.id && lens.enabled;
-          return (
-            <button
-              key={lens.id}
-              type="button"
-              onClick={() => handleLensChange(lens)}
-              title={
-                lens.enabled
-                  ? `Switch to ${lens.label} lens`
-                  : `${lens.label} (coming soon)`
-              }
-              aria-pressed={isActive}
-              className={cn(
-                "flex size-10 items-center justify-center rounded-md transition-colors",
-                lens.enabled
-                  ? "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  : "cursor-not-allowed text-muted-foreground/40",
-                isActive && "bg-primary/10 text-primary",
-              )}
-            >
-              <Icon className="size-5" />
-              <span className="sr-only">{lens.label}</span>
-            </button>
-          );
-        })}
-      </aside>
+    <div className="flex h-full min-h-[calc(100vh-3.5rem)] w-full flex-col overflow-hidden">
+      {/* Top bar — thin header with the status popover (Thread 1). Lives
+          outside the three-column grid so the stage keeps its full width. */}
+      <header className="flex h-9 flex-none items-center justify-between border-b border-border bg-background/95 px-3">
+        <span className="text-xs font-medium text-muted-foreground">
+          Canvas
+        </span>
+        <CanvasStatusPopover />
+      </header>
 
-      {/* Main stage — force-graph lens today */}
-      <section className="relative flex-1 overflow-hidden bg-background">
-        <Landscape3DPage />
-
-        {/* Floating mic (voice entry point — Sprint B) */}
-        <button
-          type="button"
-          onClick={handleMicClick}
-          title="Voice mode (Sprint B)"
-          className={cn(
-            "absolute bottom-6 left-1/2 z-30 -translate-x-1/2",
-            "flex size-12 items-center justify-center rounded-full",
-            "border border-border bg-background/90 backdrop-blur",
-            "shadow-lg transition-colors hover:bg-muted",
-          )}
+      {/* Three-column body */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Icon rail — lens switcher */}
+        <aside
+          aria-label="Canvas lens switcher"
+          className="flex w-14 flex-col items-center gap-1 border-r border-border bg-muted/10 py-3"
         >
-          <Mic className="size-5 text-muted-foreground" />
-          <span className="sr-only">Open voice mode</span>
-        </button>
-      </section>
+          {LENSES.map((lens) => {
+            const Icon = lens.icon;
+            const isActive = activeLens === lens.id && lens.enabled;
+            return (
+              <button
+                key={lens.id}
+                type="button"
+                onClick={() => handleLensChange(lens)}
+                title={
+                  lens.enabled
+                    ? `Switch to ${lens.label} lens`
+                    : `${lens.label} (coming soon)`
+                }
+                aria-pressed={isActive}
+                className={cn(
+                  "flex size-10 items-center justify-center rounded-md transition-colors",
+                  lens.enabled
+                    ? "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    : "cursor-not-allowed text-muted-foreground/40",
+                  isActive && "bg-primary/10 text-primary",
+                )}
+              >
+                <Icon className="size-5" />
+                <span className="sr-only">{lens.label}</span>
+              </button>
+            );
+          })}
+        </aside>
 
-      {/* Chat rail — fixed width 420px today; resizable in a later sprint */}
-      <aside
-        aria-label="Canvas chat rail"
-        className="flex w-[420px] flex-none flex-col border-l border-border bg-background"
-      >
-        <ChatBot initialMessages={[]} threadId={threadId} />
-      </aside>
+        {/* Main stage — force-graph lens today */}
+        <section className="relative flex-1 overflow-hidden bg-background">
+          <Landscape3DPage />
+
+          {/* Floating mic (voice entry point — Sprint B) */}
+          <button
+            type="button"
+            onClick={handleMicClick}
+            title="Voice mode (Sprint B)"
+            className={cn(
+              "absolute bottom-6 left-1/2 z-30 -translate-x-1/2",
+              "flex size-12 items-center justify-center rounded-full",
+              "border border-border bg-background/90 backdrop-blur",
+              "shadow-lg transition-colors hover:bg-muted",
+            )}
+          >
+            <Mic className="size-5 text-muted-foreground" />
+            <span className="sr-only">Open voice mode</span>
+          </button>
+        </section>
+
+        {/* Chat rail — fixed width 420px today; resizable in a later sprint */}
+        <aside
+          aria-label="Canvas chat rail"
+          className="flex w-[420px] flex-none flex-col border-l border-border bg-background"
+        >
+          <ChatBot initialMessages={[]} threadId={threadId} />
+        </aside>
+      </div>
     </div>
   );
 }

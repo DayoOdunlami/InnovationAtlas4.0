@@ -1,5 +1,6 @@
 import { Tool } from "ai";
 import { AppDefaultToolkit, DefaultToolName } from ".";
+import { getCanvasStateTool } from "./canvas/read-tools";
 import {
   colorByLensCategoryTool,
   filterByQueryTool,
@@ -78,13 +79,13 @@ export const APP_DEFAULT_TOOL_KIT: Record<
   // behaviour is identical to pre-Commit-2.
   // ---------------------------------------------------------------------
   [AppDefaultToolkit.Canvas]: {
-    // Write tools (Commit 5). Read tool lands in Commit 6.
     [DefaultToolName.FocusOnProject]: focusOnProjectTool,
     [DefaultToolName.FocusOnOrg]: focusOnOrgTool,
     [DefaultToolName.HighlightCluster]: highlightClusterTool,
     [DefaultToolName.ColorByLensCategory]: colorByLensCategoryTool,
     [DefaultToolName.FilterByQuery]: filterByQueryTool,
     [DefaultToolName.ResetCamera]: resetCameraTool,
+    [DefaultToolName.GetCanvasState]: getCanvasStateTool,
   },
   [AppDefaultToolkit.Briefing]: {
     // Populated in Brief X Commit 12.

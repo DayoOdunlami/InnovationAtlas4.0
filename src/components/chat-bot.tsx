@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { cn, createDebounce, generateUUID, truncateString } from "lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { CanvasToolDispatcher } from "./canvas/canvas-tool-dispatcher";
 import { ChatGreeting } from "./chat-greeting";
 import { ErrorMessage, PreviewMessage } from "./message";
 import PromptInput from "./prompt-input";
@@ -466,6 +467,10 @@ export default function ChatBot({ threadId, initialMessages }: Props) {
 
   return (
     <>
+      <CanvasToolDispatcher
+        messages={messages}
+        addToolResult={_addToolResult}
+      />
       {particle}
       <div
         className={cn(

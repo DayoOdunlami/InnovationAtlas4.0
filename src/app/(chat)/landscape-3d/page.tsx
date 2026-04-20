@@ -1,5 +1,7 @@
 "use client";
 
+import { appStore } from "@/app/store";
+import type { CanvasFilter } from "@/app/store";
 import { LANDSCAPE_SNAPSHOT } from "@/lib/landscape/snapshot";
 import type {
   EdgeType,
@@ -11,6 +13,7 @@ import type { ForceGraphMethods } from "react-force-graph-3d";
 import type { Root } from "react-dom/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
+import { useShallow } from "zustand/shallow";
 
 type ZMode = "year" | "funding" | "degree" | "score";
 type GravityRing = "inner" | "middle" | "outer" | "hidden";
@@ -328,6 +331,51 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Canvas ↔ legacy-filter mapping (Sprint X Commit 3)
+//
+// The existing UI exposes a single-string "activeFilter" ("all" | "innovate_uk"
+// | "epsrc" | "iscf" | "live"). The canonical `canvas.filter` slice on
+// `appStore` is structured (funder + mode + …). These two helpers bridge the
+// two without the filterNodes() helper caring about the change.
+// ---------------------------------------------------------------------------
+
+type FilterButtonKey = "all" | "innovate_uk" | "epsrc" | "iscf" | "live";
+
+function canvasFilterToButtonKey(filter: CanvasFilter): FilterButtonKey {
+  if (filter.mode === "live") return "live";
+  if (filter.funder === "Innovate UK") return "innovate_uk";
+  if (filter.funder === "EPSRC") return "epsrc";
+  if (filter.funder === "ISCF") return "iscf";
+  return "all";
+}
+
+function buttonKeyToCanvasFilter(key: FilterButtonKey): CanvasFilter {
+  switch (key) {
+    case "all":
+      return {};
+    case "innovate_uk":
+      return { funder: "Innovate UK" };
+    case "epsrc":
+      return { funder: "EPSRC" };
+    case "iscf":
+      return { funder: "ISCF" };
+    case "live":
+      return { mode: "live" };
+  }
+}
+
+/** Coerce a landscape node's raw `type` into the structured CanvasNodeType. */
+function landscapeNodeTypeToCanvas(
+  node: LandscapeNode,
+): "project" | "organisation" | "theme" | null {
+  if (node.type === "project") return "project";
+  // Live calls and any other landscape-specific types have no natural mapping
+  // into the three CanvasNodeType buckets. Leaving as null keeps the contract
+  // honest; agents that care about orgs/themes will select via other lenses.
+  return null;
+}
+
 export default function Landscape3DPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<ForceGraphMethods<Graph3DNode, Graph3DLink> | undefined>(
@@ -335,14 +383,86 @@ export default function Landscape3DPage() {
   );
 
   const [dimensions, setDimensions] = useState({ w: 1200, h: 800 });
-  const [activeFilter, setActiveFilter] = useState("all");
   const [edgeVisibility, setEdgeVisibility] = useState<EdgeVisibility>(
     DEFAULT_EDGE_VISIBILITY,
   );
   const [layoutSpread, setLayoutSpread] = useState(true);
   const [particleSpeed, setParticleSpeed] = useState(20);
   const [zMode, setZMode] = useState<ZMode>("year");
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  // Canvas slice (Sprint X Commit 3): selection + filter + active lens now
+  // live in the appStore. Everything below is sourced from there so the
+  // agent's forthcoming write tools (Commits 5–6) can mutate the same state
+  // via synchronous `canvasMutate` calls and trigger re-renders here.
+  const [appStoreMutate, selectedNodeId, canvasFilter] = appStore(
+    useShallow((s) => [s.mutate, s.canvas.selectedNodeId, s.canvas.filter]),
+  );
+  const activeFilter: FilterButtonKey = useMemo(
+    () => canvasFilterToButtonKey(canvasFilter),
+    [canvasFilter],
+  );
+
+  // This page IS the force-graph lens. Reflect that in the store on mount so
+  // any tool-call that opens the page (e.g. a future passport deep-link)
+  // sees the correct lens. Guarded to avoid write-loops under StrictMode.
+  useEffect(() => {
+    const current = appStore.getState().canvas.activeLens;
+    if (current !== "force-graph") {
+      appStore.setState((prev) => ({
+        canvas: {
+          ...prev.canvas,
+          activeLens: "force-graph",
+          lastAction: {
+            type: "setActiveLens",
+            payload: { lens: "force-graph" },
+            result: { activeLens: "force-graph" },
+            at: Date.now(),
+            source: "user",
+          },
+        },
+      }));
+    }
+  }, []);
+
+  const setSelectedNodeId = useCallback(
+    (id: string | null, node?: LandscapeNode) => {
+      appStoreMutate((prev) => ({
+        canvas: {
+          ...prev.canvas,
+          selectedNodeId: id,
+          selectedNodeType: id && node ? landscapeNodeTypeToCanvas(node) : null,
+          lastAction: {
+            type: id ? "selectNode" : "clearSelection",
+            payload: id ? { id } : {},
+            result: { selectedNodeId: id },
+            at: Date.now(),
+            source: "user",
+          },
+        },
+      }));
+    },
+    [appStoreMutate],
+  );
+
+  const setActiveFilter = useCallback(
+    (key: FilterButtonKey) => {
+      const nextFilter = buttonKeyToCanvasFilter(key);
+      appStoreMutate((prev) => ({
+        canvas: {
+          ...prev.canvas,
+          filter: nextFilter,
+          lastAction: {
+            type: "setFilter",
+            payload: { filter: nextFilter, buttonKey: key },
+            result: { filter: nextFilter },
+            at: Date.now(),
+            source: "user",
+          },
+        },
+      }));
+    },
+    [appStoreMutate],
+  );
 
   const [gravityMode, setGravityMode] = useState(false);
   const [gravityQuery, setGravityQuery] = useState("");
@@ -440,7 +560,7 @@ export default function Landscape3DPage() {
     if (!selectedNodeId) return;
     if (!graphData.nodes.some((n) => n.id === selectedNodeId))
       setSelectedNodeId(null);
-  }, [graphData.nodes, selectedNodeId]);
+  }, [graphData.nodes, selectedNodeId, setSelectedNodeId]);
 
   const runGravitySearch = useCallback(async () => {
     if (!gravityQuery.trim() || gravityLoading) return;
@@ -560,7 +680,7 @@ export default function Landscape3DPage() {
           linkDirectionalParticleColor={() => "#79c0ff"}
           onNodeClick={(node) => {
             if (node.id === "__sun__") return;
-            setSelectedNodeId(node.id);
+            setSelectedNodeId(node.id, node);
             const g = fgRef.current;
             if (!g) return;
             g.cameraPosition(

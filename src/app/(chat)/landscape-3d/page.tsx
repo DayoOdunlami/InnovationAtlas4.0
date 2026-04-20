@@ -402,6 +402,17 @@ export default function Landscape3DPage() {
     [canvasFilter],
   );
 
+  // Hover is a pure UI signal (tooltip hints, agent "tell me about this").
+  // Writes are gated on actual value change so hover noise can't flood the
+  // audit trail — and we deliberately do NOT stamp lastAction for hover.
+  const setHoveredNodeId = useCallback((id: string | null) => {
+    const current = appStore.getState().canvas.hoveredNodeId;
+    if (current === id) return;
+    appStore.setState((prev) => ({
+      canvas: { ...prev.canvas, hoveredNodeId: id },
+    }));
+  }, []);
+
   // This page IS the force-graph lens. Reflect that in the store on mount so
   // any tool-call that opens the page (e.g. a future passport deep-link)
   // sees the correct lens. Guarded to avoid write-loops under StrictMode.
@@ -698,7 +709,17 @@ export default function Landscape3DPage() {
             node.fy = node.y;
             node.fz = node.z;
           }}
-          onBackgroundClick={() => setSelectedNodeId(null)}
+          onNodeHover={(node) => {
+            if (!node || node.id === "__sun__") {
+              setHoveredNodeId(null);
+              return;
+            }
+            setHoveredNodeId(node.id);
+          }}
+          onBackgroundClick={() => {
+            setSelectedNodeId(null);
+            setHoveredNodeId(null);
+          }}
           cooldownTicks={gravityMode ? 0 : layoutSpread ? 120 : 0}
           d3AlphaDecay={gravityMode ? 1 : layoutSpread ? 0.02 : 1}
           d3VelocityDecay={layoutSpread ? 0.3 : 1}
@@ -1092,6 +1113,26 @@ export default function Landscape3DPage() {
         <div style={{ color: "rgba(255,255,255,0.5)" }}>
           X/Y = UMAP coordinates · Z mode = {gravityMode ? "gravity" : zMode}
         </div>
+      </div>
+      <div
+        title="This page is instrumented for the Atlas Canvas State Contract. Selection, filter, hover and active lens are mirrored to appStore.canvas. Write/read tools land in Sprint X Commits 5–6."
+        style={{
+          position: "absolute",
+          bottom: 12,
+          right: 12,
+          padding: "4px 10px",
+          borderRadius: 999,
+          background: "rgba(121,192,255,0.1)",
+          border: "0.5px solid rgba(121,192,255,0.35)",
+          color: "#79c0ff",
+          fontFamily: "ui-monospace, monospace",
+          fontSize: 10,
+          letterSpacing: "0.04em",
+          pointerEvents: "auto",
+          cursor: "help",
+        }}
+      >
+        Canvas-wired · WIP
       </div>
     </div>
   );

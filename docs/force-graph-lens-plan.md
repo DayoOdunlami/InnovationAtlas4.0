@@ -1,8 +1,21 @@
 # Force-graph lens — rebuild plan
 
-> Status: **plan only, no code written yet.** This document supersedes the stashed
-> gravity-mode patch that has now been lost twice. Owner: review and approve (or
-> push back) before any commits.
+> Status: **frozen during demo window (2026-04-21 → 2026-05-12).** No code will be
+> written against this plan until Brief-First Rebuild Phase 3b. The plan remains
+> directionally accurate for the Phase 3b `landscape-embed` block.
+>
+> **Gold-standard reference:** [`docs/force-graph-lens-poc.html`](./force-graph-lens-poc.html) —
+> self-contained POC demonstrating explore / gravity / **compare (binary-star)** modes,
+> UMAP-pinned 3D with configurable Y-axis depth, **semantic-zoom cluster labels**,
+> full **URL-owned state** round-trip, and **viewport-aware JARVIS** (screenshot +
+> context packet → vision model). Interaction + visual spec for Phase 3b overrides
+> the sections below where they disagree. Two known extensions the POC adds on top
+> of the plan sections: compare mode and viewport-JARVIS; both are captured in the
+> Brief-First plan §3 (block interaction patterns).
+>
+> **Original status (retained for history):** plan only, no code written yet. This
+> document superseded the stashed gravity-mode patch that was lost twice. Owner:
+> review and approve (or push back) before any commits.
 
 ---
 

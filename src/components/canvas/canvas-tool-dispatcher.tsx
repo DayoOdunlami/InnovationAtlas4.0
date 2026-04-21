@@ -50,6 +50,7 @@ const WRITE_TOOL_NAMES = new Set<string>([
   DefaultToolName.ResetCamera,
   DefaultToolName.MountChartInStage,
   DefaultToolName.MountPassportInStage,
+  DefaultToolName.MountTableInStage,
 ]);
 
 const READ_TOOL_NAMES = new Set<string>([DefaultToolName.GetCanvasState]);

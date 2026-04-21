@@ -19,6 +19,7 @@ import type {
   CanvasFilter,
   CanvasStage,
   CanvasStageChartSpec,
+  CanvasStageTableSpec,
   CanvasState,
 } from "@/app/store";
 import { DefaultToolName } from "@/lib/ai/tools";
@@ -206,6 +207,49 @@ export function applyWriteIntent(
           type: "mountPassportInStage",
           payload: { passportId },
           result: { stage: stage.kind, passportId },
+          at: now,
+          source: "agent",
+        },
+      };
+    }
+
+    case DefaultToolName.MountTableInStage: {
+      const spec = (input as { spec?: unknown }).spec;
+      if (!spec || typeof spec !== "object") {
+        return { __error: "mountTableInStage requires a table spec" };
+      }
+      const specObj = spec as Record<string, unknown>;
+      const title = typeof specObj.title === "string" ? specObj.title : null;
+      if (!title) {
+        return { __error: "mountTableInStage: spec.title is required" };
+      }
+      const columns = Array.isArray(specObj.columns) ? specObj.columns : null;
+      if (!columns || columns.length === 0) {
+        return {
+          __error: "mountTableInStage: spec.columns must be a non-empty array",
+        };
+      }
+      if (!Array.isArray(specObj.data)) {
+        return { __error: "mountTableInStage: spec.data must be an array" };
+      }
+      const stage: CanvasStage = {
+        kind: "table",
+        spec: spec as CanvasStageTableSpec,
+      };
+      return {
+        ...prev,
+        stage,
+        lastAction: {
+          type: "mountTableInStage",
+          payload: {
+            title,
+            columnCount: columns.length,
+            rowCount: (specObj.data as unknown[]).length,
+          },
+          result: {
+            stage: stage.kind,
+            rowCount: (specObj.data as unknown[]).length,
+          },
           at: now,
           source: "agent",
         },

@@ -172,6 +172,95 @@ describe("applyWriteIntent — mountPassportInStage", () => {
   });
 });
 
+describe("applyWriteIntent — mountTableInStage", () => {
+  const validSpec = {
+    title: "Projects by funder",
+    description: null,
+    columns: [
+      { key: "title", label: "Title", type: "string" },
+      { key: "funding", label: "Funding", type: "number" },
+    ],
+    data: [
+      { title: "Alpha", funding: 100 },
+      { title: "Beta", funding: 250 },
+    ],
+  };
+
+  it("mounts a table spec in the stage slot", () => {
+    const result = applyWriteIntent(
+      baseState(),
+      DefaultToolName.MountTableInStage,
+      { spec: validSpec },
+    );
+    if ("__error" in result) throw new Error(result.__error);
+    expect(result.stage.kind).toBe("table");
+    if (result.stage.kind !== "table") return;
+    expect(result.stage.spec.title).toBe("Projects by funder");
+    expect(result.stage.spec.columns).toHaveLength(2);
+    expect(result.stage.spec.data).toHaveLength(2);
+    expect(result.lastAction?.type).toBe("mountTableInStage");
+    expect(result.lastAction?.source).toBe("agent");
+  });
+
+  it("errors when spec is missing", () => {
+    const result = applyWriteIntent(
+      baseState(),
+      DefaultToolName.MountTableInStage,
+      {},
+    );
+    expect("__error" in result).toBe(true);
+  });
+
+  it("errors when title is missing", () => {
+    const result = applyWriteIntent(
+      baseState(),
+      DefaultToolName.MountTableInStage,
+      { spec: { ...validSpec, title: undefined } },
+    );
+    expect("__error" in result).toBe(true);
+  });
+
+  it("errors when columns is empty", () => {
+    const result = applyWriteIntent(
+      baseState(),
+      DefaultToolName.MountTableInStage,
+      { spec: { ...validSpec, columns: [] } },
+    );
+    expect("__error" in result).toBe(true);
+  });
+
+  it("errors when data is not an array", () => {
+    const result = applyWriteIntent(
+      baseState(),
+      DefaultToolName.MountTableInStage,
+      { spec: { ...validSpec, data: "not-an-array" } },
+    );
+    expect("__error" in result).toBe(true);
+  });
+
+  it("accepts an empty data array (zero-row result)", () => {
+    const result = applyWriteIntent(
+      baseState(),
+      DefaultToolName.MountTableInStage,
+      { spec: { ...validSpec, data: [] } },
+    );
+    if ("__error" in result) throw new Error(result.__error);
+    expect(result.stage.kind).toBe("table");
+  });
+
+  it("replaces an existing passport stage", () => {
+    const prev: CanvasState = {
+      ...baseState(),
+      stage: { kind: "passport", passportId: "p-99" },
+    };
+    const result = applyWriteIntent(prev, DefaultToolName.MountTableInStage, {
+      spec: validSpec,
+    });
+    if ("__error" in result) throw new Error(result.__error);
+    expect(result.stage.kind).toBe("table");
+  });
+});
+
 describe("applyWriteIntent — existing write tools (regression)", () => {
   it("focusOnProject still works", () => {
     const result = applyWriteIntent(

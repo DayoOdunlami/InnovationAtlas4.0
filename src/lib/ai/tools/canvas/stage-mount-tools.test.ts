@@ -4,6 +4,8 @@ import {
   mountChartInStageTool,
   mountPassportInStageInputSchema,
   mountPassportInStageTool,
+  mountTableInStageInputSchema,
+  mountTableInStageTool,
 } from "./stage-mount-tools";
 
 describe("mountChartInStageTool schema", () => {
@@ -185,5 +187,88 @@ describe("mountChartInStageTool.execute", () => {
     }
     expect(result.intent.input.spec).toEqual(spec);
     expect(typeof result.at).toBe("number");
+  });
+});
+
+describe("mountTableInStageTool schema", () => {
+  const validSpec = {
+    title: "Projects",
+    description: null,
+    columns: [
+      { key: "title", label: "Title", type: "string" },
+      { key: "funding", label: "Funding", type: "number" },
+    ],
+    data: [{ title: "Alpha", funding: 100 }],
+  };
+
+  it("accepts a valid table spec", () => {
+    const parsed = mountTableInStageInputSchema.safeParse({ spec: validSpec });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts a spec with an empty data array", () => {
+    const parsed = mountTableInStageInputSchema.safeParse({
+      spec: { ...validSpec, data: [] },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("defaults omitted column type to 'string'", () => {
+    const parsed = mountTableInStageInputSchema.safeParse({
+      spec: {
+        ...validSpec,
+        columns: [{ key: "title", label: "Title" }],
+      },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.spec.columns[0].type).toBe("string");
+    }
+  });
+
+  it("rejects an empty columns array", () => {
+    const parsed = mountTableInStageInputSchema.safeParse({
+      spec: { ...validSpec, columns: [] },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects an unsupported column type", () => {
+    const parsed = mountTableInStageInputSchema.safeParse({
+      spec: {
+        ...validSpec,
+        columns: [{ key: "x", label: "X", type: "enum" }],
+      },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects a missing title", () => {
+    const parsed = mountTableInStageInputSchema.safeParse({
+      spec: { ...validSpec, title: undefined },
+    });
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe("mountTableInStageTool.execute", () => {
+  it("returns a dispatched envelope naming the table tool", async () => {
+    const execute = mountTableInStageTool.execute;
+    if (!execute) throw new Error("tool execute not defined");
+    const spec = {
+      title: "Projects",
+      description: null,
+      columns: [{ key: "title", label: "Title", type: "string" as const }],
+      data: [{ title: "Alpha" }],
+    };
+    const raw = await execute({ spec }, { toolCallId: "tab-1", messages: [] });
+    const result = raw as StageMountDispatchedResult;
+    expect(result.status).toBe("dispatched");
+    expect(result.intent.tool).toBe("mountTableInStage");
+    if (result.intent.tool !== "mountTableInStage") {
+      throw new Error("expected mountTableInStage intent");
+    }
+    expect(result.intent.input.spec.title).toBe("Projects");
+    expect(result.intent.input.spec.data).toHaveLength(1);
   });
 });

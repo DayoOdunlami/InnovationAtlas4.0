@@ -17,6 +17,7 @@ import { appStore } from "@/app/store";
 import type { CanvasStage } from "@/app/store";
 import { CanvasStageChart } from "@/components/canvas/stage/canvas-stage-chart";
 import { CanvasStagePassport } from "@/components/canvas/stage/canvas-stage-passport";
+import { CanvasStageTable } from "@/components/canvas/stage/canvas-stage-table";
 import dynamic from "next/dynamic";
 import { useSyncExternalStore } from "react";
 
@@ -57,6 +58,10 @@ export function CanvasStage() {
 
   if (stage.kind === "passport") {
     return <CanvasStagePassport passportId={stage.passportId} />;
+  }
+
+  if (stage.kind === "table") {
+    return <CanvasStageTable spec={stage.spec} />;
   }
 
   return <Landscape3DPage />;

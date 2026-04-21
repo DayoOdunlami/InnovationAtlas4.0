@@ -4,6 +4,7 @@ import { getCanvasStateTool } from "./canvas/read-tools";
 import {
   mountChartInStageTool,
   mountPassportInStageTool,
+  mountTableInStageTool,
 } from "./canvas/stage-mount-tools";
 import {
   colorByLensCategoryTool,
@@ -92,6 +93,7 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     [DefaultToolName.GetCanvasState]: getCanvasStateTool,
     [DefaultToolName.MountChartInStage]: mountChartInStageTool,
     [DefaultToolName.MountPassportInStage]: mountPassportInStageTool,
+    [DefaultToolName.MountTableInStage]: mountTableInStageTool,
   },
   [AppDefaultToolkit.Briefing]: {
     // Populated in Brief X Commit 12.

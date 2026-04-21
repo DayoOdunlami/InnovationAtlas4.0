@@ -104,10 +104,24 @@ export type CanvasStageChartSpec =
       data: Array<{ label: string; value: number }>;
     };
 
+export type CanvasStageTableColumn = {
+  key: string;
+  label: string;
+  type?: "string" | "number" | "date" | "boolean" | null;
+};
+
+export type CanvasStageTableSpec = {
+  title: string;
+  description?: string | null;
+  columns: CanvasStageTableColumn[];
+  data: Array<Record<string, unknown>>;
+};
+
 export type CanvasStage =
   | { kind: "force-graph" }
   | { kind: "chart"; spec: CanvasStageChartSpec }
-  | { kind: "passport"; passportId: string };
+  | { kind: "passport"; passportId: string }
+  | { kind: "table"; spec: CanvasStageTableSpec };
 
 export type CanvasState = {
   selectedNodeId: string | null;

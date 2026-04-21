@@ -58,6 +58,7 @@ export enum DefaultToolName {
   // canvas write tools.
   MountChartInStage = "mountChartInStage",
   MountPassportInStage = "mountPassportInStage",
+  MountTableInStage = "mountTableInStage",
   // Briefing write tools (Sprint X Commit 12). Block IDs are stable across
   // updates so update/remove never race with append.
   AppendBriefingBlock = "appendBriefingBlock",

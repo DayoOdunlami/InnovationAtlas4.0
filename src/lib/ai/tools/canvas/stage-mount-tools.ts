@@ -14,8 +14,8 @@
 //      `{ status: "applied", newState }`.
 //
 // Commit 1 (this file, initial): mountChartInStage only.
-// Commit 2 will add mountPassportInStage.
-// Commit 3 will add mountTableInStage.
+// Commit 2 added mountPassportInStage.
+// Commit 3 adds mountTableInStage.
 //
 // No "returnToForceGraph" tool exists by design — that affordance is
 // user-driven via the top-bar button and the force-graph lens chip, per the
@@ -87,9 +87,44 @@ export type MountPassportInStageInput = z.infer<
   typeof mountPassportInStageInputSchema
 >;
 
+// Table spec mirrors `createTable` (see `visualization/create-table.ts`) so a
+// model can reuse the same column/row shape it already knows. `type` on a
+// column is nullable because the existing inline tool lets the model omit it
+// and default to "string" — we preserve that ergonomics here.
+const mountTableColumnSchema = z.object({
+  key: z
+    .string()
+    .min(1)
+    .describe("Column key that matches the data row object keys."),
+  label: z.string().min(1).describe("Display label for the column header."),
+  type: z
+    .enum(["string", "number", "date", "boolean"])
+    .nullable()
+    .default("string")
+    .describe("Data type for sorting and formatting."),
+});
+
+export const mountTableInStageInputSchema = z.object({
+  spec: z.object({
+    title: z.string().min(1),
+    description: z.string().nullable(),
+    columns: z.array(mountTableColumnSchema).min(1),
+    data: z
+      .array(z.object({}).catchall(z.unknown()))
+      .describe(
+        "Array of row objects. Each row's keys should match the column keys.",
+      ),
+  }),
+});
+
+export type MountTableInStageInput = z.infer<
+  typeof mountTableInStageInputSchema
+>;
+
 export type StageMountDispatchedIntent =
   | { tool: "mountChartInStage"; input: MountChartInStageInput }
-  | { tool: "mountPassportInStage"; input: MountPassportInStageInput };
+  | { tool: "mountPassportInStage"; input: MountPassportInStageInput }
+  | { tool: "mountTableInStage"; input: MountTableInStageInput };
 
 export type StageMountDispatchedResult = {
   status: "dispatched";
@@ -124,6 +159,22 @@ export const mountPassportInStageTool = createTool({
   execute: async (input): Promise<StageMountDispatchedResult> => ({
     status: "dispatched",
     intent: { tool: "mountPassportInStage", input },
+    at: Date.now(),
+  }),
+});
+
+export const mountTableInStageTool = createTool({
+  description:
+    "Mount an interactive table (search, sort, pagination, CSV/Excel export) in the canvas main stage, replacing the force-graph lens until the user returns. " +
+    "Use this when the user asks for a table of 'what's on the canvas', a list of projects/organisations/claims at full width, or when a result set is too large to inline in the chat transcript. " +
+    "If the user just wants a small table inline with the conversation, prefer the inline `createTable` tool instead. " +
+    "Provide column configuration and row data in the same shape as `createTable` — each row object's keys must match the column keys. " +
+    "Preconditions: must be on the /canvas surface. " +
+    "Returns { status, newState } per the Canvas State Contract.",
+  inputSchema: mountTableInStageInputSchema,
+  execute: async (input): Promise<StageMountDispatchedResult> => ({
+    status: "dispatched",
+    intent: { tool: "mountTableInStage", input },
     at: Date.now(),
   }),
 });

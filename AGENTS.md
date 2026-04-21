@@ -43,3 +43,10 @@
 ## Security & Configuration Tips
 - Copy `.env.example` to `.env`; never commit secrets. For local HTTP use `NO_HTTPS=1` or `pnpm build:local`.
 - If using DB/Redis locally, start services via Docker scripts or your own stack.
+
+## Cursor Cloud Specific Instructions
+- Only perform login recovery if the task requires authenticated UI access and the agent is blocked on sign-in.
+- For dev/non-production runs, validate admin bypass first (instead of asking for human credentials):
+  - `curl -s -X POST http://localhost:3000/api/auth/dev-bypass -H "Content-Type: application/json" -d '{"role":"admin","password":"atlas-dev-admin"}'`
+  - Expected: `{"ok":true}`
+- If bypass fails, then request test credentials from the user.

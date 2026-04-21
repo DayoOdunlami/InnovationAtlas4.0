@@ -69,28 +69,33 @@ export const FEATURE_STATUS: ReadonlyArray<FeatureEntry> = [
     surface: "canvas",
   },
 
-  // --- Canvas stage-mounts (Thread 2 of the roadmap) -----------------------
+  // --- Canvas stage-mounts (Thread 2 landed) -------------------------------
   {
     id: "stage.chart",
     label: "Full-size chart in stage",
-    status: "planned",
+    status: "ready",
     surface: "canvas",
+    note: "mountChartInStage — bar / line / pie",
     promptNote:
-      "Charts render as chat-rail cards today (pie / bar / line / table) but cannot yet fill the canvas stage. Emit a chat-rail card instead.",
+      "Call `mountChartInStage` to dominate the canvas main stage with a full-size chart. Use the inline `createBarChart` / `createLineChart` / `createPieChart` when the user only wants a chat-rail card.",
   },
   {
     id: "stage.passport",
     label: "Full-size passport in stage",
-    status: "planned",
+    status: "ready",
     surface: "canvas",
+    note: "mountPassportInStage — header, documents, claims",
     promptNote:
-      "Passport detail cannot yet render in the canvas stage. Use the passport tool-invocation cards in the chat rail instead.",
+      "Call `mountPassportInStage` with a passport UUID to render the full passport (header + documents + claims) in the canvas stage. Prefer this to linking to /passport/[id] when the conversation is on /canvas.",
   },
   {
     id: "stage.table",
     label: "Full-size table in stage",
-    status: "planned",
+    status: "ready",
     surface: "canvas",
+    note: "mountTableInStage — search, sort, CSV/Excel export",
+    promptNote:
+      "Call `mountTableInStage` for wide result sets (projects, organisations, claims, partner shortlists) so the table fills the stage with search / sort / export. Use inline `createTable` for small tables that fit the chat rail.",
   },
 
   // --- Passport flow (end-to-end live) --------------------------------------

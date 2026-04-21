@@ -28,9 +28,9 @@ document — **do not conflate the two**.
 | Sankey lens | Planned | Stubbed disabled icon in the rail. |
 | Timeline lens | Planned | Stubbed disabled icon in the rail. |
 | Coverage-matrix lens | Planned | Stubbed disabled icon in the rail. |
-| Stage-mount: chart | Planned | Thread 2 / commit 1. Prove the stage-slot mechanism. |
-| Stage-mount: passport | Planned | Thread 2 / commit 2. Highest demo impact. |
-| Stage-mount: table | Planned | Thread 2 / commit 3. |
+| Stage-mount: chart | Ready | Thread 2 / commit 1 landed. `mountChartInStage` (bar / line / pie) fills the main stage; return via the top-bar affordance. |
+| Stage-mount: passport | Ready | Thread 2 / commit 2 landed. `mountPassportInStage` renders full passport (header / documents / claims) at canvas width; deep-link `/canvas?passport=<id>` also hydrates straight in. |
+| Stage-mount: table | Ready | Thread 2 / commit 3 landed. `mountTableInStage` reuses `InteractiveTable` — search, sort, column visibility, CSV + Excel export. |
 | Briefing panel | Planned | Briefing toolkit registered but empty; writable tools land Brief X Commit 12. |
 
 ## Landscape routes
@@ -73,11 +73,30 @@ All end-to-end live as chat-rail cards. No canvas stage-mount yet.
 
 ## This week's priorities
 
-1. **Thread 1** (this commit) — status popover + AI context + legacy banners. Unblocks honest demos of everything already Ready.
-2. **Thread 2 / commit 1** — stage-mount for charts. Prove the `canvas.stage` slot mechanism on the smallest target.
-3. **Thread 2 / commit 2** — stage-mount for passport detail. Highest demo impact for the current audience.
-4. **Thread 2 / commit 3** — stage-mount for interactive table.
-5. **Thread 3** — force-graph lens rebuild per `docs/force-graph-lens-plan.md`. No demo dependency; runs after Thread 2 lands.
+1. ~~**Thread 1** — status popover + AI context + legacy banners.~~ **Landed.**
+2. ~~**Thread 2 / commit 1** — stage-mount for charts (`mountChartInStage`).~~ **Landed.**
+3. ~~**Thread 2 / commit 2** — stage-mount for passport detail (`mountPassportInStage`).~~ **Landed.**
+4. ~~**Thread 2 / commit 3** — stage-mount for interactive table (`mountTableInStage`).~~ **Landed.**
+5. **Sprint A resumption** — pick up the floating-mic wire-up (Brief A §3 R6) next. The UI button exists; wire it to the existing Realtime backend and auto-expand the right rail on activate.
+6. **Sprint C resumption** — pending; sequenced after Sprint A.
+7. **Thread 3** — force-graph lens rebuild per `docs/force-graph-lens-plan.md`. No demo dependency; runs after Sprints A and C.
+
+## Thread 2 boundary summary
+
+| Commit | Hash | Lands |
+| --- | --- | --- |
+| 2/1 | `014be3c` | `mountChartInStage` tool + dispatcher + `CanvasStageChart` + `canvas.stage` slot on `CanvasState` + reducer extracted to `lib/canvas/apply-write-intent.ts` + top-bar "Return to force-graph" affordance. |
+| 2/2 | `c7372e9` | `mountPassportInStage` tool + `CanvasStagePassport` (SWR, uses existing `PassportHeader` / `PassportDocuments` / `PassportClaimsSection`) + `GET /api/passport/[id]` thin read wrapper + `/canvas?passport=<id>` deep-link hydration. |
+| 2/3 | `8b6af0d` | `mountTableInStage` tool + `CanvasStageTable` reusing `InteractiveTable` (search / sort / CSV + Excel export). |
+
+Contracts held: every write tool still returns the `{ status, newState }` envelope per the Canvas State Contract (`docs/canvas-state-contract.md`); no existing canvas write tool changed shape; feature-status registry invariants still green.
+
+Tests added: 17 unit tests on the reducer (`apply-write-intent.test.ts`, 19 total) + 14 on the tool schemas and execute envelopes (`stage-mount-tools.test.ts`, 20 total).
+
+Follow-ups parked (not blocking the demo):
+- Chart stage could grow a "open in chat rail" / "copy spec" affordance.
+- Passport stage could cache SWR responses across re-mounts (today it revalidates once per mount).
+- Table stage could respect a max-rows cap server-side so a runaway tool call can't dump 50k rows into the stage.
 
 ## How to update this doc
 

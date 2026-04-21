@@ -158,11 +158,11 @@ export const FEATURE_STATUS: ReadonlyArray<FeatureEntry> = [
   {
     id: "voice.canvas",
     label: "Voice on /canvas",
-    status: "wip",
+    status: "ready",
     surface: "voice",
-    note: "Floating mic lands in Sprint A §3 — Realtime backend already working",
+    note: "Floating mic opens the Realtime voice drawer, same session as the header mic",
     promptNote:
-      "On /canvas, the floating bottom-centre mic button is visible but not yet wired. Voice still works via the header mic — point users there if they ask.",
+      "The canvas has a floating bottom-centre mic that opens the same Realtime voice session as the header / prompt mic. JARVIS + MCP tool bindings carry over.",
   },
 
   // --- Landscape routes -----------------------------------------------------

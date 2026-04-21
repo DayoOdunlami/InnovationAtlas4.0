@@ -69,7 +69,7 @@ All end-to-end live as chat-rail cards. No canvas stage-mount yet.
 | Surface | Status | Notes |
 | --- | --- | --- |
 | Realtime voice (header / prompt mic) | Ready | Phases A–C shipped — see `docs/voice-realtime-phases.md`. |
-| Floating mic on `/canvas` | In progress | UI button is present but not wired. Ships in Sprint A §3 — uses the existing Realtime backend. |
+| Floating mic on `/canvas` | Ready | Bottom-centre mic opens the same Realtime drawer as the header / prompt mic; JARVIS + MCP mentions carry over via `agentIdForVoiceFromThreadMentions`. Visual active state while a session is live. |
 
 ## This week's priorities
 
@@ -77,9 +77,10 @@ All end-to-end live as chat-rail cards. No canvas stage-mount yet.
 2. ~~**Thread 2 / commit 1** — stage-mount for charts (`mountChartInStage`).~~ **Landed.**
 3. ~~**Thread 2 / commit 2** — stage-mount for passport detail (`mountPassportInStage`).~~ **Landed.**
 4. ~~**Thread 2 / commit 3** — stage-mount for interactive table (`mountTableInStage`).~~ **Landed.**
-5. **Sprint A resumption** — pick up the floating-mic wire-up (Brief A §3 R6) next. The UI button exists; wire it to the existing Realtime backend and auto-expand the right rail on activate.
-6. **Sprint C resumption** — pending; sequenced after Sprint A.
-7. **Thread 3** — force-graph lens rebuild per `docs/force-graph-lens-plan.md`. No demo dependency; runs after Sprints A and C.
+5. ~~**Sprint A / R6** — floating-mic wire-up on `/canvas` (Brief A §3 R6).~~ **Landed.**
+6. **Sprint A remainder** — rest of Brief A still to resume.
+7. **Sprint C resumption** — pending; sequenced after Sprint A.
+8. **Thread 3** — force-graph lens rebuild per `docs/force-graph-lens-plan.md`. No demo dependency; runs after Sprints A and C.
 
 ## Thread 2 boundary summary
 
@@ -94,9 +95,49 @@ Contracts held: every write tool still returns the `{ status, newState }` envelo
 Tests added: 17 unit tests on the reducer (`apply-write-intent.test.ts`, 19 total) + 14 on the tool schemas and execute envelopes (`stage-mount-tools.test.ts`, 20 total).
 
 Follow-ups parked (not blocking the demo):
+- **[Priority — demo risk]** Table stage should respect a max-rows cap server-side so a runaway tool call can't dump 50k rows into the stage. A cap of ~500 with a trailing "+N more — refine your query" footer would be safe; today there is no guard.
 - Chart stage could grow a "open in chat rail" / "copy spec" affordance.
 - Passport stage could cache SWR responses across re-mounts (today it revalidates once per mount).
-- Table stage could respect a max-rows cap server-side so a runaway tool call can't dump 50k rows into the stage.
+
+## Post-Thread-2 verification notes (questions to resolve post-demo)
+
+### Q1. Does the model ever see `{ status: "dispatched" }`?
+
+**Short answer: yes, on the tool-returning turn — then the overwritten `{ status: "applied", newState }` is what the model reads on every subsequent turn.** Not blocking the demo, but worth noting when interpreting first-turn assistant replies after a mount tool call.
+
+Trace (from `node_modules/ai/dist/index.mjs`):
+
+- **Line 9463** — inside `finishActiveResponse`, after the stream completes, the hook calls `this.sendAutomaticallyWhen({ messages: this.state.messages })` and, if true, calls `this.makeRequest(...)` immediately. At this point `this.state.messages` contains the tool output exactly as returned by the server's `execute` — which is `{ status: "dispatched", intent, at }`. This is the first auto-send.
+- **Line 9282** — inside `addToolOutput` (what our `addToolResult({...})` call is aliased to), `sendAutomaticallyWhen` is re-checked **but only if** `this.status !== "streaming" && this.status !== "submitted"`. By the time `CanvasToolDispatcher`'s `useEffect` runs and calls `addToolResult`, `makeRequest` has already flipped the hook to `"submitted"` — so the guard fails and no second auto-send fires from the overwrite. The overwritten `{status: "applied", newState}` therefore lands in the message list but isn't sent as a delta; it rides along on the *next* user or auto-send turn.
+
+What this means for demo behaviour:
+- The model's immediate reply after `mountChartInStage` / `mountPassportInStage` / `mountTableInStage` (and the existing `focusOnProject` / `filterByQuery` / `resetCamera`) reads `{status: "dispatched"}` on that turn.
+- On the next turn, it reads `{status: "applied", newState}` and `canvas.lastAction` — which is where the system prompt expects it to rely for state grounding anyway.
+- This has been the working behaviour for the pre-existing canvas write tools all along (`focusOnProject` et al. have shipped on this same pattern) — the system prompt is tolerant.
+
+Proposed fixes (not tonight):
+1. Have the server `execute` `await` a brief client ack via a roundtrip before returning — heavy, probably wrong.
+2. Add `sendAutomaticallyWhen` guard: return false until `lastAction.source === "agent"` matches the latest toolCallId. Cheap, contained to one file.
+3. Accept the behaviour and add a single sentence to the system prompt: *"Tool results may arrive as `{status:"dispatched"}` on the turn they are called; read `canvas.lastAction` on subsequent turns for authoritative state."* Zero code change.
+
+Recommendation: option 3 post-demo.
+
+### Q2. `/api/passport/[id]` authorisation parity with `/passport/[id]`?
+
+**Yes — identical auth path, no gap.** Both surfaces use `getSession()` and then `getPassportDetail(id)`; the only divergence is the failure mode (page `redirect("/sign-in")` + `notFound()`, route `401` + `404`). `getPassportDetail` queries `atlas.passports WHERE id = $1` with no user-scoped predicate, so both surfaces return the same rows for the same caller. Archived passports are visible on both (detail view does not filter `is_archived`, only the list does).
+
+Stale-data window when a passport is edited in another tab and re-mounted on canvas:
+- `CanvasStagePassport` uses `useSWR('/api/passport/${passportId}', fetcher, { revalidateOnFocus: false, errorRetryCount: 1 })`.
+- SWR keys by URL, so **every mount of the same passport id hits the same cache entry**. A second mount in the same tab shows the previously fetched data immediately and does NOT revalidate (we disabled focus revalidation).
+- No cross-tab invalidation: if the passport is edited in tab A, tab B's canvas mount keeps the stale copy until the component fully unmounts AND remounts AND the SWR key is evicted (which does not happen via stage transitions — we swap stages, we don't unmount the SWR hook's parent tree in a way that clears cache).
+- In practice the stale window is "for the lifetime of the tab after the first mount" unless the user hard-refreshes, opens a new tab, or we add an explicit refetch trigger.
+
+Proposed fixes (not tonight):
+1. Pass `mutate` into a context and call it after any passport write tool (`saveClaimsToPassport` / `addEvidenceToPassport` / `rejectClaimByDescription`).
+2. Set `dedupingInterval: 30_000` + `revalidateOnMount: true` so a re-mount after 30s refetches.
+3. Bump the SWR key with the passport's `updated_at` when available from a list query already in state.
+
+Recommendation: option 2 is the cheapest stale-window fix and ships in a one-line change when we revisit the passport SWR follow-up.
 
 ## How to update this doc
 

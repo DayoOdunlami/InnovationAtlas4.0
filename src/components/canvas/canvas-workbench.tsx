@@ -20,9 +20,13 @@
 // state that any open /landscape-3d tab already observes — the dispatcher
 // wired in Commit 6 applies them.
 //
-// A floating bottom-centre mic button is included as a placeholder for the
-// voice entry point (Sprint B). It toasts on click today so the affordance
-// is discoverable without tripping the voice stack.
+// The floating bottom-centre mic is the canvas voice entry point (Brief A
+// §3 R6). Clicking it opens the existing Realtime voice session exactly
+// the way the header / prompt mics do — by flipping
+// `appStore.voiceChat.isOpen` to true and seeding `agentId` from the
+// thread's @agent mention. The Realtime drawer (`<ChatBotVoice/>` in
+// `app-popup-provider`) overlays the whole viewport, so the chat rail's
+// layout state is irrelevant to voice visibility.
 // ---------------------------------------------------------------------------
 
 import { appStore } from "@/app/store";
@@ -32,6 +36,7 @@ import { CanvasStatusPopover } from "@/components/canvas/canvas-status-popover";
 import ChatBot from "@/components/chat-bot";
 import { Button } from "@/components/ui/button";
 import { AppDefaultToolkit } from "@/lib/ai/tools";
+import { agentIdForVoiceFromThreadMentions } from "@/lib/chat/agent-id-for-voice";
 import { cn } from "lib/utils";
 import {
   ArrowLeft,
@@ -175,9 +180,32 @@ export function CanvasWorkbench({
     [handleReturnToForceGraph],
   );
 
+  // Subscribe to voiceChat.isOpen so the floating mic can reflect active
+  // state while a Realtime session is live — the drawer itself is a
+  // top-direction overlay rendered by <ChatBotVoice/> in the popup
+  // provider, so no layout surgery is needed here.
+  const voiceOpen = useSyncExternalStore(
+    (cb) => appStore.subscribe(cb),
+    () => appStore.getState().voiceChat.isOpen,
+    () => false,
+  );
+
   const handleMicClick = useCallback(() => {
-    toast.message("Voice mode ships in Sprint B.");
-  }, []);
+    // Mirror the prompt-input / header-mic activation exactly: seed the
+    // thread's agent (so JARVIS / MCP tool binding keeps working via
+    // @mentions) and flip the drawer open. ChatBotVoice is mounted at the
+    // app shell level, so it picks up the state change immediately.
+    appStore.setState((prev) => ({
+      voiceChat: {
+        ...prev.voiceChat,
+        isOpen: true,
+        agentId: agentIdForVoiceFromThreadMentions(
+          prev.threadMentions,
+          threadId ?? prev.currentThreadId,
+        ),
+      },
+    }));
+  }, [threadId]);
 
   return (
     <div className="flex h-full min-h-[calc(100vh-3.5rem)] w-full flex-col overflow-hidden">
@@ -248,20 +276,29 @@ export function CanvasWorkbench({
         <section className="relative flex-1 overflow-hidden bg-background">
           <CanvasStageRouter />
 
-          {/* Floating mic (voice entry point — Sprint B) */}
+          {/* Floating mic — always-visible voice entry point on the canvas.
+              Complementary to the header / prompt mics: clicking here opens
+              the same Realtime drawer (Brief A §3 R6). */}
           <button
             type="button"
             onClick={handleMicClick}
-            title="Voice mode (Sprint B)"
+            title={voiceOpen ? "Voice session open" : "Talk to JARVIS"}
+            aria-label={voiceOpen ? "Voice session open" : "Open voice chat"}
+            aria-pressed={voiceOpen}
+            disabled={voiceOpen}
             className={cn(
               "absolute bottom-6 left-1/2 z-30 -translate-x-1/2",
               "flex size-12 items-center justify-center rounded-full",
-              "border border-border bg-background/90 backdrop-blur",
-              "shadow-lg transition-colors hover:bg-muted",
+              "border shadow-lg transition-colors backdrop-blur",
+              voiceOpen
+                ? "border-primary/40 bg-primary/10 text-primary cursor-default"
+                : "border-border bg-background/90 text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
-            <Mic className="size-5 text-muted-foreground" />
-            <span className="sr-only">Open voice mode</span>
+            <Mic className="size-5" />
+            <span className="sr-only">
+              {voiceOpen ? "Voice session open" : "Open voice chat"}
+            </span>
           </button>
         </section>
 

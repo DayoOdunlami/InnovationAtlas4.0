@@ -51,6 +51,12 @@ export enum DefaultToolName {
   // Canvas read tool (Sprint X Commit 6). Lazy-called when the agent needs
   // to resolve ambiguous references like "this project". Never polled.
   GetCanvasState = "getCanvasState",
+  // Canvas stage-mount tools (Sprint X Thread 2). Each mounts a specific
+  // artefact into the main canvas stage, replacing the force-graph until
+  // the user returns. Chart ships in commit 1; passport + table follow in
+  // commits 2 and 3. Same `{ status, newState }` contract as the other
+  // canvas write tools.
+  MountChartInStage = "mountChartInStage",
   // Briefing write tools (Sprint X Commit 12). Block IDs are stable across
   // updates so update/remove never race with append.
   AppendBriefingBlock = "appendBriefingBlock",

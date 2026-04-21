@@ -26,12 +26,15 @@
 // ---------------------------------------------------------------------------
 
 import { appStore } from "@/app/store";
-import type { CanvasLensId } from "@/app/store";
+import type { CanvasLensId, CanvasStage } from "@/app/store";
+import { CanvasStage as CanvasStageRouter } from "@/components/canvas/canvas-stage";
 import { CanvasStatusPopover } from "@/components/canvas/canvas-status-popover";
 import ChatBot from "@/components/chat-bot";
+import { Button } from "@/components/ui/button";
 import { AppDefaultToolkit } from "@/lib/ai/tools";
 import { cn } from "lib/utils";
 import {
+  ArrowLeft,
   CircleDot,
   GitBranch,
   Grid3x3,
@@ -39,23 +42,14 @@ import {
   Mic,
   Timer,
 } from "lucide-react";
-import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { toast } from "sonner";
-
-// Defer the heavy force-graph component (uses react-force-graph-3d + three)
-// to the client-only bundle so /canvas SSR is cheap and predictable.
-const Landscape3DPage = dynamic(
-  () => import("@/app/(chat)/landscape-3d/page"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-        Loading force-graph lens…
-      </div>
-    ),
-  },
-);
 
 interface LensOption {
   id: CanvasLensId;
@@ -122,20 +116,23 @@ export function CanvasWorkbench({
     () => appStore.getState().canvas.activeLens,
   );
 
-  const handleLensChange = useCallback((next: LensOption) => {
-    if (!next.enabled) {
-      toast.message(`${next.label} lens lands in a later sprint.`);
-      return;
-    }
-    setActiveLens(next.id);
+  const stage = useSyncExternalStore(
+    (cb) => appStore.subscribe(cb),
+    () => appStore.getState().canvas.stage,
+    () => ({ kind: "force-graph" }) as CanvasStage,
+  );
+
+  const handleReturnToForceGraph = useCallback(() => {
+    const current = appStore.getState().canvas.stage;
+    if (current.kind === "force-graph") return;
     appStore.setState((prev) => ({
       canvas: {
         ...prev.canvas,
-        activeLens: next.id,
+        stage: { kind: "force-graph" },
         lastAction: {
-          type: "setActiveLens",
-          payload: { lens: next.id },
-          result: { activeLens: next.id },
+          type: "returnToForceGraph",
+          payload: {},
+          result: { stage: "force-graph" },
           at: Date.now(),
           source: "user",
         },
@@ -143,19 +140,63 @@ export function CanvasWorkbench({
     }));
   }, []);
 
+  const handleLensChange = useCallback(
+    (next: LensOption) => {
+      if (!next.enabled) {
+        toast.message(`${next.label} lens lands in a later sprint.`);
+        return;
+      }
+      setActiveLens(next.id);
+      // Clicking the force-graph lens chip ALWAYS returns the stage to the
+      // force-graph per the Thread 2 spec ("Lens chip stays visible in the
+      // lens rail; clicking it returns to force-graph").
+      if (next.id === "force-graph") handleReturnToForceGraph();
+      appStore.setState((prev) => ({
+        canvas: {
+          ...prev.canvas,
+          activeLens: next.id,
+          lastAction: {
+            type: "setActiveLens",
+            payload: { lens: next.id },
+            result: { activeLens: next.id },
+            at: Date.now(),
+            source: "user",
+          },
+        },
+      }));
+    },
+    [handleReturnToForceGraph],
+  );
+
   const handleMicClick = useCallback(() => {
     toast.message("Voice mode ships in Sprint B.");
   }, []);
 
   return (
     <div className="flex h-full min-h-[calc(100vh-3.5rem)] w-full flex-col overflow-hidden">
-      {/* Top bar — thin header with the status popover (Thread 1). Lives
+      {/* Top bar — thin header with the status popover (Thread 1) and the
+          single-click Return-to-force-graph affordance (Thread 2). Lives
           outside the three-column grid so the stage keeps its full width. */}
       <header className="flex h-9 flex-none items-center justify-between border-b border-border bg-background/95 px-3">
         <span className="text-xs font-medium text-muted-foreground">
           Canvas
         </span>
-        <CanvasStatusPopover />
+        <div className="flex items-center gap-2">
+          {stage.kind !== "force-graph" && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={handleReturnToForceGraph}
+              className="h-7 gap-1.5 px-2 text-xs"
+              aria-label="Return to force-graph"
+            >
+              <ArrowLeft className="size-3.5" />
+              Return to force-graph
+            </Button>
+          )}
+          <CanvasStatusPopover />
+        </div>
       </header>
 
       {/* Three-column body */}
@@ -194,9 +235,11 @@ export function CanvasWorkbench({
           })}
         </aside>
 
-        {/* Main stage — force-graph lens today */}
+        {/* Main stage — force-graph by default; can be taken over by a
+            mounted chart (Thread 2 commit 1), passport (commit 2) or table
+            (commit 3). CanvasStageRouter reads `appStore.canvas.stage`. */}
         <section className="relative flex-1 overflow-hidden bg-background">
-          <Landscape3DPage />
+          <CanvasStageRouter />
 
           {/* Floating mic (voice entry point — Sprint B) */}
           <button

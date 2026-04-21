@@ -61,6 +61,53 @@ export type CanvasLastAction = {
   source: "user" | "agent";
 };
 
+// ---------------------------------------------------------------------------
+// Canvas stage (Sprint X Thread 2)
+//
+// `stage` is the thing currently mounted in the canvas main panel. It is a
+// *replacement* of the force-graph (not an overlay, not a split view): when
+// a chart / passport / table stage mounts it takes over the main area, and
+// the user returns to the force-graph by clicking the Return affordance in
+// the top bar or re-clicking the force-graph icon in the lens rail.
+//
+// Kept deliberately open-ended via a discriminated `kind` so subsequent
+// commits can add lens variants (passport in commit 2, table in commit 3)
+// without changing the contract seen by the dispatcher or the tool layer.
+// ---------------------------------------------------------------------------
+
+export type CanvasStageChartSpec =
+  | {
+      kind: "bar";
+      title: string;
+      description?: string | null;
+      yAxisLabel?: string | null;
+      data: Array<{
+        xAxisLabel: string;
+        series: Array<{ seriesName: string; value: number }>;
+      }>;
+    }
+  | {
+      kind: "line";
+      title: string;
+      description?: string | null;
+      yAxisLabel?: string | null;
+      data: Array<{
+        xAxisLabel: string;
+        series: Array<{ seriesName: string; value: number }>;
+      }>;
+    }
+  | {
+      kind: "pie";
+      title: string;
+      description?: string | null;
+      unit?: string | null;
+      data: Array<{ label: string; value: number }>;
+    };
+
+export type CanvasStage =
+  | { kind: "force-graph" }
+  | { kind: "chart"; spec: CanvasStageChartSpec };
+
 export type CanvasState = {
   selectedNodeId: string | null;
   selectedNodeType: CanvasNodeType | null;
@@ -69,6 +116,7 @@ export type CanvasState = {
   activeLens: CanvasLensId;
   cameraTarget: CanvasCameraTarget | null;
   colorMode: "default" | "by-lens-category";
+  stage: CanvasStage;
   lastAction: CanvasLastAction | null;
 };
 
@@ -175,6 +223,7 @@ const initialCanvasState: CanvasState = {
   activeLens: "force-graph",
   cameraTarget: null,
   colorMode: "default",
+  stage: { kind: "force-graph" },
   lastAction: null,
 };
 

@@ -29,7 +29,7 @@ import type { UIMessage, ToolUIPart } from "ai";
 import { getToolName, isToolUIPart } from "ai";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { appStore } from "@/app/store";
-import type { CanvasFilter, CanvasState } from "@/app/store";
+import { applyWriteIntent } from "@/lib/canvas/apply-write-intent";
 import { DefaultToolName } from "@/lib/ai/tools";
 import type {
   CanvasAppliedResult,
@@ -37,6 +37,7 @@ import type {
   CanvasDispatchedResult,
 } from "@/lib/ai/tools/canvas/write-tools";
 import type { GetCanvasStateResult } from "@/lib/ai/tools/canvas/read-tools";
+import type { StageMountDispatchedResult } from "@/lib/ai/tools/canvas/stage-mount-tools";
 
 type AddToolResult = UseChatHelpers<UIMessage>["addToolResult"];
 
@@ -47,6 +48,7 @@ const WRITE_TOOL_NAMES = new Set<string>([
   DefaultToolName.ColorByLensCategory,
   DefaultToolName.FilterByQuery,
   DefaultToolName.ResetCamera,
+  DefaultToolName.MountChartInStage,
 ]);
 
 const READ_TOOL_NAMES = new Set<string>([DefaultToolName.GetCanvasState]);
@@ -55,7 +57,7 @@ type DispatchedOutput = { status?: string };
 
 function isDispatchedWriteOutput(
   output: unknown,
-): output is CanvasDispatchedResult {
+): output is CanvasDispatchedResult | StageMountDispatchedResult {
   return (
     typeof output === "object" &&
     output !== null &&
@@ -71,154 +73,6 @@ function isRequestIssuedReadOutput(
     output !== null &&
     (output as DispatchedOutput).status === "request-issued"
   );
-}
-
-/** Pure mutation function: given a prior canvas slice + intent, return the next slice. */
-function applyWriteIntent(
-  prev: CanvasState,
-  toolName: string,
-  input: Record<string, unknown>,
-): CanvasState | { __error: string } {
-  const now = Date.now();
-  const base: Partial<CanvasState> = {};
-
-  switch (toolName) {
-    case DefaultToolName.FocusOnProject: {
-      const projectId =
-        typeof input.projectId === "string" ? input.projectId : null;
-      if (!projectId) return { __error: "focusOnProject requires a projectId" };
-      return {
-        ...prev,
-        ...base,
-        selectedNodeId: projectId,
-        selectedNodeType: "project",
-        lastAction: {
-          type: "focusOnProject",
-          payload: { projectId },
-          result: { selectedNodeId: projectId },
-          at: now,
-          source: "agent",
-        },
-      };
-    }
-
-    case DefaultToolName.FocusOnOrg: {
-      const orgId = typeof input.orgId === "string" ? input.orgId : null;
-      if (!orgId) return { __error: "focusOnOrg requires an orgId" };
-      return {
-        ...prev,
-        selectedNodeId: orgId,
-        selectedNodeType: "organisation",
-        lastAction: {
-          type: "focusOnOrg",
-          payload: { orgId },
-          result: { selectedNodeId: orgId },
-          at: now,
-          source: "agent",
-        },
-      };
-    }
-
-    case DefaultToolName.HighlightCluster: {
-      const nodeIds = Array.isArray(input.nodeIds)
-        ? (input.nodeIds as unknown[]).filter(
-            (v): v is string => typeof v === "string",
-          )
-        : [];
-      if (nodeIds.length === 0)
-        return { __error: "highlightCluster requires non-empty nodeIds" };
-      const label = typeof input.label === "string" ? input.label : null;
-      // First id is the camera target per the tool description.
-      return {
-        ...prev,
-        selectedNodeId: nodeIds[0],
-        selectedNodeType: null,
-        lastAction: {
-          type: "highlightCluster",
-          payload: { nodeIds, label },
-          result: { selectedNodeId: nodeIds[0], clusterSize: nodeIds.length },
-          at: now,
-          source: "agent",
-        },
-      };
-    }
-
-    case DefaultToolName.ColorByLensCategory: {
-      const categoryId =
-        typeof input.categoryId === "string" ? input.categoryId : null;
-      return {
-        ...prev,
-        colorMode: categoryId ? "by-lens-category" : "default",
-        filter: { ...prev.filter, lensCategoryId: categoryId ?? undefined },
-        lastAction: {
-          type: "colorByLensCategory",
-          payload: { categoryId },
-          result: {
-            colorMode: categoryId ? "by-lens-category" : "default",
-            lensCategoryId: categoryId,
-          },
-          at: now,
-          source: "agent",
-        },
-      };
-    }
-
-    case DefaultToolName.FilterByQuery: {
-      const nextFilter: CanvasFilter = { ...prev.filter };
-      if (input.query !== undefined) {
-        nextFilter.query =
-          typeof input.query === "string" && input.query.length > 0
-            ? input.query
-            : undefined;
-      }
-      if (input.funder !== undefined) {
-        nextFilter.funder =
-          typeof input.funder === "string" && input.funder.length > 0
-            ? input.funder
-            : undefined;
-      }
-      if (input.mode !== undefined) {
-        nextFilter.mode =
-          typeof input.mode === "string" && input.mode.length > 0
-            ? input.mode
-            : undefined;
-      }
-      return {
-        ...prev,
-        filter: nextFilter,
-        lastAction: {
-          type: "filterByQuery",
-          payload: {
-            query: input.query ?? null,
-            funder: input.funder ?? null,
-            mode: input.mode ?? null,
-          },
-          result: { filter: nextFilter },
-          at: now,
-          source: "agent",
-        },
-      };
-    }
-
-    case DefaultToolName.ResetCamera: {
-      return {
-        ...prev,
-        cameraTarget: null,
-        selectedNodeId: null,
-        selectedNodeType: null,
-        lastAction: {
-          type: "resetCamera",
-          payload: {},
-          result: { cameraTarget: null, selectedNodeId: null },
-          at: now,
-          source: "agent",
-        },
-      };
-    }
-
-    default:
-      return { __error: `Unknown canvas write tool: ${toolName}` };
-  }
 }
 
 interface CanvasToolDispatcherProps {

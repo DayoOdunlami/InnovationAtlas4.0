@@ -113,6 +113,65 @@ describe("applyWriteIntent — mountChartInStage", () => {
   });
 });
 
+describe("applyWriteIntent — mountPassportInStage", () => {
+  it("mounts a passport stage with the given id", () => {
+    const result = applyWriteIntent(
+      baseState(),
+      DefaultToolName.MountPassportInStage,
+      { passportId: "b2f5f2d0-0000-0000-0000-000000000001" },
+    );
+    if ("__error" in result) throw new Error(result.__error);
+    expect(result.stage.kind).toBe("passport");
+    if (result.stage.kind !== "passport") return;
+    expect(result.stage.passportId).toBe(
+      "b2f5f2d0-0000-0000-0000-000000000001",
+    );
+    expect(result.lastAction?.type).toBe("mountPassportInStage");
+    expect(result.lastAction?.source).toBe("agent");
+  });
+
+  it("errors when passportId is missing", () => {
+    const result = applyWriteIntent(
+      baseState(),
+      DefaultToolName.MountPassportInStage,
+      {},
+    );
+    expect("__error" in result).toBe(true);
+  });
+
+  it("errors when passportId is empty", () => {
+    const result = applyWriteIntent(
+      baseState(),
+      DefaultToolName.MountPassportInStage,
+      { passportId: "" },
+    );
+    expect("__error" in result).toBe(true);
+  });
+
+  it("replaces an existing chart stage", () => {
+    const prev: CanvasState = {
+      ...baseState(),
+      stage: {
+        kind: "chart",
+        spec: {
+          kind: "pie",
+          title: "t",
+          data: [{ label: "a", value: 1 }],
+        },
+      },
+    };
+    const result = applyWriteIntent(
+      prev,
+      DefaultToolName.MountPassportInStage,
+      {
+        passportId: "p-1",
+      },
+    );
+    if ("__error" in result) throw new Error(result.__error);
+    expect(result.stage.kind).toBe("passport");
+  });
+});
+
 describe("applyWriteIntent — existing write tools (regression)", () => {
   it("focusOnProject still works", () => {
     const result = applyWriteIntent(

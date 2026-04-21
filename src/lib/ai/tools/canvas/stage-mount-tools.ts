@@ -74,10 +74,22 @@ export type MountChartInStageInput = z.infer<
   typeof mountChartInStageInputSchema
 >;
 
-export type StageMountDispatchedIntent = {
-  tool: "mountChartInStage";
-  input: MountChartInStageInput;
-};
+export const mountPassportInStageInputSchema = z.object({
+  passportId: z
+    .string()
+    .min(1)
+    .describe(
+      "UUID of the passport to mount in the canvas main stage. Must be a passport the current user can view.",
+    ),
+});
+
+export type MountPassportInStageInput = z.infer<
+  typeof mountPassportInStageInputSchema
+>;
+
+export type StageMountDispatchedIntent =
+  | { tool: "mountChartInStage"; input: MountChartInStageInput }
+  | { tool: "mountPassportInStage"; input: MountPassportInStageInput };
 
 export type StageMountDispatchedResult = {
   status: "dispatched";
@@ -97,6 +109,21 @@ export const mountChartInStageTool = createTool({
   execute: async (input): Promise<StageMountDispatchedResult> => ({
     status: "dispatched",
     intent: { tool: "mountChartInStage", input },
+    at: Date.now(),
+  }),
+});
+
+export const mountPassportInStageTool = createTool({
+  description:
+    "Mount a capability passport in the canvas main stage so the user can see its header, evidence documents and extracted claims at full canvas width, replacing the force-graph lens until they return. " +
+    "Use this when the user says 'open the passport', 'show me the passport for X', or when resolving a passport reference surfaced from a previous tool call (listPassports / findConsortiumPartners). " +
+    "Prefer this over linking to /passport/[id] when the conversation is happening on /canvas. " +
+    "Preconditions: must be on the /canvas surface. The passport id must be a UUID the current user can view (RLS will otherwise surface a visible 'not found' in the stage). " +
+    "Returns { status, newState } per the Canvas State Contract.",
+  inputSchema: mountPassportInStageInputSchema,
+  execute: async (input): Promise<StageMountDispatchedResult> => ({
+    status: "dispatched",
+    intent: { tool: "mountPassportInStage", input },
     at: Date.now(),
   }),
 });

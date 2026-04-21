@@ -190,6 +190,28 @@ export function applyWriteIntent(
       };
     }
 
+    case DefaultToolName.MountPassportInStage: {
+      const passportId =
+        typeof input.passportId === "string" && input.passportId.length > 0
+          ? input.passportId
+          : null;
+      if (!passportId) {
+        return { __error: "mountPassportInStage requires a passportId" };
+      }
+      const stage: CanvasStage = { kind: "passport", passportId };
+      return {
+        ...prev,
+        stage,
+        lastAction: {
+          type: "mountPassportInStage",
+          payload: { passportId },
+          result: { stage: stage.kind, passportId },
+          at: now,
+          source: "agent",
+        },
+      };
+    }
+
     default:
       return { __error: `Unknown canvas write tool: ${toolName}` };
   }

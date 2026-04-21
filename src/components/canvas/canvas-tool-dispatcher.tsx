@@ -49,6 +49,7 @@ const WRITE_TOOL_NAMES = new Set<string>([
   DefaultToolName.FilterByQuery,
   DefaultToolName.ResetCamera,
   DefaultToolName.MountChartInStage,
+  DefaultToolName.MountPassportInStage,
 ]);
 
 const READ_TOOL_NAMES = new Set<string>([DefaultToolName.GetCanvasState]);

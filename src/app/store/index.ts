@@ -106,7 +106,8 @@ export type CanvasStageChartSpec =
 
 export type CanvasStage =
   | { kind: "force-graph" }
-  | { kind: "chart"; spec: CanvasStageChartSpec };
+  | { kind: "chart"; spec: CanvasStageChartSpec }
+  | { kind: "passport"; passportId: string };
 
 export type CanvasState = {
   selectedNodeId: string | null;

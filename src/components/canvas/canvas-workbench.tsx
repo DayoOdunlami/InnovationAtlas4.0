@@ -102,14 +102,21 @@ export function CanvasWorkbench({
     if (hasHydratedRef.current) return;
     if (!initialPassportId) return;
     hasHydratedRef.current = true;
-    // Commit 10: resolve passport → canvas.filter via filterByQuery dispatch.
-    console.info(
-      "[canvas] passport hydration pending (Commit 10):",
-      initialPassportId,
-    );
-    toast.message(
-      `Passport hydration pending — id ${initialPassportId.slice(0, 8)}…`,
-    );
+    // Thread 2 commit 2: mount the passport in the main stage. The
+    // CanvasStagePassport component will fetch it via /api/passport/[id].
+    appStore.setState((prev) => ({
+      canvas: {
+        ...prev.canvas,
+        stage: { kind: "passport", passportId: initialPassportId },
+        lastAction: {
+          type: "mountPassportInStage",
+          payload: { passportId: initialPassportId, source: "url" },
+          result: { stage: "passport", passportId: initialPassportId },
+          at: Date.now(),
+          source: "user",
+        },
+      },
+    }));
   }, [initialPassportId]);
 
   const [activeLens, setActiveLens] = useState<CanvasLensId>(

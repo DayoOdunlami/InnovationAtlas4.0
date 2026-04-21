@@ -1,7 +1,10 @@
 import { Tool } from "ai";
 import { AppDefaultToolkit, DefaultToolName } from ".";
 import { getCanvasStateTool } from "./canvas/read-tools";
-import { mountChartInStageTool } from "./canvas/stage-mount-tools";
+import {
+  mountChartInStageTool,
+  mountPassportInStageTool,
+} from "./canvas/stage-mount-tools";
 import {
   colorByLensCategoryTool,
   filterByQueryTool,
@@ -88,6 +91,7 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     [DefaultToolName.ResetCamera]: resetCameraTool,
     [DefaultToolName.GetCanvasState]: getCanvasStateTool,
     [DefaultToolName.MountChartInStage]: mountChartInStageTool,
+    [DefaultToolName.MountPassportInStage]: mountPassportInStageTool,
   },
   [AppDefaultToolkit.Briefing]: {
     // Populated in Brief X Commit 12.

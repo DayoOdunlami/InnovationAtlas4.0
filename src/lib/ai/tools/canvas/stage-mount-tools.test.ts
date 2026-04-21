@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   mountChartInStageInputSchema,
   mountChartInStageTool,
+  mountPassportInStageInputSchema,
+  mountPassportInStageTool,
 } from "./stage-mount-tools";
 
 describe("mountChartInStageTool schema", () => {
@@ -113,6 +115,50 @@ describe("mountChartInStageTool schema", () => {
 
 import type { StageMountDispatchedResult } from "./stage-mount-tools";
 
+describe("mountPassportInStageTool schema", () => {
+  it("accepts a non-empty passport id", () => {
+    const parsed = mountPassportInStageInputSchema.safeParse({
+      passportId: "b2f5f2d0-0000-0000-0000-000000000001",
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects an empty passport id", () => {
+    const parsed = mountPassportInStageInputSchema.safeParse({
+      passportId: "",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects a missing passport id", () => {
+    const parsed = mountPassportInStageInputSchema.safeParse({});
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects a non-string passport id", () => {
+    const parsed = mountPassportInStageInputSchema.safeParse({
+      passportId: 42,
+    });
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe("mountPassportInStageTool.execute", () => {
+  it("returns a dispatched envelope naming the passport tool", async () => {
+    const execute = mountPassportInStageTool.execute;
+    if (!execute) throw new Error("tool execute not defined");
+    const raw = await execute(
+      { passportId: "abc-123" },
+      { toolCallId: "pass-1", messages: [] },
+    );
+    const result = raw as StageMountDispatchedResult;
+    expect(result.status).toBe("dispatched");
+    expect(result.intent.tool).toBe("mountPassportInStage");
+    if (result.intent.tool !== "mountPassportInStage") return;
+    expect(result.intent.input.passportId).toBe("abc-123");
+  });
+});
+
 describe("mountChartInStageTool.execute", () => {
   it("returns a dispatched envelope wrapping the input", async () => {
     const execute = mountChartInStageTool.execute;
@@ -134,6 +180,9 @@ describe("mountChartInStageTool.execute", () => {
     const result = raw as StageMountDispatchedResult;
     expect(result.status).toBe("dispatched");
     expect(result.intent.tool).toBe("mountChartInStage");
+    if (result.intent.tool !== "mountChartInStage") {
+      throw new Error("expected mountChartInStage intent");
+    }
     expect(result.intent.input.spec).toEqual(spec);
     expect(typeof result.at).toBe("number");
   });

@@ -57,6 +57,7 @@ export enum DefaultToolName {
   // commits 2 and 3. Same `{ status, newState }` contract as the other
   // canvas write tools.
   MountChartInStage = "mountChartInStage",
+  MountPassportInStage = "mountPassportInStage",
   // Briefing write tools (Sprint X Commit 12). Block IDs are stable across
   // updates so update/remove never race with append.
   AppendBriefingBlock = "appendBriefingBlock",

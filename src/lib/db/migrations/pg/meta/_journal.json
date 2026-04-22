@@ -127,6 +127,13 @@
       "when": 1776878853062,
       "tag": "0017_atlas_briefs_phase1",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1776893915986,
+      "tag": "0018_atlas_blocks_phase2a0",
+      "breakpoints": true
     }
   ]
 }

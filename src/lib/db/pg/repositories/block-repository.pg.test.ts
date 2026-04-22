@@ -10,7 +10,7 @@
 
 import "load-env";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
+import { generateKeyBetween } from "fractional-indexing";
 
 const smokesReady = () => Boolean(process.env.POSTGRES_URL);
 

@@ -19,11 +19,13 @@
 //   is either "user" or "share" so dashboards can split the chart.
 // ---------------------------------------------------------------------------
 
+import { pgBlockRepository } from "@/lib/db/pg/repositories/block-repository.pg";
 import { pgBriefRepository } from "@/lib/db/pg/repositories/brief-repository.pg";
 import { pgBriefShareTokenRepository } from "@/lib/db/pg/repositories/brief-share-token-repository.pg";
 import { pgMessageRepository } from "@/lib/db/pg/repositories/message-repository.pg";
 import { emitNav } from "@/lib/telemetry/emit";
 import type { TelemetryEnv } from "@/lib/telemetry/envelope";
+import { BlockList } from "@/components/brief/blocks/block-list.server";
 import { getSession } from "lib/auth/server";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -77,6 +79,13 @@ export default async function BriefDetailPage({
     return <AccessDeniedNotice briefId={id} />;
   }
 
+  let blocks;
+  try {
+    blocks = await pgBlockRepository.listByBrief(id, scope);
+  } catch {
+    return <AccessDeniedNotice briefId={id} />;
+  }
+
   const sessionId =
     session?.session.id ?? `share:${shareToken!.slice(0, 12)}`;
 
@@ -101,11 +110,22 @@ export default async function BriefDetailPage({
       (t.expiresAt === null || t.expiresAt.getTime() > Date.now()),
   );
 
+  const blocksSlot = (
+    <BlockList
+      blocks={blocks.map((b) => ({
+        id: b.id,
+        type: b.type,
+        contentJson: b.contentJson,
+      }))}
+    />
+  );
+
   return (
     <BriefChatShell
       briefId={brief.id}
       briefTitle={brief.title}
       scopeKind={scope.kind}
+      blocksSlot={blocksSlot}
       initialMessages={messages.map((m) => ({
         id: m.id,
         role: m.role as "user" | "assistant" | "system" | "tool",

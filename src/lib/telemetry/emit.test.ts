@@ -2,10 +2,22 @@
 // emit() destination-routing + swallow-on-failure tests (Phase 1).
 // Dest selection is tested with the injectable destinations override so
 // these run entirely in-process and never touch Postgres or stdout.
+//
+// `load-env` is imported first so that the static import chain
+// (emit.ts → destinations/atlas-pg.ts → telemetry-repository.pg.ts →
+// db.pg.ts) finds POSTGRES_URL during module evaluation, matching the
+// pattern used by the atlas-* repository test files.
 // ---------------------------------------------------------------------------
 
+import "load-env";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { __setTelemetryDestinationsForTesting, emit, emitAction, emitNav, selectDestinations } from "./emit";
+import {
+  __setTelemetryDestinationsForTesting,
+  emit,
+  emitAction,
+  emitNav,
+  selectDestinations,
+} from "./emit";
 import type { TelemetryDestination } from "./destinations/stdout";
 import type { TelemetryEnvelope } from "./envelope";
 

@@ -67,6 +67,7 @@ Append as items are noticed during stabilise. Do not close entries in this file 
 - **Why not pre-demo:** Inert, no runtime cost. Removing it is a refactor that risks regressions for no demo benefit.
 - **Rebuild phase:** Phase 2a.0 / Phase 2b — replaced by the real block-level brief state machine. Delete as part of Phase 2a.0 landing or the Phase 4 cutover, whichever lands first.
 - **Noticed:** Audit 2026-04-15; commit `7c3b209` on `feat/canvas-unified`.
+- **Status:** DONE — removed in Phase 2a.0. Slice definitions, `initialBriefingState`, `state.briefing`, and the sessionStorage mirror block all deleted from `src/app/store/index.ts`. The real block state now lives in `atlas.blocks` behind `pgBlockRepository`.
 
 ### Deleted branch `feat/canvas-sprint-c` (historical)
 - **What:** Single commit `5d680d2 feat(store): add briefing slice (Sprint C R1)` carried an earlier version of the orphan briefing slice. Branch deleted locally 2026-04-21 per decision 2. Commit is now unreachable unless referenced by hash.

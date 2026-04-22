@@ -20,16 +20,11 @@
 //
 // Bugs found during test writing
 // ─────────────────────────────
-// BUG-1: No clear/unmount action in the dispatcher
-//   The Canvas State Contract documents that returning to the force-graph is
-//   purely user-driven (top-bar "Return to force-graph" button or force-graph
-//   lens chip). There is no `clearStage`, `unmountStage`, or
-//   `returnToForceGraph` tool dispatched through `applyWriteIntent`.
-//   As a result the four "clear/unmount after mount" test cases below are
-//   marked `it.skip` with the label "[BUG-1]".
-//   Decision required post-freeze: add a `clearStage` tool, or accept that
-//   the only clear path is user-driven.
-//   See PR description: "Bugs found during test writing > BUG-1".
+// BUG-1 (closed in Phase 1, commit 1): `applyWriteIntent` now handles
+//   `DefaultToolName.ClearStage`, and `handleReturnToForceGraph` in
+//   `canvas-workbench.tsx` routes through the reducer so `lastAction`
+//   captures every stage transition. The three `[BUG-1]` test cases below
+//   have been un-skipped.
 // ---------------------------------------------------------------------------
 
 import { describe, expect, it } from "vitest";
@@ -210,11 +205,10 @@ describe("canvas stage-mount dispatcher — mountChart", () => {
     expect(afterSecond.lastAction?.type).toBe("mountChartInStage");
   });
 
-  // [BUG-1] No dispatchable clear/unmount tool exists in the current
-  // dispatcher. The "Return to force-graph" affordance is user-driven
-  // (UI button / lens chip) and is not routed through applyWriteIntent.
-  // See file-level comment for full context.
-  it.skip("[BUG-1] dispatching a clear/unmount action after a successful mountChart leaves the stage at { kind: 'force-graph' }", () => {
+  // [BUG-1] Closed in Phase 1 commit 1: `DefaultToolName.ClearStage` is
+  // now handled by the reducer and the "Return to force-graph" affordance
+  // routes through it.
+  it("[BUG-1] dispatching a clearStage action after a successful mountChart leaves the stage at { kind: 'force-graph' }", () => {
     const afterMount = applyWriteIntent(
       baseState(),
       DefaultToolName.MountChartInStage,
@@ -223,16 +217,16 @@ describe("canvas stage-mount dispatcher — mountChart", () => {
     if ("__error" in afterMount) throw new Error(afterMount.__error);
     expect(afterMount.stage.kind).toBe("chart");
 
-    // No clearStage / unmountStage / returnToForceGraph tool exists yet.
-    // When it does, dispatching it should produce: stage.kind === "force-graph".
     const afterClear = applyWriteIntent(
       afterMount,
-      "clearStage", // tool name that does not yet exist
+      DefaultToolName.ClearStage,
       {},
     );
     expect("__error" in afterClear).toBe(false);
     if ("__error" in afterClear) return;
     expect(afterClear.stage.kind).toBe("force-graph");
+    expect(afterClear.lastAction?.type).toBe("clearStage");
+    expect(afterClear.lastAction?.source).toBe("user");
   });
 });
 
@@ -310,8 +304,8 @@ describe("canvas stage-mount dispatcher — mountPassport", () => {
     expect(afterSecond.stage.passportId).toBe(secondId);
   });
 
-  // [BUG-1] See file-level comment. No dispatchable clear/unmount tool.
-  it.skip("[BUG-1] dispatching a clear/unmount action after a successful mountPassport leaves the stage at { kind: 'force-graph' }", () => {
+  // [BUG-1] Closed in Phase 1 commit 1: see mountChart block above.
+  it("[BUG-1] dispatching a clearStage action after a successful mountPassport leaves the stage at { kind: 'force-graph' }", () => {
     const afterMount = applyWriteIntent(
       baseState(),
       DefaultToolName.MountPassportInStage,
@@ -319,10 +313,16 @@ describe("canvas stage-mount dispatcher — mountPassport", () => {
     );
     if ("__error" in afterMount) throw new Error(afterMount.__error);
 
-    const afterClear = applyWriteIntent(afterMount, "clearStage", {});
+    const afterClear = applyWriteIntent(
+      afterMount,
+      DefaultToolName.ClearStage,
+      {},
+    );
     expect("__error" in afterClear).toBe(false);
     if ("__error" in afterClear) return;
     expect(afterClear.stage.kind).toBe("force-graph");
+    expect(afterClear.lastAction?.type).toBe("clearStage");
+    expect(afterClear.lastAction?.source).toBe("user");
   });
 });
 
@@ -422,8 +422,8 @@ describe("canvas stage-mount dispatcher — mountTable", () => {
     expect(afterSecond.stage.spec.columns).toHaveLength(3);
   });
 
-  // [BUG-1] See file-level comment. No dispatchable clear/unmount tool.
-  it.skip("[BUG-1] dispatching a clear/unmount action after a successful mountTable leaves the stage at { kind: 'force-graph' }", () => {
+  // [BUG-1] Closed in Phase 1 commit 1: see mountChart block above.
+  it("[BUG-1] dispatching a clearStage action after a successful mountTable leaves the stage at { kind: 'force-graph' }", () => {
     const afterMount = applyWriteIntent(
       baseState(),
       DefaultToolName.MountTableInStage,
@@ -431,10 +431,16 @@ describe("canvas stage-mount dispatcher — mountTable", () => {
     );
     if ("__error" in afterMount) throw new Error(afterMount.__error);
 
-    const afterClear = applyWriteIntent(afterMount, "clearStage", {});
+    const afterClear = applyWriteIntent(
+      afterMount,
+      DefaultToolName.ClearStage,
+      {},
+    );
     expect("__error" in afterClear).toBe(false);
     if ("__error" in afterClear) return;
     expect(afterClear.stage.kind).toBe("force-graph");
+    expect(afterClear.lastAction?.type).toBe("clearStage");
+    expect(afterClear.lastAction?.source).toBe("user");
   });
 });
 

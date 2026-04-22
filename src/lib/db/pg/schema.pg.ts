@@ -4,14 +4,18 @@ import { MCPServerConfig, MCPToolInfo } from "app-types/mcp";
 import { sql } from "drizzle-orm";
 import {
   pgTable,
+  pgSchema,
   text,
   timestamp,
   json,
+  jsonb,
   uuid,
   boolean,
   unique,
   varchar,
   index,
+  check,
+  vector,
 } from "drizzle-orm/pg-core";
 import { isNotNull } from "drizzle-orm";
 import { DBWorkflow, DBEdge, DBNode } from "app-types/workflow";
@@ -381,3 +385,170 @@ export const ChatExportCommentTable = pgTable("chat_export_comment", {
 export type ArchiveEntity = typeof ArchiveTable.$inferSelect;
 export type ArchiveItemEntity = typeof ArchiveItemTable.$inferSelect;
 export type BookmarkEntity = typeof BookmarkTable.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Atlas schema (Phase 1, Brief-First Rebuild — Data Model Spec v1.1)
+//
+// The `atlas` Postgres schema houses the five brief-first tables that the
+// Phase 1 deliverables own: briefs, messages, brief_share_tokens,
+// passport_share_tokens, and telemetry_events. Access control for these
+// tables is enforced at the repository boundary via the `AccessScope`
+// contract (no RLS) — see `src/lib/db/pg/repositories/brief-repository.pg.ts`.
+//
+// Notes
+// -----
+// * The `atlas` schema itself is created idempotently in migration 0017
+//   (it was originally provisioned out-of-band for `atlas.passports`
+//   and friends, which continue to live there outside Drizzle's schema).
+// * `vector(1536)` depends on the `pgvector` extension; migration 0017
+//   also `CREATE EXTENSION IF NOT EXISTS vector` at the top, defensively.
+// * `atlas.passport_share_tokens` foreign-keys to `atlas.passports(id)`,
+//   which Drizzle does not model. The FK is added via raw SQL in 0017.
+// * `atlas.blocks` is deliberately excluded from Phase 1; Phase 2a.0 adds
+//   it in a separate migration.
+// ---------------------------------------------------------------------------
+
+export const atlasSchema = pgSchema("atlas");
+
+export const AtlasBriefsTable = atlasSchema.table(
+  "briefs",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    title: text("title").notNull().default("Untitled brief"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    agentCompleteSnapshotJson: jsonb("agent_complete_snapshot_json"),
+    isEdited: boolean("is_edited").notNull().default(false),
+    sharedWith: uuid("shared_with")
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    embedding: vector("embedding", { dimensions: 1536 }),
+  },
+  (t) => [
+    check("briefs_title_len_chk", sql`char_length(${t.title}) <= 200`),
+    index("atlas_briefs_owner_updated_idx")
+      .on(t.ownerId, t.updatedAt.desc())
+      .where(sql`${t.deletedAt} IS NULL`),
+  ],
+);
+
+export const AtlasMessagesTable = atlasSchema.table(
+  "messages",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    briefId: uuid("brief_id")
+      .notNull()
+      .references(() => AtlasBriefsTable.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    contentJson: jsonb("content_json").notNull(),
+    toolCalls: jsonb("tool_calls").notNull().default(sql`'[]'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    transcript: boolean("transcript").notNull().default(false),
+  },
+  (t) => [
+    check(
+      "messages_role_chk",
+      sql`${t.role} IN ('user','assistant','system','tool')`,
+    ),
+    index("atlas_messages_brief_created_idx").on(t.briefId, t.createdAt),
+  ],
+);
+
+export const AtlasBriefShareTokensTable = atlasSchema.table(
+  "brief_share_tokens",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    briefId: uuid("brief_id")
+      .notNull()
+      .references(() => AtlasBriefsTable.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("atlas_brief_share_tokens_active_idx")
+      .on(t.token)
+      .where(sql`${t.revokedAt} IS NULL`),
+  ],
+);
+
+// `passport_id` references `atlas.passports(id)`, which is provisioned
+// out-of-band and not modelled in Drizzle. The FK constraint is added
+// via raw SQL in migration 0017.
+export const AtlasPassportShareTokensTable = atlasSchema.table(
+  "passport_share_tokens",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    passportId: uuid("passport_id").notNull(),
+    token: text("token").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("atlas_passport_share_tokens_active_idx")
+      .on(t.token)
+      .where(sql`${t.revokedAt} IS NULL`),
+  ],
+);
+
+export const AtlasTelemetryEventsTable = atlasSchema.table(
+  "telemetry_events",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    sessionId: text("session_id").notNull(),
+    userIdHash: text("user_id_hash"),
+    env: text("env").notNull(),
+    category: text("category").notNull(),
+    event: text("event").notNull(),
+    payloadJson: jsonb("payload_json").notNull().default(sql`'{}'::jsonb`),
+    ts: timestamp("ts", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    check(
+      "telemetry_events_category_chk",
+      sql`${t.category} IN ('nav','action','agent','perf')`,
+    ),
+    index("atlas_telemetry_ts_idx").on(t.ts.desc()),
+    index("atlas_telemetry_cat_event_ts_idx").on(
+      t.category,
+      t.event,
+      t.ts.desc(),
+    ),
+  ],
+);
+
+export type AtlasBriefEntity = typeof AtlasBriefsTable.$inferSelect;
+export type AtlasBriefInsert = typeof AtlasBriefsTable.$inferInsert;
+export type AtlasMessageEntity = typeof AtlasMessagesTable.$inferSelect;
+export type AtlasMessageInsert = typeof AtlasMessagesTable.$inferInsert;
+export type AtlasBriefShareTokenEntity =
+  typeof AtlasBriefShareTokensTable.$inferSelect;
+export type AtlasBriefShareTokenInsert =
+  typeof AtlasBriefShareTokensTable.$inferInsert;
+export type AtlasPassportShareTokenEntity =
+  typeof AtlasPassportShareTokensTable.$inferSelect;
+export type AtlasPassportShareTokenInsert =
+  typeof AtlasPassportShareTokensTable.$inferInsert;
+export type AtlasTelemetryEventEntity =
+  typeof AtlasTelemetryEventsTable.$inferSelect;
+export type AtlasTelemetryEventInsert =
+  typeof AtlasTelemetryEventsTable.$inferInsert;

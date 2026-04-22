@@ -120,6 +120,13 @@
       "when": 1776090399006,
       "tag": "0016_chat_thread_active_passport",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1776878853062,
+      "tag": "0017_atlas_briefs_phase1",
+      "breakpoints": true
     }
   ]
 }

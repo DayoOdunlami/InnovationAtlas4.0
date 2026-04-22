@@ -10,7 +10,11 @@
 // `docs/canvas-status-and-roadmap.md`.
 // ---------------------------------------------------------------------------
 
-export type FeatureStatus = "ready" | "wip" | "planned";
+// `alpha` was added in Phase 1 (Brief-First Rebuild) for routes that are
+// live behind a stable URL but still pre-beta. It sits between `wip` and
+// `ready` — the route renders, but the UX is intentionally minimal and
+// behaviour may change between phases.
+export type FeatureStatus = "ready" | "alpha" | "wip" | "planned";
 
 export type FeatureSurface =
   | "canvas"
@@ -202,12 +206,33 @@ export const FEATURE_STATUS: ReadonlyArray<FeatureEntry> = [
     status: "planned",
     surface: "briefing",
     promptNote:
-      "The briefing panel is a planned UI — do not attempt to create, edit, or reference briefing blocks.",
+      "The briefing panel is a planned UI — do not attempt to create, edit, or reference briefing blocks. Brief blocks land in Phase 2a.0.",
+  },
+
+  // --- Brief-first routes (Phase 1 — minimal shell, live behind URL) -------
+  {
+    id: "route.briefs",
+    label: "/briefs (list)",
+    status: "alpha",
+    surface: "briefing",
+    note: "Phase 1 shell — list, create, rename, delete.",
+    promptNote:
+      "The briefs list lives at /briefs. Users can create, rename and delete their own briefs there; blocks inside a brief arrive in Phase 2a.0.",
+  },
+  {
+    id: "route.brief",
+    label: "/brief/[id] (shell)",
+    status: "alpha",
+    surface: "briefing",
+    note: "Phase 1 shell with chat + persisted messages.",
+    promptNote:
+      "The /brief/[id] page is a minimal shell with a chat rail whose messages persist to atlas.messages. No blocks, no tools, no canvas — those land in Phase 2a.0 and beyond.",
   },
 ];
 
 export const STATUS_LABEL: Record<FeatureStatus, string> = {
   ready: "Ready",
+  alpha: "Alpha",
   wip: "In progress",
   planned: "Planned",
 };
@@ -226,6 +251,7 @@ export function groupByStatus(
 ): Record<FeatureStatus, FeatureEntry[]> {
   const out: Record<FeatureStatus, FeatureEntry[]> = {
     ready: [],
+    alpha: [],
     wip: [],
     planned: [],
   };
@@ -268,6 +294,7 @@ export function formatFeatureStatusForPrompt(
     return note ? `- ${e.label} — ${note}` : `- ${e.label}`;
   };
   const ready = grouped.ready.map(line).join("\n");
+  const alpha = grouped.alpha.map(line).join("\n");
   const wip = grouped.wip.map(line).join("\n");
   const planned = grouped.planned.map(line).join("\n");
 
@@ -275,11 +302,14 @@ export function formatFeatureStatusForPrompt(
 READY:
 ${ready}
 
+ALPHA:
+${alpha}
+
 IN PROGRESS:
 ${wip}
 
 PLANNED:
 ${planned}
 
-Rule: If the user asks for a WIP or PLANNED feature, say in one sentence that it is in progress and offer the closest READY alternative from this list. Do not attempt to simulate or fake the feature.`;
+Rule: If the user asks for a WIP or PLANNED feature, say in one sentence that it is in progress and offer the closest READY alternative from this list. Alpha features are live but minimal; describe their Phase 1 scope if asked and surface the URL. Do not attempt to simulate or fake the feature.`;
 }

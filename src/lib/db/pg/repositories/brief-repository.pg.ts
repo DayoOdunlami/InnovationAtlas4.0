@@ -73,6 +73,15 @@ async function readOwnerId(id: string): Promise<string | null> {
   return rows[0]?.ownerId ?? null;
 }
 
+async function readBriefRow(id: string) {
+  const [row] = await db
+    .select()
+    .from(AtlasBriefsTable)
+    .where(eq(AtlasBriefsTable.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
 async function isActiveShareForBrief(
   briefId: string,
   token: string,
@@ -130,20 +139,20 @@ export const pgBriefRepository: BriefRepository = {
         "getBriefById: system scope is not permitted for user-facing reads",
       );
     }
+    // Rec 1 (Phase 2a.0 caching calibration): one SELECT rather than
+    // an ownership probe followed by a second row fetch. The permit
+    // check runs in application code against the returned row. Saves
+    // one network round-trip per /brief/[id] render. See
+    // docs/phase-1-caching-calibration.md §Recommendations.
     if (scope.kind === "user") {
-      const ownerId = await readOwnerId(id);
-      if (ownerId === null) return null;
-      if (ownerId !== scope.userId) {
+      const row = await readBriefRow(id);
+      if (row === null) return null;
+      if (row.ownerId !== scope.userId) {
         throw new AccessDeniedError(
           "getBriefById: user does not own this brief",
         );
       }
-      const [row] = await db
-        .select()
-        .from(AtlasBriefsTable)
-        .where(eq(AtlasBriefsTable.id, id))
-        .limit(1);
-      return row ?? null;
+      return row;
     }
     const permitted = await isActiveShareForBrief(id, scope.token);
     if (!permitted) {
@@ -151,12 +160,7 @@ export const pgBriefRepository: BriefRepository = {
         "getBriefById: share token is invalid, expired, or revoked",
       );
     }
-    const [row] = await db
-      .select()
-      .from(AtlasBriefsTable)
-      .where(eq(AtlasBriefsTable.id, id))
-      .limit(1);
-    return row ?? null;
+    return await readBriefRow(id);
   },
 
   async listBriefsForUser(userId, scope) {

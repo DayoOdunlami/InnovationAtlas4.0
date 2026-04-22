@@ -15,7 +15,7 @@ describe("FEATURE_STATUS registry", () => {
   });
 
   it("every entry has a valid status and surface", () => {
-    const validStatus = new Set(["ready", "wip", "planned"]);
+    const validStatus = new Set(["ready", "alpha", "wip", "planned"]);
     const validSurface = new Set([
       "canvas",
       "landscape",
@@ -34,7 +34,10 @@ describe("FEATURE_STATUS registry", () => {
   it("groupByStatus partitions the array completely", () => {
     const grouped = groupByStatus();
     const total =
-      grouped.ready.length + grouped.wip.length + grouped.planned.length;
+      grouped.ready.length +
+      grouped.alpha.length +
+      grouped.wip.length +
+      grouped.planned.length;
     expect(total).toBe(FEATURE_STATUS.length);
   });
 
@@ -53,10 +56,11 @@ describe("FEATURE_STATUS registry", () => {
 });
 
 describe("formatFeatureStatusForPrompt", () => {
-  it("returns a non-empty bulleted block with all three sections", () => {
+  it("returns a non-empty bulleted block with all four sections", () => {
     const out = formatFeatureStatusForPrompt();
     expect(out.length).toBeGreaterThan(100);
     expect(out).toContain("READY:");
+    expect(out).toContain("ALPHA:");
     expect(out).toContain("IN PROGRESS:");
     expect(out).toContain("PLANNED:");
   });

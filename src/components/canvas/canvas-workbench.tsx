@@ -35,7 +35,8 @@ import { CanvasStage as CanvasStageRouter } from "@/components/canvas/canvas-sta
 import { CanvasStatusPopover } from "@/components/canvas/canvas-status-popover";
 import ChatBot from "@/components/chat-bot";
 import { Button } from "@/components/ui/button";
-import { AppDefaultToolkit } from "@/lib/ai/tools";
+import { AppDefaultToolkit, DefaultToolName } from "@/lib/ai/tools";
+import { applyWriteIntent } from "@/lib/canvas/apply-write-intent";
 import { agentIdForVoiceFromThreadMentions } from "@/lib/chat/agent-id-for-voice";
 import { cn } from "lib/utils";
 import {
@@ -135,21 +136,13 @@ export function CanvasWorkbench({
   );
 
   const handleReturnToForceGraph = useCallback(() => {
-    const current = appStore.getState().canvas.stage;
-    if (current.kind === "force-graph") return;
-    appStore.setState((prev) => ({
-      canvas: {
-        ...prev.canvas,
-        stage: { kind: "force-graph" },
-        lastAction: {
-          type: "returnToForceGraph",
-          payload: {},
-          result: { stage: "force-graph" },
-          at: Date.now(),
-          source: "user",
-        },
-      },
-    }));
+    const current = appStore.getState().canvas;
+    if (current.stage.kind === "force-graph") return;
+    // Route through applyWriteIntent so the reducer sees every stage
+    // transition — this is the `clearStage` handler that closes BUG-1.
+    const next = applyWriteIntent(current, DefaultToolName.ClearStage, {});
+    if ("__error" in next) return;
+    appStore.setState({ canvas: next });
   }, []);
 
   const handleLensChange = useCallback(

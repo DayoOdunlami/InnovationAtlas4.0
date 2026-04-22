@@ -213,6 +213,21 @@ export function applyWriteIntent(
       };
     }
 
+    case DefaultToolName.ClearStage: {
+      const stage: CanvasStage = { kind: "force-graph" };
+      return {
+        ...prev,
+        stage,
+        lastAction: {
+          type: "clearStage",
+          payload: {},
+          result: { stage: stage.kind },
+          at: now,
+          source: "user",
+        },
+      };
+    }
+
     case DefaultToolName.MountTableInStage: {
       const spec = (input as { spec?: unknown }).spec;
       if (!spec || typeof spec !== "object") {

@@ -59,6 +59,10 @@ export enum DefaultToolName {
   MountChartInStage = "mountChartInStage",
   MountPassportInStage = "mountPassportInStage",
   MountTableInStage = "mountTableInStage",
+  // Inverse of the three mount tools. Resets `stage` to
+  // `{ kind: "force-graph" }` so the reducer observes every
+  // stage transition — see BUG-1 in `post-demo-backlog.md`.
+  ClearStage = "clearStage",
   // Briefing write tools (Sprint X Commit 12). Block IDs are stable across
   // updates so update/remove never race with append.
   AppendBriefingBlock = "appendBriefingBlock",

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
 
   /*
    * Playwright starts the dev server and requires a 200 status to
@@ -29,6 +29,17 @@ export async function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
 
   if (!sessionCookie) {
+    // Phase 1 brief share links: `/brief/[id]?share=<token>` is
+    // deliberately accessible without a session. The repository layer
+    // is the authoritative gate — a bogus/expired/revoked token
+    // surfaces as an in-page "not available" notice rather than a
+    // redirect. See /brief/[id]/page.tsx for the scope resolution.
+    if (
+      /^\/brief\/[0-9a-f-]{36}\/?$/.test(pathname) &&
+      searchParams.has("share")
+    ) {
+      return NextResponse.next();
+    }
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
   return NextResponse.next();

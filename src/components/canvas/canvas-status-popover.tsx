@@ -29,24 +29,27 @@ import { cn } from "lib/utils";
 import {
   CircleCheck,
   CircleDashed,
+  FlaskConical,
   Loader,
   MessageSquareWarning,
 } from "lucide-react";
 import { useMemo } from "react";
 
-const STATUS_ORDER: FeatureStatus[] = ["ready", "wip", "planned"];
+const STATUS_ORDER: FeatureStatus[] = ["ready", "alpha", "wip", "planned"];
 
 const STATUS_ICON: Record<
   FeatureStatus,
   React.ComponentType<{ className?: string }>
 > = {
   ready: CircleCheck,
+  alpha: FlaskConical,
   wip: Loader,
   planned: CircleDashed,
 };
 
 const STATUS_COLOUR: Record<FeatureStatus, string> = {
   ready: "text-emerald-500",
+  alpha: "text-sky-500",
   wip: "text-amber-500",
   planned: "text-muted-foreground",
 };
@@ -86,6 +89,7 @@ export function CanvasStatusPopover() {
 
   const counts = {
     ready: grouped.ready.length,
+    alpha: grouped.alpha.length,
     wip: grouped.wip.length,
     planned: grouped.planned.length,
   };
@@ -122,6 +126,10 @@ export function CanvasStatusPopover() {
             <span className="flex items-center gap-1">
               <CircleCheck className="size-3 text-emerald-500" />
               {counts.ready}
+            </span>
+            <span className="flex items-center gap-1">
+              <FlaskConical className="size-3 text-sky-500" />
+              {counts.alpha}
             </span>
             <span className="flex items-center gap-1">
               <Loader className="size-3 text-amber-500" />

@@ -1,5 +1,7 @@
 "use client";
 
+import { appStore } from "@/app/store";
+import type { CanvasFilter } from "@/app/store";
 import { LANDSCAPE_SNAPSHOT } from "@/lib/landscape/snapshot";
 import type {
   EdgeType,
@@ -11,6 +13,7 @@ import type { ForceGraphMethods } from "react-force-graph-3d";
 import type { Root } from "react-dom/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
+import { useShallow } from "zustand/shallow";
 
 type ZMode = "year" | "funding" | "degree" | "score";
 type GravityRing = "inner" | "middle" | "outer" | "hidden";
@@ -233,6 +236,55 @@ function filterNodes(nodes: Graph3DNode[], filter: string): Graph3DNode[] {
   return nodes;
 }
 
+// Sprint X Commit 8: structured canvas-filter stage.
+//
+// `filterNodes` above only understands legacy funder buttons. Canvas write
+// tools (filterByQuery) can also set `mode` and `query`. Until the dataset
+// carries a structured mode/sector field, we substring-match the node title
+// case-insensitively. Mode keywords are expanded (e.g. "rail" also matches
+// "railway", "train") to avoid user frustration.
+const MODE_KEYWORDS: Record<string, string[]> = {
+  rail: ["rail", "railway", "train", "track", "locomotive"],
+  aviation: ["aviation", "aircraft", "airport", "airline", "drone", "uav"],
+  maritime: ["maritime", "port", "ship", "vessel", "ferry", "shipping"],
+  highways: ["highway", "road", "motorway", "vehicle", "truck", "haulage"],
+};
+
+function applyStructuredCanvasFilter(
+  nodes: Graph3DNode[],
+  filter: CanvasFilter,
+): Graph3DNode[] {
+  let out = nodes;
+
+  if (filter.mode && filter.mode !== "live") {
+    const keywords = MODE_KEYWORDS[filter.mode] ?? [filter.mode];
+    const matches = keywords.map((k) => k.toLowerCase());
+    out = out.filter((n) => {
+      if (n.type === "live_call") return true;
+      const title = (n.title ?? "").toLowerCase();
+      return matches.some((kw) => title.includes(kw));
+    });
+  }
+
+  if (filter.query?.trim()) {
+    const needle = filter.query.trim().toLowerCase();
+    out = out.filter((n) => {
+      if (n.type === "live_call") return true;
+      return (n.title ?? "").toLowerCase().includes(needle);
+    });
+  }
+
+  return out;
+}
+
+function describeCanvasFilter(filter: CanvasFilter): string | null {
+  const parts: string[] = [];
+  if (filter.funder) parts.push(filter.funder);
+  if (filter.mode) parts.push(`mode:${filter.mode}`);
+  if (filter.query?.trim()) parts.push(`"${filter.query.trim()}"`);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 function buildLinks(
   links: LandscapeLink[],
   nodeIds: Set<string>,
@@ -328,6 +380,51 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Canvas ↔ legacy-filter mapping (Sprint X Commit 3)
+//
+// The existing UI exposes a single-string "activeFilter" ("all" | "innovate_uk"
+// | "epsrc" | "iscf" | "live"). The canonical `canvas.filter` slice on
+// `appStore` is structured (funder + mode + …). These two helpers bridge the
+// two without the filterNodes() helper caring about the change.
+// ---------------------------------------------------------------------------
+
+type FilterButtonKey = "all" | "innovate_uk" | "epsrc" | "iscf" | "live";
+
+function canvasFilterToButtonKey(filter: CanvasFilter): FilterButtonKey {
+  if (filter.mode === "live") return "live";
+  if (filter.funder === "Innovate UK") return "innovate_uk";
+  if (filter.funder === "EPSRC") return "epsrc";
+  if (filter.funder === "ISCF") return "iscf";
+  return "all";
+}
+
+function buttonKeyToCanvasFilter(key: FilterButtonKey): CanvasFilter {
+  switch (key) {
+    case "all":
+      return {};
+    case "innovate_uk":
+      return { funder: "Innovate UK" };
+    case "epsrc":
+      return { funder: "EPSRC" };
+    case "iscf":
+      return { funder: "ISCF" };
+    case "live":
+      return { mode: "live" };
+  }
+}
+
+/** Coerce a landscape node's raw `type` into the structured CanvasNodeType. */
+function landscapeNodeTypeToCanvas(
+  node: LandscapeNode,
+): "project" | "organisation" | "theme" | null {
+  if (node.type === "project") return "project";
+  // Live calls and any other landscape-specific types have no natural mapping
+  // into the three CanvasNodeType buckets. Leaving as null keeps the contract
+  // honest; agents that care about orgs/themes will select via other lenses.
+  return null;
+}
+
 export default function Landscape3DPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<ForceGraphMethods<Graph3DNode, Graph3DLink> | undefined>(
@@ -335,14 +432,97 @@ export default function Landscape3DPage() {
   );
 
   const [dimensions, setDimensions] = useState({ w: 1200, h: 800 });
-  const [activeFilter, setActiveFilter] = useState("all");
   const [edgeVisibility, setEdgeVisibility] = useState<EdgeVisibility>(
     DEFAULT_EDGE_VISIBILITY,
   );
   const [layoutSpread, setLayoutSpread] = useState(true);
   const [particleSpeed, setParticleSpeed] = useState(20);
   const [zMode, setZMode] = useState<ZMode>("year");
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  // Canvas slice (Sprint X Commit 3): selection + filter + active lens now
+  // live in the appStore. Everything below is sourced from there so the
+  // agent's forthcoming write tools (Commits 5–6) can mutate the same state
+  // via synchronous `canvasMutate` calls and trigger re-renders here.
+  const [appStoreMutate, selectedNodeId, canvasFilter] = appStore(
+    useShallow((s) => [s.mutate, s.canvas.selectedNodeId, s.canvas.filter]),
+  );
+  const activeFilter: FilterButtonKey = useMemo(
+    () => canvasFilterToButtonKey(canvasFilter),
+    [canvasFilter],
+  );
+
+  // Hover is a pure UI signal (tooltip hints, agent "tell me about this").
+  // Writes are gated on actual value change so hover noise can't flood the
+  // audit trail — and we deliberately do NOT stamp lastAction for hover.
+  const setHoveredNodeId = useCallback((id: string | null) => {
+    const current = appStore.getState().canvas.hoveredNodeId;
+    if (current === id) return;
+    appStore.setState((prev) => ({
+      canvas: { ...prev.canvas, hoveredNodeId: id },
+    }));
+  }, []);
+
+  // This page IS the force-graph lens. Reflect that in the store on mount so
+  // any tool-call that opens the page (e.g. a future passport deep-link)
+  // sees the correct lens. Guarded to avoid write-loops under StrictMode.
+  useEffect(() => {
+    const current = appStore.getState().canvas.activeLens;
+    if (current !== "force-graph") {
+      appStore.setState((prev) => ({
+        canvas: {
+          ...prev.canvas,
+          activeLens: "force-graph",
+          lastAction: {
+            type: "setActiveLens",
+            payload: { lens: "force-graph" },
+            result: { activeLens: "force-graph" },
+            at: Date.now(),
+            source: "user",
+          },
+        },
+      }));
+    }
+  }, []);
+
+  const setSelectedNodeId = useCallback(
+    (id: string | null, node?: LandscapeNode) => {
+      appStoreMutate((prev) => ({
+        canvas: {
+          ...prev.canvas,
+          selectedNodeId: id,
+          selectedNodeType: id && node ? landscapeNodeTypeToCanvas(node) : null,
+          lastAction: {
+            type: id ? "selectNode" : "clearSelection",
+            payload: id ? { id } : {},
+            result: { selectedNodeId: id },
+            at: Date.now(),
+            source: "user",
+          },
+        },
+      }));
+    },
+    [appStoreMutate],
+  );
+
+  const setActiveFilter = useCallback(
+    (key: FilterButtonKey) => {
+      const nextFilter = buttonKeyToCanvasFilter(key);
+      appStoreMutate((prev) => ({
+        canvas: {
+          ...prev.canvas,
+          filter: nextFilter,
+          lastAction: {
+            type: "setFilter",
+            payload: { filter: nextFilter, buttonKey: key },
+            result: { filter: nextFilter },
+            at: Date.now(),
+            source: "user",
+          },
+        },
+      }));
+    },
+    [appStoreMutate],
+  );
 
   const [gravityMode, setGravityMode] = useState(false);
   const [gravityQuery, setGravityQuery] = useState("");
@@ -356,7 +536,8 @@ export default function Landscape3DPage() {
   const baseNodes = useMemo(() => buildBaseNodes(LANDSCAPE_SNAPSHOT), []);
 
   const graphData = useMemo(() => {
-    const filtered = filterNodes(baseNodes, activeFilter);
+    const byButton = filterNodes(baseNodes, activeFilter);
+    const filtered = applyStructuredCanvasFilter(byButton, canvasFilter);
     const nodeIds = new Set(filtered.map((n) => n.id));
     const links = buildLinks(
       LANDSCAPE_SNAPSHOT.links,
@@ -426,6 +607,7 @@ export default function Landscape3DPage() {
     return { nodes: applyLayoutMode(validNodes, layoutSpread), links };
   }, [
     activeFilter,
+    canvasFilter,
     baseNodes,
     edgeVisibility,
     gravityMode,
@@ -440,7 +622,7 @@ export default function Landscape3DPage() {
     if (!selectedNodeId) return;
     if (!graphData.nodes.some((n) => n.id === selectedNodeId))
       setSelectedNodeId(null);
-  }, [graphData.nodes, selectedNodeId]);
+  }, [graphData.nodes, selectedNodeId, setSelectedNodeId]);
 
   const runGravitySearch = useCallback(async () => {
     if (!gravityQuery.trim() || gravityLoading) return;
@@ -560,7 +742,7 @@ export default function Landscape3DPage() {
           linkDirectionalParticleColor={() => "#79c0ff"}
           onNodeClick={(node) => {
             if (node.id === "__sun__") return;
-            setSelectedNodeId(node.id);
+            setSelectedNodeId(node.id, node);
             const g = fgRef.current;
             if (!g) return;
             g.cameraPosition(
@@ -578,7 +760,17 @@ export default function Landscape3DPage() {
             node.fy = node.y;
             node.fz = node.z;
           }}
-          onBackgroundClick={() => setSelectedNodeId(null)}
+          onNodeHover={(node) => {
+            if (!node || node.id === "__sun__") {
+              setHoveredNodeId(null);
+              return;
+            }
+            setHoveredNodeId(node.id);
+          }}
+          onBackgroundClick={() => {
+            setSelectedNodeId(null);
+            setHoveredNodeId(null);
+          }}
           cooldownTicks={gravityMode ? 0 : layoutSpread ? 120 : 0}
           d3AlphaDecay={gravityMode ? 1 : layoutSpread ? 0.02 : 1}
           d3VelocityDecay={layoutSpread ? 0.3 : 1}
@@ -973,6 +1165,60 @@ export default function Landscape3DPage() {
           X/Y = UMAP coordinates · Z mode = {gravityMode ? "gravity" : zMode}
         </div>
       </div>
+      {(() => {
+        const canvasFilterLabel = describeCanvasFilter(canvasFilter);
+        return (
+          <>
+            {canvasFilterLabel ? (
+              <div
+                title="Active canvas filter applied via chat or UI controls. Click 'All' on the left panel to clear."
+                style={{
+                  position: "absolute",
+                  bottom: 44,
+                  right: 12,
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  background: "rgba(88,166,255,0.15)",
+                  border: "0.5px solid rgba(88,166,255,0.5)",
+                  color: "#79c0ff",
+                  fontFamily: "ui-monospace, monospace",
+                  fontSize: 11,
+                  letterSpacing: "0.04em",
+                  pointerEvents: "auto",
+                  cursor: "help",
+                  maxWidth: 320,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Filter: {canvasFilterLabel} ·{" "}
+                {graphData.nodes.filter((n) => n.id !== "__sun__").length} nodes
+              </div>
+            ) : null}
+            <div
+              title="This page is instrumented for the Atlas Canvas State Contract. Selection, filter, hover and active lens are mirrored to appStore.canvas."
+              style={{
+                position: "absolute",
+                bottom: 12,
+                right: 12,
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: "rgba(121,192,255,0.1)",
+                border: "0.5px solid rgba(121,192,255,0.35)",
+                color: "#79c0ff",
+                fontFamily: "ui-monospace, monospace",
+                fontSize: 10,
+                letterSpacing: "0.04em",
+                pointerEvents: "auto",
+                cursor: "help",
+              }}
+            >
+              Canvas-wired · WIP
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

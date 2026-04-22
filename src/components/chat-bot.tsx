@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { cn, createDebounce, generateUUID, truncateString } from "lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { CanvasToolDispatcher } from "./canvas/canvas-tool-dispatcher";
 import { ChatGreeting } from "./chat-greeting";
 import { ErrorMessage, PreviewMessage } from "./message";
 import PromptInput from "./prompt-input";
@@ -203,6 +204,27 @@ export default function ChatBot({ threadId, initialMessages }: Props) {
           (p) => (p as any)?.type === "file",
         );
 
+        // Snapshot the live canvas slice so the server can inject it into
+        // the system prompt. See buildCanvasContextSystemPrompt + Brief X
+        // Commit 8. This is the agent's primary read path; getCanvasState
+        // is only a mid-turn refresher.
+        const canvasSnapshot = appStore.getState().canvas;
+        const canvasContext: ChatApiSchemaRequestBody["canvasContext"] = {
+          activeLens: canvasSnapshot.activeLens,
+          filter: {
+            funder: canvasSnapshot.filter.funder,
+            mode: canvasSnapshot.filter.mode,
+            query: canvasSnapshot.filter.query,
+            lensCategoryId: canvasSnapshot.filter.lensCategoryId,
+          },
+          selectedNodeId: canvasSnapshot.selectedNodeId,
+          selectedNodeType: canvasSnapshot.selectedNodeType,
+          hoveredNodeId: canvasSnapshot.hoveredNodeId,
+          colorMode: canvasSnapshot.colorMode,
+          lastActionAt: canvasSnapshot.lastAction?.at ?? null,
+          lastActionType: canvasSnapshot.lastAction?.type ?? null,
+        };
+
         const requestBody: ChatApiSchemaRequestBody = {
           ...body,
           id,
@@ -225,6 +247,7 @@ export default function ChatBot({ threadId, initialMessages }: Props) {
             model: latestRef.current.threadImageToolModel[threadId],
           },
           attachments,
+          canvasContext,
         };
         return { body: requestBody };
       },
@@ -466,6 +489,10 @@ export default function ChatBot({ threadId, initialMessages }: Props) {
 
   return (
     <>
+      <CanvasToolDispatcher
+        messages={messages}
+        addToolResult={_addToolResult}
+      />
       {particle}
       <div
         className={cn(

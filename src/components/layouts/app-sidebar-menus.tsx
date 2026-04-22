@@ -25,6 +25,7 @@ import {
   FolderSearchIcon,
   Map,
   PlusIcon,
+  Sparkles,
   Waypoints,
 } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -147,6 +148,18 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 <SidebarMenuButton className="font-semibold">
                   <Box className="size-4" />
                   Landscape 3D
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <Link href="/canvas">
+                <SidebarMenuButton className="font-semibold">
+                  <Sparkles className="size-4" />
+                  Canvas
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>

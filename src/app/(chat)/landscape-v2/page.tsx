@@ -5,6 +5,7 @@ import {
   type SimNode,
   initCanvas,
 } from "@/components/landscape/canvas";
+import { LegacyBanner } from "@/components/landscape/legacy-banner";
 import { LANDSCAPE_SNAPSHOT } from "@/lib/landscape/snapshot";
 import type {
   LandscapeData,
@@ -149,6 +150,11 @@ const DEFAULT_EDGE_VISIBILITY: LandscapeEdgeVisibility = {
 };
 
 export default function LandscapeV2() {
+  useEffect(() => {
+    console.warn(
+      "[/landscape-v2] legacy exploratory route — superseded by /landscape-3d. See docs/canvas-status-and-roadmap.md",
+    );
+  }, []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fitRef = useRef<(() => void) | null>(null);
   const reheatRef = useRef<(() => void) | null>(null);
@@ -319,6 +325,20 @@ export default function LandscapeV2() {
         overflow: "hidden",
       }}
     >
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 50,
+        }}
+      >
+        <LegacyBanner
+          message="Exploratory variant — superseded by /landscape-3d"
+          docHref="/landscape-3d"
+        />
+      </div>
       <canvas
         ref={canvasRef}
         style={{ display: "block", width: "100%", height: "100%" }}

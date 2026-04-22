@@ -1,5 +1,19 @@
 import { Tool } from "ai";
 import { AppDefaultToolkit, DefaultToolName } from ".";
+import { getCanvasStateTool } from "./canvas/read-tools";
+import {
+  mountChartInStageTool,
+  mountPassportInStageTool,
+  mountTableInStageTool,
+} from "./canvas/stage-mount-tools";
+import {
+  colorByLensCategoryTool,
+  filterByQueryTool,
+  focusOnOrgTool,
+  focusOnProjectTool,
+  highlightClusterTool,
+  resetCameraTool,
+} from "./canvas/write-tools";
 import { jsExecutionTool } from "./code/js-run-tool";
 import { pythonExecutionTool } from "./code/python-run-tool";
 import { httpFetchTool } from "./http/fetch";
@@ -59,5 +73,29 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     [DefaultToolName.RunMatching]: runMatchingTool,
     [DefaultToolName.ArchivePassport]: archivePassportTool,
     [DefaultToolName.FindConsortiumPartners]: findConsortiumPartnersTool,
+  },
+  // ---------------------------------------------------------------------
+  // Sprint X — Canvas + Briefing kits
+  //
+  // Registered here in Commit 2 so the `Record<AppDefaultToolkit, …>` type
+  // remains total. The tool implementations are deliberately absent until
+  // Brief X Commits 5–6 (Canvas) and Commit 12 (Briefing). Leaving these
+  // kits empty means the model sees no new tools to call and runtime
+  // behaviour is identical to pre-Commit-2.
+  // ---------------------------------------------------------------------
+  [AppDefaultToolkit.Canvas]: {
+    [DefaultToolName.FocusOnProject]: focusOnProjectTool,
+    [DefaultToolName.FocusOnOrg]: focusOnOrgTool,
+    [DefaultToolName.HighlightCluster]: highlightClusterTool,
+    [DefaultToolName.ColorByLensCategory]: colorByLensCategoryTool,
+    [DefaultToolName.FilterByQuery]: filterByQueryTool,
+    [DefaultToolName.ResetCamera]: resetCameraTool,
+    [DefaultToolName.GetCanvasState]: getCanvasStateTool,
+    [DefaultToolName.MountChartInStage]: mountChartInStageTool,
+    [DefaultToolName.MountPassportInStage]: mountPassportInStageTool,
+    [DefaultToolName.MountTableInStage]: mountTableInStageTool,
+  },
+  [AppDefaultToolkit.Briefing]: {
+    // Populated in Brief X Commit 12.
   },
 };

@@ -95,6 +95,29 @@ export const ChatMentionSchema = z.discriminatedUnion("type", [
 
 export type ChatMention = z.infer<typeof ChatMentionSchema>;
 
+// Canvas state echoed from the client on each chat request.
+// Used to inject a context block into the system prompt so the agent can
+// reason about what the user sees without calling getCanvasState first.
+export const chatCanvasContextSchema = z.object({
+  activeLens: z.string(),
+  filter: z
+    .object({
+      query: z.string().optional(),
+      funder: z.string().optional(),
+      mode: z.string().optional(),
+      lensCategoryId: z.string().optional(),
+    })
+    .passthrough(),
+  selectedNodeId: z.string().nullable(),
+  selectedNodeType: z.string().nullable(),
+  hoveredNodeId: z.string().nullable(),
+  colorMode: z.string(),
+  lastActionAt: z.number().nullable(),
+  lastActionType: z.string().nullable(),
+});
+
+export type ChatCanvasContext = z.infer<typeof chatCanvasContextSchema>;
+
 export const chatApiSchemaRequestBodySchema = z.object({
   id: z.string(),
   message: z.any() as z.ZodType<UIMessage>,
@@ -110,6 +133,7 @@ export const chatApiSchemaRequestBodySchema = z.object({
   allowedMcpServers: z.record(z.string(), AllowedMCPServerZodSchema).optional(),
   allowedAppDefaultToolkit: z.array(z.string()).optional(),
   attachments: z.array(ChatAttachmentSchema).optional(),
+  canvasContext: chatCanvasContextSchema.optional(),
 });
 
 export type ChatApiSchemaRequestBody = z.infer<

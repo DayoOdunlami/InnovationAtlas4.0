@@ -4,11 +4,15 @@
 -- phase. `source` stays at the two-value v1 union; Data Model Spec
 -- #15 adds 'voice' later — do not extend the CHECK in this phase.
 -- `id` is a client-generated 26-char ULID string (Data Model Spec §3).
+-- `position` uses `COLLATE "C"` so fractional-indexing keys sort by
+-- raw byte value regardless of database locale (Data Model Spec §5 —
+-- ICU-default locales reorder mixed-case keys and would corrupt
+-- ordering otherwise).
 CREATE TABLE "atlas"."blocks" (
 	"id" text PRIMARY KEY NOT NULL,
 	"brief_id" uuid NOT NULL,
 	"type" text NOT NULL,
-	"position" text NOT NULL,
+	"position" text COLLATE "C" NOT NULL,
 	"content_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"source" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,

@@ -111,22 +111,29 @@ jobs:
         continue-on-error: true
         run: pnpm db:migrate 2>&1 | tee migrate.log
 
-      - name: Leak migration failure into annotations (TEMP diag)
+      - name: Leak migration failure into step summary (TEMP diag)
         if: steps.migrate.outcome == 'failure'
         env:
           PGPASSWORD: testpass
         run: |
-          echo "::group::migrate.log (full output)"
-          cat migrate.log || true
-          echo "::endgroup::"
-          echo "::group::DB state at failure"
-          psql -h localhost -U testuser -d better_chatbot_test -c "\\dn" || true
-          psql -h localhost -U testuser -d better_chatbot_test -c "\\dt public.*" || true
-          psql -h localhost -U testuser -d better_chatbot_test -c "\\dt atlas.*" || true
-          echo "::endgroup::"
-          LAST_ERR=$(grep -iE "(error|fail|unknown|cannot|does not exist|postgreserror|relation|column|constraint)" migrate.log | tail -n 25 | tr '\n' ' | ')
-          echo "::error title=db:migrate failed::${LAST_ERR:-see migrate.log group}"
+          echo "### db:migrate failure" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 200 migrate.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "### DB state at failure" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          psql -h localhost -U testuser -d better_chatbot_test -c "\\dn" >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
+          psql -h localhost -U testuser -d better_chatbot_test -c "\\dt atlas.*" >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
           exit 1
+
+      - name: Upload migrate.log as artifact (TEMP diag)
+        if: always() && steps.migrate.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: migrate-log
+          path: migrate.log
+          if-no-files-found: ignore
 
       - name: Seed test users once before all tests
         run: pnpm test:e2e:seed

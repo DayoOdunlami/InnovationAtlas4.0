@@ -107,7 +107,26 @@ jobs:
           SQL
 
       - name: Run database migrations
-        run: pnpm db:migrate
+        id: migrate
+        continue-on-error: true
+        run: pnpm db:migrate 2>&1 | tee migrate.log
+
+      - name: Leak migration failure into annotations (TEMP diag)
+        if: steps.migrate.outcome == 'failure'
+        env:
+          PGPASSWORD: testpass
+        run: |
+          echo "::group::migrate.log (full output)"
+          cat migrate.log || true
+          echo "::endgroup::"
+          echo "::group::DB state at failure"
+          psql -h localhost -U testuser -d better_chatbot_test -c "\\dn" || true
+          psql -h localhost -U testuser -d better_chatbot_test -c "\\dt public.*" || true
+          psql -h localhost -U testuser -d better_chatbot_test -c "\\dt atlas.*" || true
+          echo "::endgroup::"
+          LAST_ERR=$(grep -iE "(error|fail|unknown|cannot|does not exist|postgreserror|relation|column|constraint)" migrate.log | tail -n 25 | tr '\n' ' | ')
+          echo "::error title=db:migrate failed::${LAST_ERR:-see migrate.log group}"
+          exit 1
 
       - name: Seed test users once before all tests
         run: pnpm test:e2e:seed

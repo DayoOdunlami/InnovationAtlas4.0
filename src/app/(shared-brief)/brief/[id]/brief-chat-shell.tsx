@@ -22,8 +22,7 @@
 // chat history across reloads.
 // ---------------------------------------------------------------------------
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import PromptInput from "@/components/prompt-input";
 import { AppDefaultToolkit } from "@/lib/ai/tools";
 import {
   DefaultChatTransport,
@@ -33,8 +32,7 @@ import {
 import { useChat } from "@ai-sdk/react";
 import { BriefShareBar } from "./brief-share-bar";
 import { generateUUID } from "lib/utils";
-import { Loader, Send } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export interface BriefChatShellInitialMessage {
@@ -135,7 +133,7 @@ export function BriefChatShell({
 
   const readOnly = scopeKind === "share";
 
-  const { messages, status, sendMessage, error } = useChat({
+  const { messages, status, sendMessage, stop, error } = useChat({
     id: briefId,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     messages: hydratedInitial,
@@ -193,24 +191,6 @@ export function BriefChatShell({
 
   const [input, setInput] = useState("");
   const isLoading = status === "streaming" || status === "submitted";
-
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      const text = input.trim();
-      if (!text || isLoading || readOnly) return;
-      setInput("");
-      // Eagerly persist the user message so refresh-before-first-token
-      // still keeps it. The sdk will assign an id; we re-use by
-      // generating ahead of time. useChat also generates one; we let
-      // it generate and persist on settle instead. Simpler.
-      await sendMessage({
-        role: "user",
-        parts: [{ type: "text", text }],
-      });
-    },
-    [input, isLoading, readOnly, sendMessage],
-  );
 
   const shareUrl =
     typeof window !== "undefined" && shareTokens && shareTokens.length > 0
@@ -286,26 +266,17 @@ export function BriefChatShell({
       </section>
 
       {!readOnly && (
-        <form
-          onSubmit={handleSubmit}
-          className="mt-3 flex items-center gap-2 border-t border-border pt-3"
-        >
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+        <div className="mt-3 border-t border-border pt-3">
+          <PromptInput
+            input={input}
+            setInput={setInput}
+            sendMessage={sendMessage}
+            onStop={stop}
+            isLoading={isLoading}
+            threadId={briefId}
             placeholder="Message the agent about this brief…"
-            disabled={isLoading}
-            className="flex-1"
           />
-          <Button type="submit" disabled={isLoading || input.trim() === ""}>
-            {isLoading ? (
-              <Loader className="size-4 animate-spin" aria-hidden />
-            ) : (
-              <Send className="size-4" aria-hidden />
-            )}
-            Send
-          </Button>
-        </form>
+        </div>
       )}
     </div>
   );

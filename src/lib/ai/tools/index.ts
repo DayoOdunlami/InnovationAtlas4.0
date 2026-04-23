@@ -19,6 +19,7 @@ export enum DefaultToolName {
   WebSearch = "webSearch",
   WebContent = "webContent",
   SurfaceResearch = "surfaceResearch",
+  SurfaceKnowledgeBase = "surfaceKnowledgeBase",
   Http = "http",
   JavascriptExecution = "mini-javascript-execution",
   PythonExecution = "python-execution",

@@ -16,6 +16,7 @@ import {
   chatApiSchemaRequestBodySchema,
 } from "app-types/chat";
 import {
+  buildBriefContextSystemPrompt,
   buildCanvasContextSystemPrompt,
   buildMcpServerCustomizationsSystemPrompt,
   buildToolCallUnsupportedModelSystemPrompt,
@@ -309,6 +310,7 @@ export async function POST(request: Request) {
         const systemPrompt = mergeSystemPrompt(
           buildUserSystemPrompt(session.user, userPreferences, agent),
           buildCanvasContextSystemPrompt(canvasContext),
+          buildBriefContextSystemPrompt(verifiedActiveBriefId ?? undefined),
           buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
           !supportToolCall && buildToolCallUnsupportedModelSystemPrompt,
         );

@@ -33,6 +33,7 @@ import { tool as createTool, type Tool } from "ai";
 import { z } from "zod";
 
 import { AppDefaultToolkit, DefaultToolName } from "@/lib/ai/tools";
+import { surfaceKnowledgeBaseTool } from "@/lib/ai/tools/kb/surface-knowledge-base";
 import type { AccessScope } from "@/lib/db/pg/repositories/access-scope";
 import { AccessDeniedError } from "@/lib/db/pg/repositories/access-scope";
 import { emitAction } from "@/lib/telemetry/emit";
@@ -210,6 +211,12 @@ export function buildBriefingToolKit(
       },
     });
   }
+
+  // Knowledge-base surface tool (KB-1). Available whenever a brief is
+  // pinned, since grounded authoring is the whole point of brief mode.
+  // The tool itself is read-only and has no briefId/blockId surface —
+  // scoping + citation discipline are handled inside the tool.
+  tools[DefaultToolName.SurfaceKnowledgeBase] = surfaceKnowledgeBaseTool;
 
   return tools;
 }

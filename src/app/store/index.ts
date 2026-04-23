@@ -136,99 +136,14 @@ export type CanvasState = {
 };
 
 // ---------------------------------------------------------------------------
-// Briefing state (Sprint X Commit 1 — Brief C §2)
+// Briefing state removed in Phase 2a.0 (Brief-First Rebuild).
 //
-// The briefing panel's content — a title plus an ordered list of typed blocks
-// (heading / paragraph / bullets / citation / project-card / chart). Blocks
-// are appended by the agent as a byproduct of exploratory conversation and
-// can be removed, re-ordered or edited by the user.
-//
-// Briefing is soft-persisted per-tab via sessionStorage (see mirror at the
-// bottom of this file). It is deliberately excluded from the main persisted
-// `partialize` payload so that it never lands in localStorage: work in one
-// briefing does not bleed into another tab or a future session on the same
-// device.
+// The `BriefingState` slice that lived here through the canvas-unified
+// demo window was an orphan: no UI consumed it, and the real block
+// state now lives in atlas.blocks behind `pgBlockRepository`. See
+// post-demo-backlog.md "Orphan briefing slice on feat/canvas-unified"
+// for the receipt.
 // ---------------------------------------------------------------------------
-
-export type BriefingBlockType =
-  | "heading"
-  | "paragraph"
-  | "bullets"
-  | "citation"
-  | "project-card"
-  | "chart";
-
-export type BriefingBlockBase = {
-  id: string;
-  type: BriefingBlockType;
-  source: "user" | "agent";
-  createdAt: number;
-};
-
-export type BriefingHeadingBlock = BriefingBlockBase & {
-  type: "heading";
-  level: 1 | 2 | 3;
-  text: string;
-};
-
-export type BriefingParagraphBlock = BriefingBlockBase & {
-  type: "paragraph";
-  text: string;
-};
-
-export type BriefingBulletsBlock = BriefingBlockBase & {
-  type: "bullets";
-  items: string[];
-};
-
-export type BriefingCitationBlock = BriefingBlockBase & {
-  type: "citation";
-  text: string;
-  sourceTitle: string;
-  sourceUrl?: string;
-  projectId?: string;
-  orgId?: string;
-};
-
-export type BriefingProjectCardBlock = BriefingBlockBase & {
-  type: "project-card";
-  projectId: string;
-  title: string;
-  summary?: string;
-  funder?: string;
-  funding?: number;
-};
-
-export type BriefingChartBlock = BriefingBlockBase & {
-  type: "chart";
-  chartId: string;
-  title: string;
-  payload: unknown;
-};
-
-export type BriefingBlock =
-  | BriefingHeadingBlock
-  | BriefingParagraphBlock
-  | BriefingBulletsBlock
-  | BriefingCitationBlock
-  | BriefingProjectCardBlock
-  | BriefingChartBlock;
-
-export type BriefingLastAction = {
-  type: string;
-  payload: unknown;
-  result: unknown;
-  at: number;
-  source: "user" | "agent";
-};
-
-export type BriefingState = {
-  title: string;
-  blocks: BriefingBlock[];
-  lastAction: BriefingLastAction | null;
-};
-
-const BRIEFING_SESSION_STORAGE_KEY = "mc-app-store-briefing-v1";
 
 const initialCanvasState: CanvasState = {
   selectedNodeId: null,
@@ -239,12 +154,6 @@ const initialCanvasState: CanvasState = {
   cameraTarget: null,
   colorMode: "default",
   stage: { kind: "force-graph" },
-  lastAction: null,
-};
-
-const initialBriefingState: BriefingState = {
-  title: "Untitled briefing",
-  blocks: [],
   lastAction: null,
 };
 
@@ -292,7 +201,6 @@ export interface AppState {
     };
   };
   canvas: CanvasState;
-  briefing: BriefingState;
   pendingThreadMention?: ChatMention;
 }
 
@@ -340,7 +248,6 @@ const initialState: AppState = {
     },
   },
   canvas: initialCanvasState,
-  briefing: initialBriefingState,
   pendingThreadMention: undefined,
 };
 
@@ -353,11 +260,11 @@ export const appStore = create<AppState & AppDispatch>()(
       }),
       {
         name: "mc-app-store-v2.0.2",
-        // NOTE: `canvas` and `briefing` are intentionally excluded here.
-        // Canvas is session-only (reset on refresh).
-        // Briefing is mirrored to sessionStorage separately below so it
-        // survives refresh within the same tab but never lands in
-        // localStorage.
+        // NOTE: `canvas` is intentionally excluded here — canvas is
+        // session-only (reset on refresh). The Phase 2a.0 block state
+        // now lives in atlas.blocks behind the repository layer; the
+        // old sessionStorage-mirrored `briefing` slice was removed as
+        // part of this phase (see post-demo-backlog.md).
         partialize: (state) => ({
           chatModel: state.chatModel || initialState.chatModel,
           toolChoice: state.toolChoice || initialState.toolChoice,
@@ -384,52 +291,6 @@ export const appStore = create<AppState & AppDispatch>()(
   ),
 );
 
-// ---------------------------------------------------------------------------
-// Briefing sessionStorage mirror (client-only)
-//
-// Hydrate on first client-side import, then keep sessionStorage in sync with
-// any subsequent change to `state.briefing`. All access is wrapped in
-// try/catch so quota, parse, or permission failures never corrupt the store
-// or a write-tool result — the briefing just silently stops persisting for
-// that session.
-//
-// Runs in a browser context only (no-op on the server during SSR/RSC).
-// ---------------------------------------------------------------------------
-if (typeof window !== "undefined") {
-  try {
-    const raw = window.sessionStorage.getItem(BRIEFING_SESSION_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<BriefingState> | null;
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        typeof parsed.title === "string" &&
-        Array.isArray(parsed.blocks)
-      ) {
-        appStore.setState({
-          briefing: {
-            title: parsed.title,
-            blocks: parsed.blocks as BriefingBlock[],
-            lastAction: parsed.lastAction ?? null,
-          },
-        });
-      }
-    }
-  } catch {
-    // Silent: corrupt JSON or blocked storage. Briefing falls back to initial.
-  }
-
-  appStore.subscribe(
-    (state) => state.briefing,
-    (briefing) => {
-      try {
-        window.sessionStorage.setItem(
-          BRIEFING_SESSION_STORAGE_KEY,
-          JSON.stringify(briefing),
-        );
-      } catch {
-        // Silent: quota exceeded or storage blocked.
-      }
-    },
-  );
-}
+// Phase 2a.0: Briefing sessionStorage mirror removed along with the
+// orphan BriefingState slice. Block state is now sourced from
+// atlas.blocks via `pgBlockRepository` on the server.

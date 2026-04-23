@@ -56,6 +56,13 @@ interface BriefChatShellProps {
         createdAt: string;
         expiresAt: string | null;
       }>;
+  /**
+   * Pre-rendered block list (Phase 2a.0). Rendered as a Server
+   * Component above the chat transcript and passed through as a
+   * ReactNode slot so the shell stays a client component while the
+   * block renderer tree ships zero client JS.
+   */
+  blocksSlot?: React.ReactNode;
 }
 
 // Convert an atlas.messages row's content JSON into the UIMessage shape
@@ -108,6 +115,7 @@ export function BriefChatShell({
   scopeKind,
   initialMessages,
   shareTokens,
+  blocksSlot,
 }: BriefChatShellProps) {
   const hydratedInitial = useMemo(
     () => initialMessages.map(hydrateMessage),
@@ -217,6 +225,16 @@ export function BriefChatShell({
           />
         )}
       </header>
+
+      {blocksSlot ? (
+        <section
+          className="border-b border-border py-4"
+          aria-label="Brief blocks"
+          data-testid="brief-blocks-section"
+        >
+          {blocksSlot}
+        </section>
+      ) : null}
 
       <section className="flex-1 overflow-y-auto py-4" aria-label="Chat">
         {messages.length === 0 ? (

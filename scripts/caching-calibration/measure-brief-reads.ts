@@ -1,6 +1,11 @@
 #!/usr/bin/env tsx
 // ---------------------------------------------------------------------------
-// Phase 1 caching-calibration probe — brief + message + share-token reads.
+// Caching-calibration probe — brief + message + share-token + block reads.
+//
+// Extended in Phase 2a.0 (Rec 4 from the Phase 1 caching calibration)
+// to insert a tunable block payload (`CALIBRATION_BLOCK_COUNT`) and
+// time `pgBlockRepository.listByBrief`. This gives us the numbers that
+// `docs/phase-2a0-caching-followup.md` references.
 //
 // Measures the per-call latency of the three hot read paths the Phase 1
 // surface hits on every request:
@@ -34,16 +39,19 @@ import { performance } from "node:perf_hooks";
 import { inArray } from "drizzle-orm";
 import { pgDb as db } from "@/lib/db/pg/db.pg";
 import {
+  AtlasBlocksTable,
   AtlasBriefShareTokensTable,
   AtlasBriefsTable,
   AtlasMessagesTable,
   UserTable,
 } from "@/lib/db/pg/schema.pg";
+import { pgBlockRepository } from "@/lib/db/pg/repositories/block-repository.pg";
 import { pgBriefRepository } from "@/lib/db/pg/repositories/brief-repository.pg";
 import { pgBriefShareTokenRepository } from "@/lib/db/pg/repositories/brief-share-token-repository.pg";
 import { pgMessageRepository } from "@/lib/db/pg/repositories/message-repository.pg";
 
 const MESSAGE_COUNT = Number(process.env.CALIBRATION_MESSAGE_COUNT ?? 50);
+const BLOCK_COUNT = Number(process.env.CALIBRATION_BLOCK_COUNT ?? 0);
 const SUFFIX = randomUUID().slice(0, 8);
 const EMAIL = `phase1-calibration-${SUFFIX}@innovation-atlas-test.local`;
 
@@ -68,8 +76,9 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`# Phase 1 caching calibration (suffix ${SUFFIX})`);
+  console.log(`# Caching calibration (suffix ${SUFFIX})`);
   console.log(`# messages per brief: ${MESSAGE_COUNT}`);
+  console.log(`# blocks per brief:   ${BLOCK_COUNT}`);
 
   const [owner] = await db
     .insert(UserTable)
@@ -94,6 +103,23 @@ async function main() {
           contentJson: {
             parts: [{ type: "text", text: `calibration message ${i}` }],
           },
+        },
+        { kind: "user", userId: ownerId },
+      );
+    }
+
+    for (let i = 0; i < BLOCK_COUNT; i += 1) {
+      await pgBlockRepository.create(
+        {
+          briefId: brief.id,
+          type: i % 5 === 0 ? "heading" : "paragraph",
+          contentJson:
+            i % 5 === 0
+              ? { level: 2, text: `Section ${i / 5 + 1}` }
+              : {
+                  text: `Paragraph #${i}. This is a calibration block used to stress the block-list fetch path at N=${BLOCK_COUNT}.`,
+                },
+          source: i % 2 === 0 ? "user" : "agent",
         },
         { kind: "user", userId: ownerId },
       );
@@ -135,6 +161,33 @@ async function main() {
         label: "findActiveByToken",
         run: () => pgBriefShareTokenRepository.findActiveByToken(sharedToken),
       },
+      {
+        label: `block-repository.listByBrief (n=${BLOCK_COUNT})`,
+        run: () =>
+          pgBlockRepository.listByBrief(brief.id, {
+            kind: "user",
+            userId: ownerId,
+          }),
+      },
+      {
+        label: "/brief fetch fan-out (brief + messages + blocks)",
+        run: async () => {
+          await Promise.all([
+            pgBriefRepository.getBriefById(brief.id, {
+              kind: "user",
+              userId: ownerId,
+            }),
+            pgMessageRepository.listMessagesByBriefId(brief.id, {
+              kind: "user",
+              userId: ownerId,
+            }),
+            pgBlockRepository.listByBrief(brief.id, {
+              kind: "user",
+              userId: ownerId,
+            }),
+          ]);
+        },
+      },
     ];
 
     const samples: Sample[] = [];
@@ -159,6 +212,9 @@ async function main() {
         .where(inArray(AtlasBriefShareTokensTable.id, tokenIds));
     }
     if (briefIds.length > 0) {
+      await db
+        .delete(AtlasBlocksTable)
+        .where(inArray(AtlasBlocksTable.briefId, briefIds));
       await db
         .delete(AtlasMessagesTable)
         .where(inArray(AtlasMessagesTable.briefId, briefIds));

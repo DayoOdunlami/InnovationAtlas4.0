@@ -22,8 +22,9 @@
 // place to add or update that logic in later phases.
 // ---------------------------------------------------------------------------
 
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
+import { serverCache } from "@/lib/cache";
 import { pgDb as db } from "../db.pg";
 import {
   AtlasBriefShareTokensTable,
@@ -31,6 +32,56 @@ import {
   type AtlasBriefShareTokenEntity,
 } from "../schema.pg";
 import { AccessDeniedError, type AccessScope } from "./access-scope";
+
+// Rec 2 (Phase 2a.0 caching calibration): a short-TTL cache on the
+// active-token lookup collapses ~72 ms (pure RTT) to <5 ms for the
+// second hit. The cache key is a SHA-256 prefix of the token so the
+// raw token never lands in memory as a cache key; mint/revoke paths
+// invalidate explicitly. See docs/phase-1-caching-calibration.md §Rec 2.
+const SHARE_TOKEN_CACHE_TTL_MS = 60_000;
+
+function shareTokenCacheKey(token: string): string {
+  const hash = createHash("sha256").update(token).digest("hex").slice(0, 32);
+  return `atlas.share-token:${hash}`;
+}
+
+/**
+ * Shape of the cached token row. Drizzle returns `Date` objects; to
+ * survive a serialising cache backend (e.g. redis) we store the numeric
+ * timestamps and rehydrate on read.
+ */
+interface CachedShareTokenRow {
+  id: string;
+  briefId: string;
+  token: string;
+  createdAtMs: number;
+  expiresAtMs: number | null;
+  revokedAtMs: number | null;
+}
+
+function toCached(row: AtlasBriefShareTokenEntity): CachedShareTokenRow {
+  return {
+    id: row.id,
+    briefId: row.briefId,
+    token: row.token,
+    createdAtMs: row.createdAt.getTime(),
+    expiresAtMs: row.expiresAt?.getTime() ?? null,
+    revokedAtMs: row.revokedAt?.getTime() ?? null,
+  };
+}
+
+function fromCached(
+  cached: CachedShareTokenRow,
+): AtlasBriefShareTokenEntity {
+  return {
+    id: cached.id,
+    briefId: cached.briefId,
+    token: cached.token,
+    createdAt: new Date(cached.createdAtMs),
+    expiresAt: cached.expiresAtMs !== null ? new Date(cached.expiresAtMs) : null,
+    revokedAt: cached.revokedAtMs !== null ? new Date(cached.revokedAtMs) : null,
+  };
+}
 
 export interface BriefShareTokenRepository {
   mintToken(
@@ -82,6 +133,10 @@ export const pgBriefShareTokenRepository: BriefShareTokenRepository = {
           : {}),
       })
       .returning();
+    // Invalidate defensively — a new token cannot collide with an
+    // existing cache entry today, but keeping mint/revoke symmetric
+    // makes the cache story easy to reason about.
+    await serverCache.delete(shareTokenCacheKey(token));
     return row;
   },
 
@@ -113,6 +168,7 @@ export const pgBriefShareTokenRepository: BriefShareTokenRepository = {
     const rows = await db
       .select({
         briefId: AtlasBriefShareTokensTable.briefId,
+        token: AtlasBriefShareTokensTable.token,
       })
       .from(AtlasBriefShareTokensTable)
       .where(eq(AtlasBriefShareTokensTable.id, tokenId))
@@ -130,9 +186,27 @@ export const pgBriefShareTokenRepository: BriefShareTokenRepository = {
       .update(AtlasBriefShareTokensTable)
       .set({ revokedAt: new Date() })
       .where(eq(AtlasBriefShareTokensTable.id, tokenId));
+    // Explicit cache invalidation so a revoked token cannot sneak past
+    // a same-request stale read. Matches Rec 2 invariants.
+    await serverCache.delete(shareTokenCacheKey(rows[0].token));
   },
 
   async findActiveByToken(token) {
+    const cacheKey = shareTokenCacheKey(token);
+    const cached = await serverCache.get<CachedShareTokenRow>(cacheKey);
+    if (cached !== undefined) {
+      const hydrated = fromCached(cached);
+      if (
+        hydrated.revokedAt === null &&
+        (hydrated.expiresAt === null ||
+          hydrated.expiresAt.getTime() > Date.now())
+      ) {
+        return hydrated;
+      }
+      // Cached row has since expired; fall through to DB so the stale
+      // entry is overwritten or evicted.
+      await serverCache.delete(cacheKey);
+    }
     const rows = await db
       .select()
       .from(AtlasBriefShareTokensTable)
@@ -148,6 +222,7 @@ export const pgBriefShareTokenRepository: BriefShareTokenRepository = {
     if (row.expiresAt !== null && row.expiresAt.getTime() <= Date.now()) {
       return null;
     }
+    await serverCache.set(cacheKey, toCached(row), SHARE_TOKEN_CACHE_TTL_MS);
     return row;
   },
 };

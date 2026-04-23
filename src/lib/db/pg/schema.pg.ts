@@ -508,6 +508,60 @@ export const AtlasPassportShareTokensTable = atlasSchema.table(
   ],
 );
 
+// ---------------------------------------------------------------------------
+// atlas.blocks (Phase 2a.0, Brief-First Rebuild — Data Model Spec §4.2,
+// Block Types Spec §1). Holds the ordered block list that makes up a
+// brief's body.
+//
+// * `id` is a client-generated 26-char ULID string (not a UUID). The
+//   CHECK constraint enforces the length.
+// * `type` CHECK encodes all nine v1 block types even though Phase 2a.0
+//   only renders two of them (heading, paragraph). The schema is frozen
+//   at Phase 0; later phases only add renderers / write tools.
+// * `source` is v1's two-value union `('user', 'agent')`. Data Model
+//   Spec #15 adds 'voice' later — the CHECK MUST stay two-valued in
+//   this phase.
+// * `position` is the fractional-indexing string (see
+//   `fractional-indexing` npm package). Stored as TEXT, sorted
+//   lexicographically via the `(brief_id, position)` composite index.
+// * `canonical_question_ids` + `comments_json` are reserved columns
+//   required by the Phase 0 spec freeze; unused in v1.
+// ---------------------------------------------------------------------------
+
+export const AtlasBlocksTable = atlasSchema.table(
+  "blocks",
+  {
+    id: text("id").primaryKey().notNull(),
+    briefId: uuid("brief_id")
+      .notNull()
+      .references(() => AtlasBriefsTable.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    position: text("position").notNull(),
+    contentJson: jsonb("content_json").notNull().default(sql`'{}'::jsonb`),
+    source: text("source").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    canonicalQuestionIds: text("canonical_question_ids")
+      .array()
+      .default(sql`'{}'::text[]`),
+    commentsJson: jsonb("comments_json").default(sql`'[]'::jsonb`),
+  },
+  (t) => [
+    check("blocks_id_ulid_len_chk", sql`char_length(${t.id}) = 26`),
+    check(
+      "blocks_type_chk",
+      sql`${t.type} IN ('heading','paragraph','bullets','citation','project-card','chart','live-passport-view','landscape-embed','table')`,
+    ),
+    check("blocks_source_chk", sql`${t.source} IN ('user','agent')`),
+    index("blocks_brief_id_position").on(t.briefId, t.position),
+    index("blocks_type_idx").on(t.type),
+  ],
+);
+
 export const AtlasTelemetryEventsTable = atlasSchema.table(
   "telemetry_events",
   {
@@ -552,3 +606,5 @@ export type AtlasTelemetryEventEntity =
   typeof AtlasTelemetryEventsTable.$inferSelect;
 export type AtlasTelemetryEventInsert =
   typeof AtlasTelemetryEventsTable.$inferInsert;
+export type AtlasBlockEntity = typeof AtlasBlocksTable.$inferSelect;
+export type AtlasBlockInsert = typeof AtlasBlocksTable.$inferInsert;

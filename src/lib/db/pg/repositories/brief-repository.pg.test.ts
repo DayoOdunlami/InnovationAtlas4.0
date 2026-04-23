@@ -18,9 +18,9 @@
 import "load-env";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-const smokesReady = () => Boolean(process.env.POSTGRES_URL);
+import { hasRealPostgresUrl } from "@/test-utils/postgres-env";
 
-describe.skipIf(!smokesReady())("brief-repository (permit/deny)", () => {
+describe.skipIf(!hasRealPostgresUrl())("brief-repository (permit/deny)", () => {
   const suffix = Math.random().toString(36).slice(2, 10);
   const ownerEmail = `phase1-brief-repo-owner-${suffix}@innovation-atlas-test.local`;
   const otherEmail = `phase1-brief-repo-other-${suffix}@innovation-atlas-test.local`;
@@ -69,9 +69,7 @@ describe.skipIf(!smokesReady())("brief-repository (permit/deny)", () => {
         .where(inArray(schema.AtlasBriefsTable.id, createdBriefIds));
     }
     if (ownerId) {
-      await db
-        .delete(schema.UserTable)
-        .where(eq(schema.UserTable.id, ownerId));
+      await db.delete(schema.UserTable).where(eq(schema.UserTable.id, ownerId));
     }
     if (otherUserId) {
       await db

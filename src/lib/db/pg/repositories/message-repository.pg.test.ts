@@ -27,9 +27,8 @@ describe.skipIf(!hasRealPostgresUrl())(
     let db: typeof import("../db.pg")["pgDb"];
     let schema: typeof import("../schema.pg");
     let briefRepo: typeof import("./brief-repository.pg")["pgBriefRepository"];
-    let messageRepo: typeof import(
-      "./message-repository.pg",
-    )["pgMessageRepository"];
+    type MessageRepoModule = typeof import("./message-repository.pg");
+    let messageRepo: MessageRepoModule["pgMessageRepository"];
     let AccessDeniedError: typeof import("./access-scope")["AccessDeniedError"];
 
     beforeAll(async () => {

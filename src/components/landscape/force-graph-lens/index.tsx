@@ -42,6 +42,53 @@ const LAYOUT_MODES: Array<{ id: LensLayoutMode; label: string; desc: string }> =
     { id: "rings", label: "Rings", desc: "Top matches ranked" },
   ];
 
+function QueryInputA({
+  initialValue,
+  onApply,
+}: {
+  initialValue: string;
+  onApply: (q: string) => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
+  const submit = () => {
+    const q = value.trim();
+    if (q) onApply(q);
+  };
+  return (
+    <div
+      className="flex flex-1 items-center border border-[#253040] border-l-[3px] border-l-[#8fe4b1] bg-[#0a0e13]"
+      role="search"
+    >
+      <span className="px-2 pl-3 text-[11px] text-[#8fe4b1]">A</span>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            submit();
+          }
+        }}
+        placeholder="primary query — e.g. rail hydrogen decarbonisation"
+        className="min-w-0 flex-1 bg-transparent px-1.5 py-2 text-[11px] text-[#e8ecf1] outline-none placeholder:text-[#4a5566]"
+        aria-label="Gravity query A"
+      />
+      <button
+        type="button"
+        aria-label="Apply query"
+        className="px-2.5 text-base text-[#8a96a8] hover:text-[#e8ecf1]"
+        onClick={submit}
+      >
+        →
+      </button>
+    </div>
+  );
+}
+
 export type ForceGraphLensProps = {
   variant?: "canvas" | "detail";
   initialQuery?: string | null;
@@ -353,32 +400,10 @@ export function ForceGraphLens(props: ForceGraphLensProps) {
               v2
             </span>
           </div>
-          <form
-            className="flex flex-1 items-center border border-[#253040] border-l-[3px] border-l-[#8fe4b1] bg-[#0a0e13]"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              const q = String(fd.get("queryA") ?? "");
-              handleApplyQueryA(q);
-            }}
-          >
-            <span className="px-2 pl-3 text-[11px] text-[#8fe4b1]">A</span>
-            <input
-              type="text"
-              name="queryA"
-              defaultValue={queryA ?? ""}
-              placeholder="primary query — e.g. rail hydrogen decarbonisation"
-              className="min-w-0 flex-1 bg-transparent px-1.5 py-2 text-[11px] text-[#e8ecf1] outline-none placeholder:text-[#4a5566]"
-              aria-label="Gravity query A"
-            />
-            <button
-              type="submit"
-              aria-label="Apply query"
-              className="px-2.5 text-base text-[#8a96a8] hover:text-[#e8ecf1]"
-            >
-              →
-            </button>
-          </form>
+          <QueryInputA
+            initialValue={queryA ?? ""}
+            onApply={handleApplyQueryA}
+          />
           <div className="flex items-center gap-1">
             {LAYOUT_MODES.map((m) => {
               const active = effectiveLayout === m.id;

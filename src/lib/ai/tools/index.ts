@@ -63,16 +63,40 @@ export enum DefaultToolName {
   // `{ kind: "force-graph" }` so the reducer observes every
   // stage transition — see BUG-1 in `post-demo-backlog.md`.
   ClearStage = "clearStage",
-  // Briefing write tools (Sprint X Commit 12). Block IDs are stable across
-  // updates so update/remove never race with append.
+  // ---------------------------------------------------------------------
+  // DEPRECATED briefing slots (Sprint X Commit 12 plan, never implemented).
+  // Retained as string values for backwards compatibility with any
+  // downstream code that references them by name. Do NOT add new
+  // references. The Phase 2a.1 per-type tools below replace these.
+  // ---------------------------------------------------------------------
+  /** @deprecated Superseded by AppendHeading / AppendParagraph / AppendBullets (Phase 2a.1). */
   AppendBriefingBlock = "appendBriefingBlock",
+  /** @deprecated Superseded by UpdateBlock (Phase 2a.1). */
   UpdateBriefingBlock = "updateBriefingBlock",
+  /** @deprecated Superseded by RemoveBlock (Phase 2a.1). */
   RemoveBriefingBlock = "removeBriefingBlock",
+  /** @deprecated Brief titles live on atlas.briefs, not as blocks (Phase 2a.1). */
   SetBriefingTitle = "setBriefingTitle",
+  /** @deprecated No direct replacement — agents delete blocks individually via RemoveBlock (Phase 2a.1). */
   ClearBriefing = "clearBriefing",
-  // Briefing read tool (Sprint X Commit 12). Same lazy-call contract as
-  // getCanvasState.
+  /** @deprecated Superseded by GetBrief (Phase 2a.1). */
   GetBriefing = "getBriefing",
+  // ---------------------------------------------------------------------
+  // Phase 2a.1 briefing block tools (spec Block Types Spec §4 —
+  // authoritative names). Per-type append tools mirror the three text
+  // block renderers shipped in 2a.0 / 2a.1. Universal verbs manage the
+  // block list as a whole.
+  // ---------------------------------------------------------------------
+  AppendHeading = "appendHeading",
+  AppendParagraph = "appendParagraph",
+  AppendBullets = "appendBullets",
+  UpdateBlock = "updateBlock",
+  RemoveBlock = "removeBlock",
+  DuplicateBlock = "duplicateBlock",
+  MoveBlock = "moveBlock",
+  GetBrief = "getBrief",
+  ChangeHeadingLevel = "changeHeadingLevel",
+  ConvertBulletsStyle = "convertBulletsStyle",
 }
 
 export const SequentialThinkingToolName = "sequential-thinking";

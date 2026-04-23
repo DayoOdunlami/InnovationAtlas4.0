@@ -48,21 +48,25 @@ interface BriefChatShellProps {
   briefTitle: string;
   scopeKind: "user" | "share";
   initialMessages: BriefChatShellInitialMessage[];
-  shareTokens:
-    | null
-    | Array<{
-        id: string;
-        token: string;
-        createdAt: string;
-        expiresAt: string | null;
-      }>;
+  shareTokens: null | Array<{
+    id: string;
+    token: string;
+    createdAt: string;
+    expiresAt: string | null;
+  }>;
   /**
-   * Pre-rendered block list (Phase 2a.0). Rendered as a Server
-   * Component above the chat transcript and passed through as a
-   * ReactNode slot so the shell stays a client component while the
-   * block renderer tree ships zero client JS.
+   * Pre-rendered block list (Phase 2a.0 RSC / Phase 2a.1 editable).
+   * Owner scope passes the Plate-powered `EditableBlockList`; share
+   * scope passes the read-only `BlockList`. The shell stays a client
+   * component and just renders the slot.
    */
   blocksSlot?: React.ReactNode;
+  /**
+   * Phase 2a.1 — reflects `atlas.briefs.is_edited`. Drives the "edited"
+   * status blurb below the title; flipped to true the first time the
+   * owner commits an edit.
+   */
+  briefIsEdited?: boolean;
 }
 
 // Convert an atlas.messages row's content JSON into the UIMessage shape
@@ -73,7 +77,8 @@ function hydrateMessage(m: BriefChatShellInitialMessage): UIMessage {
   const parts = Array.isArray(m.content)
     ? (m.content as UIMessage["parts"])
     : typeof m.content === "object" && m.content !== null
-      ? (((m.content as { parts?: UIMessage["parts"] }).parts ?? []) as UIMessage["parts"])
+      ? (((m.content as { parts?: UIMessage["parts"] }).parts ??
+          []) as UIMessage["parts"])
       : [];
   return {
     id: m.id,
@@ -116,6 +121,7 @@ export function BriefChatShell({
   initialMessages,
   shareTokens,
   blocksSlot,
+  briefIsEdited = false,
 }: BriefChatShellProps) {
   const hydratedInitial = useMemo(
     () => initialMessages.map(hydrateMessage),
@@ -211,10 +217,16 @@ export function BriefChatShell({
           <h1 className="truncate text-xl font-semibold text-foreground">
             {briefTitle}
           </h1>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p
+            className="mt-1 text-xs text-muted-foreground"
+            data-testid="brief-status-line"
+            data-is-edited={briefIsEdited ? "true" : "false"}
+          >
             {readOnly
               ? "Shared read-only view"
-              : "Phase 1 preview — chat history persists across reloads."}
+              : briefIsEdited
+                ? "Edited by you"
+                : "Click any block to start editing."}
           </p>
         </div>
         {scopeKind === "user" && (

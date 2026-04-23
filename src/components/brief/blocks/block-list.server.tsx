@@ -14,20 +14,24 @@
 // ---------------------------------------------------------------------------
 
 import type { BlockRow } from "./types";
+import { BulletsBlockRenderer } from "./renderers/bullets.server";
 import { HeadingBlockRenderer } from "./renderers/heading.server";
 import { ParagraphBlockRenderer } from "./renderers/paragraph.server";
 import { PlaceholderBlockRenderer } from "./renderers/placeholder.server";
 
 function dispatch(block: BlockRow): React.ReactNode {
-  // NOTE: Phase 2a.0 renders heading + paragraph only. All other v1
-  // block types intentionally render a silent, aria-hidden placeholder
-  // so that share recipients see production-shaped empty space rather
-  // than "coming soon" chrome. 2b / 3a add the rest.
+  // NOTE: Phase 2a.1 renders heading + paragraph + bullets. All other
+  // v1 block types still render a silent, aria-hidden placeholder so
+  // share recipients see production-shaped empty space rather than
+  // "coming soon" chrome. 2b / 3a add the rest.
   if (block.type === "heading") {
     return <HeadingBlockRenderer id={block.id} content={block.contentJson} />;
   }
   if (block.type === "paragraph") {
     return <ParagraphBlockRenderer id={block.id} content={block.contentJson} />;
+  }
+  if (block.type === "bullets") {
+    return <BulletsBlockRenderer id={block.id} content={block.contentJson} />;
   }
   return <PlaceholderBlockRenderer id={block.id} type={block.type} />;
 }

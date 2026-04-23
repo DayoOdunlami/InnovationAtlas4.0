@@ -1,16 +1,17 @@
 // ---------------------------------------------------------------------------
 // Playwright spec: /brief/[id] block rendering for owner scope (Phase
-// 2a.0, Brief-First Rebuild).
+// 2a.0 + 2a.1, Brief-First Rebuild).
 //
 // Flow:
 //   1. Owner creates a brief via the /briefs new-brief button.
-//   2. Three blocks are seeded through POST /api/brief-blocks — one
-//      heading, one paragraph, and one block whose type is not in
-//      the 2a.0 renderer set (e.g. `bullets`) to verify the silent
-//      placeholder.
-//   3. The page reloads; the owner sees the heading + paragraph
-//      rendered, and the unsupported block row is present in the
-//      DOM as an aria-hidden data-block-type placeholder (Spec §4.1).
+//   2. Four blocks are seeded through POST /api/brief-blocks — one
+//      heading, one paragraph, one bullets (Phase 2a.1 renderer), and
+//      one block whose type is still unrendered in 2a.1 (e.g. `chart`)
+//      to verify the silent placeholder.
+//   3. The page reloads; the owner sees the heading + paragraph +
+//      bullets rendered (via the Plate-backed editable tree), and the
+//      unsupported block row is present in the DOM as an aria-hidden
+//      data-block-type placeholder (Spec §4.1) where applicable.
 // ---------------------------------------------------------------------------
 
 import { expect, test } from "@playwright/test";
@@ -65,16 +66,31 @@ test.describe("Phase 2a.0 brief block rendering — owner", () => {
     });
     expect(p.status()).toBe(200);
 
-    // Seed a bullets block to exercise the silent-placeholder path.
+    // Seed a bullets block — now rendered in 2a.1.
     const b = await page.request.post("/api/brief-blocks", {
       data: {
         briefId,
         type: "bullets",
-        contentJson: { items: ["one", "two", "three"] },
+        contentJson: {
+          style: "bullet",
+          items: ["one", "two", "three"],
+        },
         source: "agent",
       },
     });
     expect(b.status()).toBe(200);
+
+    // Seed a chart block to exercise the silent-placeholder path
+    // (chart renderer ships with Phase 2b).
+    const c = await page.request.post("/api/brief-blocks", {
+      data: {
+        briefId,
+        type: "chart",
+        contentJson: {},
+        source: "agent",
+      },
+    });
+    expect(c.status()).toBe(200);
 
     await page.reload();
 
@@ -91,20 +107,15 @@ test.describe("Phase 2a.0 brief block rendering — owner", () => {
     const paragraphEl = blocksSection.locator('p[data-block-type="paragraph"]');
     await expect(paragraphEl).toContainText(paragraphText);
     await expect(paragraphEl.locator("strong")).toBeVisible();
-    await expect(paragraphEl.locator("a")).toHaveAttribute(
-      "target",
-      "_blank",
-    );
+    await expect(paragraphEl.locator("a")).toHaveAttribute("target", "_blank");
     await expect(paragraphEl.locator("a")).toHaveAttribute(
       "rel",
       "noopener noreferrer",
     );
 
-    // Bullets renders as a silent placeholder div: aria-hidden, empty,
-    // with data-block-type="bullets".
-    const placeholder = blocksSection.locator(
-      'div[data-block-type="bullets"]',
-    );
+    // Chart renders as a silent placeholder div: aria-hidden, empty,
+    // with data-block-type="chart".
+    const placeholder = blocksSection.locator('div[data-block-type="chart"]');
     await expect(placeholder).toHaveCount(1);
     await expect(placeholder).toHaveAttribute("aria-hidden", "true");
     await expect(placeholder).toHaveText("");

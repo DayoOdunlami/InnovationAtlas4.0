@@ -12,9 +12,9 @@ import "load-env";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { generateKeyBetween } from "fractional-indexing";
 
-const smokesReady = () => Boolean(process.env.POSTGRES_URL);
+import { hasRealPostgresUrl } from "@/test-utils/postgres-env";
 
-describe.skipIf(!smokesReady())("block-repository (permit/deny)", () => {
+describe.skipIf(!hasRealPostgresUrl())("block-repository (permit/deny)", () => {
   const suffix = Math.random().toString(36).slice(2, 10);
   const ownerEmail = `phase2a0-block-repo-owner-${suffix}@innovation-atlas-test.local`;
   const otherEmail = `phase2a0-block-repo-other-${suffix}@innovation-atlas-test.local`;
@@ -64,9 +64,7 @@ describe.skipIf(!smokesReady())("block-repository (permit/deny)", () => {
         .where(inArray(schema.AtlasBriefsTable.id, createdBriefIds));
     }
     if (ownerId) {
-      await db
-        .delete(schema.UserTable)
-        .where(eq(schema.UserTable.id, ownerId));
+      await db.delete(schema.UserTable).where(eq(schema.UserTable.id, ownerId));
     }
     if (otherUserId) {
       await db
@@ -77,7 +75,10 @@ describe.skipIf(!smokesReady())("block-repository (permit/deny)", () => {
 
   async function newBrief() {
     const brief = await briefRepo.createBrief(
-      { ownerId, title: `block-test-${Math.random().toString(36).slice(2, 8)}` },
+      {
+        ownerId,
+        title: `block-test-${Math.random().toString(36).slice(2, 8)}`,
+      },
       { kind: "user", userId: ownerId },
     );
     createdBriefIds.push(brief.id);

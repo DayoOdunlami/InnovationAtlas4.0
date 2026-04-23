@@ -10,9 +10,9 @@
 import "load-env";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-const smokesReady = () => Boolean(process.env.POSTGRES_URL);
+import { hasRealPostgresUrl } from "@/test-utils/postgres-env";
 
-describe.skipIf(!smokesReady())("telemetry-repository", () => {
+describe.skipIf(!hasRealPostgresUrl())("telemetry-repository", () => {
   const suffix = Math.random().toString(36).slice(2, 10);
   const sessionId = `phase1-telemetry-${suffix}`;
   const insertedIds: string[] = [];
@@ -68,7 +68,10 @@ describe.skipIf(!smokesReady())("telemetry-repository", () => {
   });
 
   it("insertEvent persists userIdHash and payloadJson when provided", async () => {
-    const payload = { briefId: "00000000-0000-0000-0000-000000000001", foo: 42 };
+    const payload = {
+      briefId: "00000000-0000-0000-0000-000000000001",
+      foo: 42,
+    };
     const row = await repo.insertEvent({
       sessionId,
       userIdHash: "hash-test-12345",

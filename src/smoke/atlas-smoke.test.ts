@@ -21,11 +21,10 @@ vi.mock("@/lib/passport/claim-extractor", () => ({
 
 import { getPassportPool } from "@/lib/passport/db";
 
+import { hasRealPostgresUrl } from "@/test-utils/postgres-env";
+
 function smokesReady() {
-  return Boolean(
-    (process.env.POSTGRES_URL || process.env.DATABASE_URL) &&
-      process.env.BETTER_AUTH_SECRET,
-  );
+  return hasRealPostgresUrl() && Boolean(process.env.BETTER_AUTH_SECRET);
 }
 
 describe.skipIf(!smokesReady())("Atlas passport smoke", () => {

@@ -17,10 +17,15 @@
 import { expect, test } from "@playwright/test";
 import { TEST_USERS } from "../constants/test-users";
 
+// Phase 2a.1 extends the leak guard to @dnd-kit: the drag-reorder
+// surface only exists in the owner route, and its package strings
+// would be an unambiguous signal of a bundle leak into the share
+// route if they ever appeared in the rendered HTML.
 const FORBIDDEN_PACKAGE_NAMES = [
   "@udecode/plate",
   "platejs",
   "slate-react",
+  "@dnd-kit",
 ] as const;
 
 test.describe("Phase 2a.0 brief block rendering — share scope", () => {
@@ -69,10 +74,7 @@ test.describe("Phase 2a.0 brief block rendering — share scope", () => {
     await expect(
       ownerPage.getByRole("button", { name: /Copy link|Revoke/ }).first(),
     ).toBeVisible();
-    await ownerContext.grantPermissions([
-      "clipboard-read",
-      "clipboard-write",
-    ]);
+    await ownerContext.grantPermissions(["clipboard-read", "clipboard-write"]);
     await ownerPage.getByRole("button", { name: /Copy link/ }).click();
     const clipText: string = await ownerPage.evaluate(async () =>
       navigator.clipboard.readText(),
@@ -98,9 +100,9 @@ test.describe("Phase 2a.0 brief block rendering — share scope", () => {
     ).toContainText(paragraphText);
 
     // Share-scope visitors have no write UI.
-    await expect(
-      visitorPage.getByPlaceholder(/Message the agent/),
-    ).toHaveCount(0);
+    await expect(visitorPage.getByPlaceholder(/Message the agent/)).toHaveCount(
+      0,
+    );
     await expect(
       visitorPage.getByRole("button", { name: /^Share$/ }),
     ).toHaveCount(0);

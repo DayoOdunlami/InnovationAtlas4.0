@@ -96,6 +96,11 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     [DefaultToolName.MountTableInStage]: mountTableInStageTool,
   },
   [AppDefaultToolkit.Briefing]: {
-    // Populated in Brief X Commit 12.
+    // Phase 2a.1 — block tools bind at the chat route call site (see
+    // `src/lib/ai/tools/blocks/index.ts`). Descriptors live in
+    // `BLOCK_TOOL_SCHEMAS`; the dispatcher there performs the actual
+    // write under the owner scope the chat route resolves from the
+    // session. This kit stays empty until that binding lands so the
+    // model sees zero un-scoped briefing tools.
   },
 };

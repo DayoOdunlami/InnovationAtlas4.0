@@ -94,7 +94,16 @@ export type ActionEventName =
   | "brief_created"
   | "brief_renamed"
   | "brief_deleted"
-  | "brief_share_token_minted";
+  | "brief_share_token_minted"
+  // Phase 2a.1 — block CRUD + first-edit flip.
+  | "brief_block_appended"
+  | "brief_block_updated"
+  | "brief_block_removed"
+  | "brief_block_moved"
+  | "brief_first_edited"
+  // Phase 2a.1 — agent tool dispatcher events.
+  | "brief_block_tool_call"
+  | "brief_block_tool_rejected";
 
 export const NAV_EVENT_NAMES = [
   "brief_list_opened",
@@ -109,4 +118,11 @@ export const ACTION_EVENT_NAMES = [
   "brief_renamed",
   "brief_deleted",
   "brief_share_token_minted",
+  "brief_block_appended",
+  "brief_block_updated",
+  "brief_block_removed",
+  "brief_block_moved",
+  "brief_first_edited",
+  "brief_block_tool_call",
+  "brief_block_tool_rejected",
 ] as const satisfies readonly ActionEventName[];

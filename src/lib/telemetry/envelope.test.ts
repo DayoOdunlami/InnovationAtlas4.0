@@ -113,13 +113,22 @@ describe("telemetry envelope", () => {
     );
   });
 
-  it("ACTION_EVENT_NAMES covers the four Phase 1 action events (recon default #15)", () => {
+  it("ACTION_EVENT_NAMES covers the Phase 1 + 2a.1 action events (recon default #15)", () => {
     expect([...ACTION_EVENT_NAMES].sort()).toEqual(
       [
         "brief_created",
         "brief_deleted",
         "brief_renamed",
         "brief_share_token_minted",
+        // Phase 2a.1 additions — block CRUD + first-edit flip + agent
+        // tool dispatcher events.
+        "brief_block_appended",
+        "brief_block_updated",
+        "brief_block_removed",
+        "brief_block_moved",
+        "brief_first_edited",
+        "brief_block_tool_call",
+        "brief_block_tool_rejected",
       ].sort(),
     );
   });

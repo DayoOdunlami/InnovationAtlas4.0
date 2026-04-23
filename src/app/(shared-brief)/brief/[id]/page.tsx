@@ -26,6 +26,7 @@ import { pgMessageRepository } from "@/lib/db/pg/repositories/message-repository
 import { emitNav } from "@/lib/telemetry/emit";
 import type { TelemetryEnv } from "@/lib/telemetry/envelope";
 import { BlockList } from "@/components/brief/blocks/block-list.server";
+import { EditableBlockListMount } from "./editable-block-list-mount.client";
 import { getSession } from "lib/auth/server";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -86,8 +87,7 @@ export default async function BriefDetailPage({
     return <AccessDeniedNotice briefId={id} />;
   }
 
-  const sessionId =
-    session?.session.id ?? `share:${shareToken!.slice(0, 12)}`;
+  const sessionId = session?.session.id ?? `share:${shareToken!.slice(0, 12)}`;
 
   await emitNav("brief_opened", {
     sessionId,
@@ -110,21 +110,36 @@ export default async function BriefDetailPage({
       (t.expiresAt === null || t.expiresAt.getTime() > Date.now()),
   );
 
-  const blocksSlot = (
-    <BlockList
-      blocks={blocks.map((b) => ({
-        id: b.id,
-        type: b.type,
-        contentJson: b.contentJson,
-      }))}
-    />
-  );
+  // Owner gets the editable Plate-powered surface; share readers
+  // continue on the zero-JS RSC renderer so no editor chunks leak
+  // into the shared-brief bundle (Phase 2a.1 §4.3).
+  const blocksSlot =
+    scope.kind === "user" ? (
+      <EditableBlockListMount
+        briefId={brief.id}
+        initialBlocks={blocks.map((b) => ({
+          id: b.id,
+          type: b.type,
+          contentJson: b.contentJson,
+          position: b.position,
+        }))}
+      />
+    ) : (
+      <BlockList
+        blocks={blocks.map((b) => ({
+          id: b.id,
+          type: b.type,
+          contentJson: b.contentJson,
+        }))}
+      />
+    );
 
   return (
     <BriefChatShell
       briefId={brief.id}
       briefTitle={brief.title}
       scopeKind={scope.kind}
+      briefIsEdited={brief.isEdited}
       blocksSlot={blocksSlot}
       initialMessages={messages.map((m) => ({
         id: m.id,
@@ -153,8 +168,8 @@ function AccessDeniedNotice({ briefId }: { briefId: string }) {
         This brief is not available
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        The link you used is invalid, expired, or has been revoked
-        (brief&nbsp;<code className="text-xs">{briefId.slice(0, 8)}</code>).
+        The link you used is invalid, expired, or has been revoked (brief&nbsp;
+        <code className="text-xs">{briefId.slice(0, 8)}</code>).
       </p>
       <p className="mt-6 text-sm">
         <Link href="/briefs" className="underline">

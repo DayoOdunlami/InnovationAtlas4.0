@@ -17,11 +17,10 @@ import { TEST_USERS } from "../../tests/constants/test-users";
 
 let smokeHeaders = new Headers();
 
+import { hasRealPostgresUrl } from "@/test-utils/postgres-env";
+
 function smokesReady() {
-  return Boolean(
-    (process.env.POSTGRES_URL || process.env.DATABASE_URL) &&
-      process.env.BETTER_AUTH_SECRET,
-  );
+  return hasRealPostgresUrl() && Boolean(process.env.BETTER_AUTH_SECRET);
 }
 
 function setCookieHeaderToCookiePair(setCookieHeader: string | null) {

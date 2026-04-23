@@ -21,6 +21,7 @@ import { WriteIcon } from "ui/write-icon";
 import {
   Box,
   FileBadge2,
+  FileText,
   FolderOpenIcon,
   FolderSearchIcon,
   Map,
@@ -100,6 +101,18 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 <SidebarMenuButton className="font-semibold">
                   <Waypoints className="size-4" />
                   {t("Layout.workflow")}
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <Link href="/briefs">
+                <SidebarMenuButton className="font-semibold">
+                  <FileText className="size-4" />
+                  Briefs
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>

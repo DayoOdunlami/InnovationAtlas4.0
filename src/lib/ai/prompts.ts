@@ -378,6 +378,51 @@ ${formatFeatureStatusForPrompt()}
 `.trim();
 };
 
+// ---------------------------------------------------------------------------
+// Brief authoring context (Phase 2b+ follow-up)
+//
+// When the user is chatting inside `/brief/[id]` as the verified owner,
+// the server binds the Briefing tool kit (appendHeading, appendParagraph,
+// appendBullets, updateBlock, removeBlock, reorderBlocks) plus the
+// knowledge-base surface tool. Without an explicit instruction the model
+// tends to treat the surface like a plain chat — this prompt tells it
+// that substantive answers belong inside the brief, not in the chat lane.
+// ---------------------------------------------------------------------------
+
+export const buildBriefContextSystemPrompt = (briefId: string | undefined) => {
+  if (!briefId) return "";
+  return `
+### Brief authoring mode
+- You are inside the user's brief document \`${briefId}\`. This is a writing
+  surface, not a standard chat. Treat it like a shared doc the user and you
+  are editing together.
+- When the user asks a substantive question that warrants a written
+  response, **author the response directly into the brief** by calling
+  the block tools (\`appendHeading\`, \`appendParagraph\`, \`appendBullets\`,
+  \`updateBlock\`, \`removeBlock\`, \`reorderBlocks\`) rather than streaming a
+  long answer into chat.
+- A typical response shape is: append a short heading, then one or more
+  paragraphs (or a bullets block) beneath it. Cite sources inline per the
+  Atlas evidence discipline whenever you use research / knowledge-base
+  findings.
+- Keep the chat lane to short, functional confirmations —
+  "Added a *Summary* section with three paragraphs. Anything to expand?"
+  — not the full answer. Do NOT repeat the block contents in chat.
+- Tiny factual replies (one sentence, a clarification, a yes/no) can stay
+  in chat. Use judgement: if the answer is something the user will want
+  to keep, it goes in the brief.
+- Grounding: when the user's question touches strategy, policy, funding,
+  regulation, or curated transport evidence, call \`surfaceKnowledgeBase\`
+  first; cite the returned tier-labelled documents inline. If that tool
+  returns \`below_confidence_threshold\`, fall back to other evidence tools
+  or acknowledge the gap — do not invent citations.
+- If the user asks you to edit an existing block, use \`updateBlock\` with
+  the exact block id rather than appending a new one.
+- The user sees a live-updating block list; do not describe what you just
+  wrote. They can read it.
+`.trim();
+};
+
 export const buildMcpServerCustomizationsSystemPrompt = (
   instructions: Record<string, McpServerCustomizationsPrompt>,
 ) => {

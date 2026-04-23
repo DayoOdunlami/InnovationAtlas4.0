@@ -234,10 +234,9 @@ describe("buildBriefingToolKit", () => {
   });
 });
 
-describe("briefing toolkit registration contract", () => {
-  it("APP_DEFAULT_TOOL_KIT[briefing] stays empty so the static kit can't leak un-scoped tools", async () => {
-    const { APP_DEFAULT_TOOL_KIT } = await import("@/lib/ai/tools/tool-kit");
-    const slot = APP_DEFAULT_TOOL_KIT[AppDefaultToolkit.Briefing];
-    expect(Object.keys(slot)).toHaveLength(0);
-  });
-});
+// NOTE: the registration-contract test (that `APP_DEFAULT_TOOL_KIT[briefing]`
+// stays empty) was split into a dedicated file —
+// `tool-kit.briefing-contract.test.ts` — so it can dynamic-import the heavy
+// `tool-kit.ts` module graph (Canvas, Research, Passport, KB, pg/drizzle)
+// without sharing module-load budget with the per-request factory tests
+// above. See that file for the check.

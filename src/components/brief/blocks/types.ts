@@ -41,3 +41,19 @@ export type BulletsContent = {
   items: string[];
   indent?: number[];
 };
+
+// Phase 3b — landscape-embed block.
+// `content_json` shape: { query?, layout, lens?, schema_version: 1 }
+// (see `docs/phase-3b-execution-prompt.md` line 39). `query` is the
+// saved gravity anchor; `layout` is one of the three POC layouts;
+// `lens` is reserved for future "alt" force-graph variants (scatter,
+// timeline etc). `schema_version` lets later phases migrate embedded
+// state without breaking older saved briefs.
+export type LandscapeEmbedLayout = "web" | "umap" | "rings";
+
+export type LandscapeEmbedContent = {
+  query?: string;
+  layout: LandscapeEmbedLayout;
+  lens?: string;
+  schema_version: 1;
+};

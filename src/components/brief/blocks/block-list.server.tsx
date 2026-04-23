@@ -16,14 +16,15 @@
 import type { BlockRow } from "./types";
 import { BulletsBlockRenderer } from "./renderers/bullets.server";
 import { HeadingBlockRenderer } from "./renderers/heading.server";
+import { LandscapeEmbedBlockRenderer } from "./renderers/landscape-embed.server";
 import { ParagraphBlockRenderer } from "./renderers/paragraph.server";
 import { PlaceholderBlockRenderer } from "./renderers/placeholder.server";
 
 function dispatch(block: BlockRow): React.ReactNode {
-  // NOTE: Phase 2a.1 renders heading + paragraph + bullets. All other
-  // v1 block types still render a silent, aria-hidden placeholder so
-  // share recipients see production-shaped empty space rather than
-  // "coming soon" chrome. 2b / 3a add the rest.
+  // NOTE: Phase 3b adds landscape-embed (read-only RSC snapshot for
+  // share scope; the owner editor mount upgrades to the live lens).
+  // Remaining v1 types (citation / project-card / chart / live-
+  // passport-view / table) still render the aria-hidden placeholder.
   if (block.type === "heading") {
     return <HeadingBlockRenderer id={block.id} content={block.contentJson} />;
   }
@@ -32,6 +33,11 @@ function dispatch(block: BlockRow): React.ReactNode {
   }
   if (block.type === "bullets") {
     return <BulletsBlockRenderer id={block.id} content={block.contentJson} />;
+  }
+  if (block.type === "landscape-embed") {
+    return (
+      <LandscapeEmbedBlockRenderer id={block.id} content={block.contentJson} />
+    );
   }
   return <PlaceholderBlockRenderer id={block.id} type={block.type} />;
 }

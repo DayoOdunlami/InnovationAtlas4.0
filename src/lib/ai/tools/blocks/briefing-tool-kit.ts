@@ -60,6 +60,7 @@ const BRIEF_ID_TOOLS = new Set<string>([
   DefaultToolName.AppendHeading,
   DefaultToolName.AppendParagraph,
   DefaultToolName.AppendBullets,
+  DefaultToolName.AppendLandscapeEmbed,
   DefaultToolName.GetBrief,
 ]);
 

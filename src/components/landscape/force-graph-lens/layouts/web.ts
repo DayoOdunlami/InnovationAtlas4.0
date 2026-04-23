@@ -18,7 +18,6 @@
 
 import {
   CFG,
-  QUERY_NODE_ID,
   type LayoutOptions,
   type LayoutResult,
   type LensLink,

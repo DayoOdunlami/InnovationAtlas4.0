@@ -90,6 +90,8 @@ export enum DefaultToolName {
   AppendHeading = "appendHeading",
   AppendParagraph = "appendParagraph",
   AppendBullets = "appendBullets",
+  // Phase 3b — landscape-embed block.
+  AppendLandscapeEmbed = "appendLandscapeEmbed",
   UpdateBlock = "updateBlock",
   RemoveBlock = "removeBlock",
   DuplicateBlock = "duplicateBlock",

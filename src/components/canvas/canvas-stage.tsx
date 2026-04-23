@@ -21,8 +21,17 @@ import { CanvasStageTable } from "@/components/canvas/stage/canvas-stage-table";
 import dynamic from "next/dynamic";
 import { useSyncExternalStore } from "react";
 
-const Landscape3DPage = dynamic(
-  () => import("@/app/(chat)/landscape-3d/page"),
+// Phase 3b: the canvas force-graph stage now renders the shared
+// <ForceGraphLens variant="canvas"/> component instead of dynamically
+// importing the full /landscape-3d page. The dynamic import gate is
+// kept because the lens pulls d3-force + canvas rendering that must
+// never load on the share route — `next/dynamic({ ssr: false })` is
+// the bundle-split boundary the share-bundle guard depends on.
+const ForceGraphLens = dynamic(
+  () =>
+    import("@/components/landscape/force-graph-lens").then((m) => ({
+      default: m.ForceGraphLens,
+    })),
   {
     ssr: false,
     loading: () => (
@@ -64,5 +73,5 @@ export function CanvasStage() {
     return <CanvasStageTable spec={stage.spec} />;
   }
 
-  return <Landscape3DPage />;
+  return <ForceGraphLens variant="canvas" />;
 }

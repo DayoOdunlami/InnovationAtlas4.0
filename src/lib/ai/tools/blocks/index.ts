@@ -81,6 +81,29 @@ export const AppendBulletsInput = z.object({
   afterBlockId: z.string().length(26).nullable().optional(),
 });
 
+// Phase 3b — landscape-embed block (Brief-First Rebuild §5.3 /
+// `docs/phase-3b-execution-prompt.md` line 39).
+const LandscapeEmbedContent = z
+  .object({
+    query: z.string().max(400).optional(),
+    layout: z.enum(["web", "umap", "rings"]),
+    lens: z.string().max(64).optional(),
+    schema_version: z.literal(1).default(1),
+  })
+  .refine((c) => c.layout !== "web" || (c.query && c.query.trim().length > 0), {
+    message: "web layout requires a non-empty query",
+  })
+  .refine(
+    (c) => c.layout !== "rings" || (c.query && c.query.trim().length > 0),
+    { message: "rings layout requires a non-empty query" },
+  );
+
+export const AppendLandscapeEmbedInput = z.object({
+  briefId: z.string().uuid(),
+  content: LandscapeEmbedContent,
+  afterBlockId: z.string().length(26).nullable().optional(),
+});
+
 export const UpdateBlockInput = z.object({
   blockId: z.string().length(26),
   content: z.unknown(),
@@ -228,6 +251,28 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
       );
       return { blockId: row.id };
     }
+    case DefaultToolName.AppendLandscapeEmbed: {
+      const parsed = AppendLandscapeEmbedInput.parse(args);
+      const position = await computeAppendPosition(
+        parsed.briefId,
+        parsed.afterBlockId,
+        scope,
+      );
+      const row = await pgBlockRepository.create(
+        {
+          briefId: parsed.briefId,
+          type: "landscape-embed",
+          contentJson: {
+            ...parsed.content,
+            schema_version: 1,
+          },
+          source: "agent",
+          ...(position !== undefined ? { position } : {}),
+        },
+        scope,
+      );
+      return { blockId: row.id };
+    }
     case DefaultToolName.UpdateBlock: {
       const parsed = UpdateBlockInput.parse(args);
       const row = await pgBlockRepository.update(
@@ -354,6 +399,11 @@ export const BLOCK_TOOL_SCHEMAS = {
   [DefaultToolName.AppendBullets]: {
     description: "Append a bullets block to a brief.",
     inputSchema: AppendBulletsInput,
+  },
+  [DefaultToolName.AppendLandscapeEmbed]: {
+    description:
+      "Append a landscape-embed block to a brief. Embeds the Atlas force-graph lens as a live artefact. `content.query` is an optional gravity query (required if layout is 'web' or 'rings'); `content.layout` selects the POC layout (web = physics, umap = explore, rings = top-K concentric).",
+    inputSchema: AppendLandscapeEmbedInput,
   },
   [DefaultToolName.UpdateBlock]: {
     description: "Update the content_json of an existing block.",

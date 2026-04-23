@@ -184,6 +184,60 @@ describe("dispatchBlockTool", () => {
     ).rejects.toThrow();
   });
 
+  it("appendLandscapeEmbed accepts a valid umap-layout payload", async () => {
+    const out = await dispatchBlockTool({
+      name: DefaultToolName.AppendLandscapeEmbed,
+      args: {
+        briefId,
+        content: { layout: "umap", schema_version: 1 },
+      },
+      scope,
+    });
+    expect(out).toHaveProperty("blockId");
+  });
+
+  it("appendLandscapeEmbed accepts a web-layout payload when a query is provided", async () => {
+    const out = await dispatchBlockTool({
+      name: DefaultToolName.AppendLandscapeEmbed,
+      args: {
+        briefId,
+        content: {
+          layout: "web",
+          query: "rail decarbonisation",
+          schema_version: 1,
+        },
+      },
+      scope,
+    });
+    expect(out).toHaveProperty("blockId");
+  });
+
+  it("appendLandscapeEmbed rejects web-layout without a query", async () => {
+    await expect(
+      dispatchBlockTool({
+        name: DefaultToolName.AppendLandscapeEmbed,
+        args: {
+          briefId,
+          content: { layout: "web", schema_version: 1 },
+        },
+        scope,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("appendLandscapeEmbed rejects an unknown layout value", async () => {
+    await expect(
+      dispatchBlockTool({
+        name: DefaultToolName.AppendLandscapeEmbed,
+        args: {
+          briefId,
+          content: { layout: "spiral", schema_version: 1 },
+        },
+        scope,
+      }),
+    ).rejects.toThrow();
+  });
+
   it("changeHeadingLevel rejects a blockId that does not map to a heading", async () => {
     // The stubbed store is empty — the getById returns null and the
     // handler throws a descriptive error (not UnknownBlockToolError).

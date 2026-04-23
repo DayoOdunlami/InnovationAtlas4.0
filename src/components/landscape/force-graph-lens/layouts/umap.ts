@@ -51,7 +51,7 @@ export function umapLayout(
   similarity: SimilarityMap | null,
   options: LayoutOptions = {},
 ): LayoutResult {
-  const nodes = baseNodes.map((n) => ({
+  const nodes: LensNode[] = baseNodes.map((n) => ({
     ...n,
     x: ((n.viz_x ?? 50) - 50) * CFG.X_SCALE,
     y: zFor(n, options.zAxis),

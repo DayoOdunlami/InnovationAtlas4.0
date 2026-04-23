@@ -62,6 +62,8 @@ const BRIEF_ID_TOOLS = new Set<string>([
   DefaultToolName.AppendBullets,
   DefaultToolName.AppendLandscapeEmbed,
   DefaultToolName.GetBrief,
+  // Phase 3a — takes briefId + passportId; briefId is pinned server-side.
+  DefaultToolName.AppendLivePassportView,
 ]);
 
 function stripBriefId(schema: z.ZodTypeAny): z.ZodTypeAny {

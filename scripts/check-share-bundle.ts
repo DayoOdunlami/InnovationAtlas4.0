@@ -39,6 +39,9 @@ const STATIC_CHUNKS_DIR = join(NEXT_DIR, "static/chunks");
 // `@dnd-kit` is added by the runtime HTML-string guard in
 // tests/briefs/block-share.spec.ts; the build-output scan below still
 // treats `platejs`, `slate-react`, and `@udecode/plate` as hard fails.
+// Phase 3a appends `@supabase/realtime-js`: the Realtime subscriber
+// island is loaded only for owner scope via `next/dynamic({ ssr: false
+// })`; the share-route bundle must never contain it.
 // Phase 3b additions: `three`, `react-force-graph-3d`, and `d3-force`.
 // The share-scope landscape-embed renderer (server RSC SVG snapshot)
 // must never pull the interactive force-graph bundle.
@@ -46,6 +49,7 @@ const FORBIDDEN = [
   "@udecode/plate",
   "platejs",
   "slate-react",
+  "@supabase/realtime-js",
   "react-force-graph-3d",
   "d3-force",
 ] as const;

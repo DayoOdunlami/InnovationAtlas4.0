@@ -43,6 +43,7 @@ Append as items are noticed during stabilise. Do not close entries in this file 
 - **Why not pre-demo:** Freeze per decision 10. Demo script does not cross-edit passports across tabs during the session.
 - **Rebuild phase:** Phase 3a — `live-passport-view` block subscribes to Supabase Realtime for the passport's claim/match stream. Static SWR fetch is superseded; close as "won't fix — superseded" once 3a lands.
 - **Noticed:** Post-Thread-2 verification Q2. `src/components/canvas/stage/canvas-stage-passport.tsx`.
+- **Status:** SUPERSEDED — Phase 3a `live-passport-view` block (`src/components/brief/blocks/renderers/live-passport-view.server.tsx` + `live-passport-view-realtime.client.tsx`) ships Supabase Realtime subscription for passports in briefs. The `/canvas` route still uses the stale SWR version until Phase 4 cutover (out of scope for 3a).
 
 ### /canvas ephemeral threadId on every page load
 - **What:** `/canvas` generates a new `threadId` client-side each mount. Refresh or hard reload discards chat history and any `active_passport_id` binding on the thread row. No URL-owned thread segment today.

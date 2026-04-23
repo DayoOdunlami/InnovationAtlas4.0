@@ -32,8 +32,12 @@ jobs:
       FILE_BASED_MCP_CONFIG: false
 
     services:
+      # pgvector/pgvector:pg17 is the official pgvector image on top of
+      # Postgres 17. Required because migration 0017 runs
+      # `CREATE EXTENSION IF NOT EXISTS vector;` which fails on stock
+      # `postgres:17` (pgvector is not bundled in the upstream image).
       postgres:
-        image: postgres:17
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: testpass
@@ -81,6 +85,26 @@ jobs:
         run: |
           # Create minimal .env for Playwright (only non-runtime vars if needed)
           touch .env
+
+      # Migration 0017_atlas_briefs_phase1.sql declares a FK from
+      # atlas.passport_share_tokens.passport_id -> atlas.passports(id), but
+      # atlas.passports is provisioned out-of-band on our managed
+      # environments (see the comment inside 0017) and is deliberately not
+      # modelled in Drizzle. On a fresh CI Postgres container that table
+      # does not exist, so the FK creation in 0017 fails. Create a minimal
+      # stub here so the migration can complete. IF NOT EXISTS keeps this
+      # safe to run anywhere — on environments where atlas.passports is
+      # already populated out-of-band, this is a no-op.
+      - name: Bootstrap out-of-band atlas.passports stub for CI
+        env:
+          PGPASSWORD: testpass
+        run: |
+          psql -h localhost -U testuser -d better_chatbot_test -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE SCHEMA IF NOT EXISTS atlas;
+          CREATE TABLE IF NOT EXISTS atlas.passports (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL
+          );
+          SQL
 
       - name: Run database migrations
         run: pnpm db:migrate

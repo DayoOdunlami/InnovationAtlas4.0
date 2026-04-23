@@ -24,6 +24,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AppDefaultToolkit } from "@/lib/ai/tools";
 import {
   DefaultChatTransport,
   type UIMessage,
@@ -147,15 +148,21 @@ export function BriefChatShell({
             ...body,
             id,
             chatModel: undefined,
-            toolChoice: "none",
-            // Phase 1 brief surface: empty tool registry (APPROVED
-            // DEFAULT #2). Passport + research + canvas toolkits ship
-            // back in Phase 2a.0 with the block tools.
-            allowedAppDefaultToolkit: [],
+            // Phase 2b — brief chat opts into the briefing toolkit
+            // only. `toolChoice: "auto"` lets the model call block
+            // tools when it makes sense; the server-side kit is
+            // scoped to the authenticated owner + this `briefId`, so
+            // a hostile / stale client can't widen the blast radius.
+            toolChoice: readOnly ? "none" : "auto",
+            allowedAppDefaultToolkit: readOnly
+              ? []
+              : [AppDefaultToolkit.Briefing],
             allowedMcpServers: {},
             mentions: [],
             message: lastMessage,
             attachments: [],
+            // Server validates ownership before binding tools.
+            activeBriefId: readOnly ? undefined : briefId,
           },
         };
       },

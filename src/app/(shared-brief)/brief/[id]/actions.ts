@@ -478,3 +478,71 @@ function validateContent(
   // Other block types are write-agnostic in 2a.1 (no editing UX yet);
   // content validation ships with their renderer in 2b / 3a.
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3a — appendLivePassportViewAction
+//
+// Owner-only server action that creates a `live-passport-view` block.
+// Mirrors `appendBlockAction` for the specific content_json shape:
+//   { passportId: string, schema_version: 1 }
+//
+// Telemetry: reuses the existing `brief_block_appended` envelope with
+// `{ type: "live-passport-view" }` payload.
+// ---------------------------------------------------------------------------
+
+const AppendLivePassportViewSchema = z.object({
+  briefId: z.string().uuid(),
+  passportId: z.string().uuid(),
+  afterBlockId: z.string().length(26).nullable().optional(),
+});
+
+export type AppendLivePassportViewInput = z.infer<
+  typeof AppendLivePassportViewSchema
+>;
+
+export async function appendLivePassportViewAction(
+  input: AppendLivePassportViewInput,
+) {
+  const { userId, sessionId } = await requireUser();
+  const scope: UserScope = { kind: "user", userId };
+  const parsed = AppendLivePassportViewSchema.parse(input);
+
+  let position: string | undefined;
+  if (parsed.afterBlockId) {
+    const ref = await pgBlockRepository.getById(parsed.afterBlockId, scope);
+    if (!ref) throw new Error("appendLivePassportView: afterBlockId not found");
+    const next = await nextBlockPositionAfter(parsed.briefId, ref.position);
+    position = generateKeyBetween(ref.position, next);
+  }
+
+  const contentJson = {
+    passportId: parsed.passportId,
+    schema_version: 1 as const,
+  };
+
+  const row = await pgBlockRepository.create(
+    {
+      briefId: parsed.briefId,
+      type: "live-passport-view",
+      contentJson,
+      source: "user",
+      ...(position !== undefined ? { position } : {}),
+    },
+    scope,
+  );
+
+  await flipFirstEditIfNeeded({ briefId: parsed.briefId, scope, sessionId });
+  await emitAction("brief_block_appended", {
+    sessionId,
+    userId,
+    env: resolveAppEnv(),
+    payload: {
+      briefId: parsed.briefId,
+      blockId: row.id,
+      type: "live-passport-view",
+      source: "user",
+    },
+  });
+  revalidatePath(`/brief/${parsed.briefId}`);
+  return row;
+}

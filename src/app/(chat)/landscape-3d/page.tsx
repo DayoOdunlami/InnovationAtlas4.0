@@ -14,6 +14,22 @@ import type { Root } from "react-dom/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { useShallow } from "zustand/shallow";
+import { useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
+
+// Phase 3b — /landscape-3d can optionally render the new shared
+// `<ForceGraphLens variant="detail"/>` instead of the hand-rolled page
+// chrome. Activate with `?lens=v2`. The legacy page (1,200+ LOC) is
+// kept intact per execution-prompt Out-of-Scope, so we guard the
+// variant flip at the top of the component rather than rewriting the
+// whole file.
+const ForceGraphLensDetail = dynamic(
+  () =>
+    import("@/components/landscape/force-graph-lens").then((m) => ({
+      default: m.ForceGraphLens,
+    })),
+  { ssr: false },
+);
 
 type ZMode = "year" | "funding" | "degree" | "score";
 type GravityRing = "inner" | "middle" | "outer" | "hidden";
@@ -426,6 +442,14 @@ function landscapeNodeTypeToCanvas(
 }
 
 export default function Landscape3DPage() {
+  const searchParams = useSearchParams();
+  if (searchParams?.get("lens") === "v2") {
+    return <ForceGraphLensDetail variant="detail" />;
+  }
+  return <Landscape3DLegacyPage />;
+}
+
+function Landscape3DLegacyPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<ForceGraphMethods<Graph3DNode, Graph3DLink> | undefined>(
     undefined,

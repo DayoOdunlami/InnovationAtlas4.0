@@ -42,11 +42,26 @@ const STATIC_CHUNKS_DIR = join(NEXT_DIR, "static/chunks");
 // Phase 3a appends `@supabase/realtime-js`: the Realtime subscriber
 // island is loaded only for owner scope via `next/dynamic({ ssr: false
 // })`; the share-route bundle must never contain it.
+// Phase 3b additions: `three`, `react-force-graph-3d`, and `d3-force`.
+// The share-scope landscape-embed renderer (server RSC SVG snapshot)
+// must never pull the interactive force-graph bundle.
 const FORBIDDEN = [
   "@udecode/plate",
   "platejs",
   "slate-react",
   "@supabase/realtime-js",
+  "react-force-graph-3d",
+  "d3-force",
+] as const;
+
+// `three` is a transitive dep of `react-force-graph-3d` in several
+// tree-branches. We detect it via a stricter check at call sites.
+// Listing it here would false-positive on any Tailwind "threepenny"
+// utility string, so we gate by literal package-import stanzas.
+const FORBIDDEN_LITERAL = [
+  `from"three"`,
+  `from "three"`,
+  `require("three")`,
 ] as const;
 
 function walk(dir: string): string[] {
@@ -78,12 +93,22 @@ function scan(files: string[], label: string): string[] {
     } catch {
       continue;
     }
+    let found: string | null = null;
     for (const needle of FORBIDDEN) {
       if (body.includes(needle)) {
-        hits.push(`${f} (contains ${needle})`);
+        found = needle;
         break;
       }
     }
+    if (!found) {
+      for (const literal of FORBIDDEN_LITERAL) {
+        if (body.includes(literal)) {
+          found = literal;
+          break;
+        }
+      }
+    }
+    if (found) hits.push(`${f} (contains ${found})`);
   }
   if (hits.length > 0) {
     console.error(`\n[check-share-bundle] ${label} hits:`);

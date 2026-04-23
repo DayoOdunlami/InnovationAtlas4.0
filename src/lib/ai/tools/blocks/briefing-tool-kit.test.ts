@@ -17,7 +17,7 @@
 // ---------------------------------------------------------------------------
 
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { AppDefaultToolkit, DefaultToolName } from "@/lib/ai/tools";
+import { DefaultToolName } from "@/lib/ai/tools";
 import { AccessDeniedError } from "@/lib/db/pg/repositories/access-scope";
 
 // Minimal stdout destination so emitAction doesn't fan out to atlas-pg

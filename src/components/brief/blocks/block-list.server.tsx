@@ -21,6 +21,7 @@
 import type { BlockRow } from "./types";
 import { BulletsBlockRenderer } from "./renderers/bullets.server";
 import { HeadingBlockRenderer } from "./renderers/heading.server";
+import { LandscapeEmbedBlockRenderer } from "./renderers/landscape-embed.server";
 import { ParagraphBlockRenderer } from "./renderers/paragraph.server";
 import { PlaceholderBlockRenderer } from "./renderers/placeholder.server";
 import { LivePassportViewBlockRenderer } from "./renderers/live-passport-view.server";
@@ -29,10 +30,10 @@ async function dispatch(
   block: BlockRow,
   isOwner: boolean,
 ): Promise<React.ReactNode> {
-  // NOTE: Phase 2a.1 renders heading + paragraph + bullets. Phase 3a
-  // adds live-passport-view. All other v1 block types still render a
-  // silent, aria-hidden placeholder so share recipients see
-  // production-shaped empty space rather than "coming soon" chrome.
+  // Phase 2a.1: heading, paragraph, bullets.
+  // Phase 3a: live-passport-view (owner = Realtime island, share = static snapshot).
+  // Phase 3b: landscape-embed (owner = live lens island, share = RSC SVG thumbnail).
+  // All other v1 types emit a silent aria-hidden placeholder.
   if (block.type === "heading") {
     return <HeadingBlockRenderer id={block.id} content={block.contentJson} />;
   }
@@ -49,6 +50,11 @@ async function dispatch(
         content={block.contentJson}
         isOwner={isOwner}
       />
+    );
+  }
+  if (block.type === "landscape-embed") {
+    return (
+      <LandscapeEmbedBlockRenderer id={block.id} content={block.contentJson} />
     );
   }
   return <PlaceholderBlockRenderer id={block.id} type={block.type} />;

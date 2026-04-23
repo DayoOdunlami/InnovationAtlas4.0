@@ -93,6 +93,8 @@ export enum DefaultToolName {
   AppendBullets = "appendBullets",
   // Phase 3a — live-passport-view block append tool.
   AppendLivePassportView = "appendLivePassportView",
+  // Phase 3b — landscape-embed block.
+  AppendLandscapeEmbed = "appendLandscapeEmbed",
   UpdateBlock = "updateBlock",
   RemoveBlock = "removeBlock",
   DuplicateBlock = "duplicateBlock",

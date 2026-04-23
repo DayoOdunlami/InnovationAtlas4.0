@@ -107,33 +107,7 @@ jobs:
           SQL
 
       - name: Run database migrations
-        id: migrate
-        continue-on-error: true
-        run: pnpm db:migrate 2>&1 | tee migrate.log
-
-      - name: Leak migration failure into step summary (TEMP diag)
-        if: steps.migrate.outcome == 'failure'
-        env:
-          PGPASSWORD: testpass
-        run: |
-          echo "### db:migrate failure" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          tail -n 200 migrate.log >> "$GITHUB_STEP_SUMMARY" || true
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "### DB state at failure" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          psql -h localhost -U testuser -d better_chatbot_test -c "\\dn" >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
-          psql -h localhost -U testuser -d better_chatbot_test -c "\\dt atlas.*" >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          exit 1
-
-      - name: Upload migrate.log as artifact (TEMP diag)
-        if: always() && steps.migrate.outcome == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: migrate-log
-          path: migrate.log
-          if-no-files-found: ignore
+        run: pnpm db:migrate
 
       - name: Seed test users once before all tests
         run: pnpm test:e2e:seed
@@ -142,7 +116,22 @@ jobs:
         run: pnpm build:local
 
       - name: Run E2E tests
-        run: pnpm test:e2e
+        id: e2e
+        continue-on-error: true
+        run: pnpm test:e2e 2>&1 | tee playwright-run.log
+
+      - name: Surface Playwright summary (TEMP diag)
+        if: steps.e2e.outcome == 'failure'
+        run: |
+          echo "### Playwright run tail" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 300 playwright-run.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "### Failing spec names" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          grep -E "^\s*(✘|✗|✖|FAIL|×|\d+\)|^  \d+\))" playwright-run.log | head -n 100 >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -150,3 +139,11 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 30
+
+      - name: Upload playwright-run.log (TEMP diag)
+        if: always() && steps.e2e.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-run-log
+          path: playwright-run.log
+          if-no-files-found: ignore

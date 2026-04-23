@@ -95,11 +95,27 @@ jobs:
       # stub here so the migration can complete. IF NOT EXISTS keeps this
       # safe to run anywhere — on environments where atlas.passports is
       # already populated out-of-band, this is a no-op.
-      - name: Bootstrap out-of-band atlas.passports stub for CI
+      - name: Wait for Postgres to fully accept DDL
+        env:
+          PGPASSWORD: testpass
+        run: |
+          for i in $(seq 1 30); do
+            if psql -h localhost -U testuser -d better_chatbot_test -c "select 1" >/dev/null 2>&1; then
+              echo "Postgres is ready (attempt $i)"
+              exit 0
+            fi
+            echo "Waiting for Postgres... (attempt $i)"
+            sleep 2
+          done
+          echo "Postgres did not become ready in 60s"
+          exit 1
+
+      - name: Bootstrap out-of-band atlas.passports stub + pgvector for CI
         env:
           PGPASSWORD: testpass
         run: |
           psql -h localhost -U testuser -d better_chatbot_test -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE EXTENSION IF NOT EXISTS vector;
           CREATE SCHEMA IF NOT EXISTS atlas;
           CREATE TABLE IF NOT EXISTS atlas.passports (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL
@@ -107,7 +123,26 @@ jobs:
           SQL
 
       - name: Run database migrations
-        run: pnpm db:migrate
+        id: migrate
+        continue-on-error: true
+        run: pnpm db:migrate 2>&1 | tee migrate.log
+
+      - name: Surface migration failure (TEMP diag)
+        if: steps.migrate.outcome == 'failure'
+        env:
+          PGPASSWORD: testpass
+        run: |
+          echo "### db:migrate failure" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 200 migrate.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "### DB state" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          psql -h localhost -U testuser -d better_chatbot_test -c "\\dn" >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
+          psql -h localhost -U testuser -d better_chatbot_test -c "\\dt atlas.*" >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
+          psql -h localhost -U testuser -d better_chatbot_test -c "SELECT extname FROM pg_extension;" >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
 
       - name: Seed test users once before all tests
         run: pnpm test:e2e:seed

@@ -112,6 +112,14 @@ export const ConvertBulletsStyleInput = z.object({
   blockId: z.string().length(26),
 });
 
+// Phase 3a — live-passport-view append input.
+// content_json shape: { passportId: string, schema_version: 1 }
+export const AppendLivePassportViewInput = z.object({
+  briefId: z.string().uuid(),
+  passportId: z.string().uuid(),
+  afterBlockId: z.string().length(26).nullable().optional(),
+});
+
 // ---------------------------------------------------------------------------
 // Dispatcher — called from a tool `execute` or from the chat route
 // wrapper with the resolved owner scope + validated args. The union of
@@ -324,6 +332,28 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
       );
       return { blockId: row.id };
     }
+    case DefaultToolName.AppendLivePassportView: {
+      const parsed = AppendLivePassportViewInput.parse(args);
+      const position = await computeAppendPosition(
+        parsed.briefId,
+        parsed.afterBlockId,
+        scope,
+      );
+      const row = await pgBlockRepository.create(
+        {
+          briefId: parsed.briefId,
+          type: "live-passport-view",
+          contentJson: {
+            passportId: parsed.passportId,
+            schema_version: 1,
+          },
+          source: "agent",
+          ...(position !== undefined ? { position } : {}),
+        },
+        scope,
+      );
+      return { blockId: row.id };
+    }
     default:
       throw new UnknownBlockToolError(name);
   }
@@ -382,5 +412,13 @@ export const BLOCK_TOOL_SCHEMAS = {
   [DefaultToolName.ConvertBulletsStyle]: {
     description: "Toggle a bullets block between unordered and ordered.",
     inputSchema: ConvertBulletsStyleInput,
+  },
+  // Phase 3a — live-passport-view
+  [DefaultToolName.AppendLivePassportView]: {
+    description:
+      "Append a live-passport-view block to a brief. The block renders a " +
+      "realtime-updating passport card (title, summary, claims count, last " +
+      "updated) pinned to the given passport id.",
+    inputSchema: AppendLivePassportViewInput,
   },
 } as const;

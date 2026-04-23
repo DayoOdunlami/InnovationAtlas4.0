@@ -10,7 +10,12 @@
 // Per spec §4.1, only `heading` and `paragraph` render a visible
 // component in 2a.0. Every other v1 type emits a silent placeholder
 // via PlaceholderBlockRenderer. The visible-type dispatch is the only
-// place to extend when 2b / 3a land more renderers.
+// place to extend when 2b / 3a add more renderers.
+//
+// Phase 3a: `live-passport-view` blocks are dispatched to
+// `LivePassportViewBlockRenderer`. The `isOwner` flag controls whether
+// the owner Realtime island is mounted (owner) or a static snapshot is
+// shown (share scope).
 // ---------------------------------------------------------------------------
 
 import type { BlockRow } from "./types";
@@ -18,12 +23,16 @@ import { BulletsBlockRenderer } from "./renderers/bullets.server";
 import { HeadingBlockRenderer } from "./renderers/heading.server";
 import { ParagraphBlockRenderer } from "./renderers/paragraph.server";
 import { PlaceholderBlockRenderer } from "./renderers/placeholder.server";
+import { LivePassportViewBlockRenderer } from "./renderers/live-passport-view.server";
 
-function dispatch(block: BlockRow): React.ReactNode {
-  // NOTE: Phase 2a.1 renders heading + paragraph + bullets. All other
-  // v1 block types still render a silent, aria-hidden placeholder so
-  // share recipients see production-shaped empty space rather than
-  // "coming soon" chrome. 2b / 3a add the rest.
+async function dispatch(
+  block: BlockRow,
+  isOwner: boolean,
+): Promise<React.ReactNode> {
+  // NOTE: Phase 2a.1 renders heading + paragraph + bullets. Phase 3a
+  // adds live-passport-view. All other v1 block types still render a
+  // silent, aria-hidden placeholder so share recipients see
+  // production-shaped empty space rather than "coming soon" chrome.
   if (block.type === "heading") {
     return <HeadingBlockRenderer id={block.id} content={block.contentJson} />;
   }
@@ -33,10 +42,25 @@ function dispatch(block: BlockRow): React.ReactNode {
   if (block.type === "bullets") {
     return <BulletsBlockRenderer id={block.id} content={block.contentJson} />;
   }
+  if (block.type === "live-passport-view") {
+    return (
+      <LivePassportViewBlockRenderer
+        id={block.id}
+        content={block.contentJson}
+        isOwner={isOwner}
+      />
+    );
+  }
   return <PlaceholderBlockRenderer id={block.id} type={block.type} />;
 }
 
-export function BlockList({ blocks }: { blocks: BlockRow[] }) {
+export async function BlockList({
+  blocks,
+  isOwner = false,
+}: {
+  blocks: BlockRow[];
+  isOwner?: boolean;
+}) {
   if (blocks.length === 0) {
     return (
       <div
@@ -47,10 +71,13 @@ export function BlockList({ blocks }: { blocks: BlockRow[] }) {
       </div>
     );
   }
+  const rendered = await Promise.all(
+    blocks.map((block) => dispatch(block, isOwner)),
+  );
   return (
     <div data-testid="brief-blocks" className="flex flex-col gap-4">
-      {blocks.map((block) => (
-        <div key={block.id}>{dispatch(block)}</div>
+      {rendered.map((node, i) => (
+        <div key={blocks[i].id}>{node}</div>
       ))}
     </div>
   );

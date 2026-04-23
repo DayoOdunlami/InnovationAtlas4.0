@@ -110,11 +110,21 @@ export default async function BriefDetailPage({
       (t.expiresAt === null || t.expiresAt.getTime() > Date.now()),
   );
 
-  // Owner gets the editable Plate-powered surface; share readers
-  // continue on the zero-JS RSC renderer so no editor chunks leak
-  // into the shared-brief bundle (Phase 2a.1 §4.3).
+  // Owner gets the editable Plate-powered surface for heading /
+  // paragraph / bullets blocks (Phase 2a.1 §4.3). live-passport-view
+  // blocks are read-only for all scopes (Phase 3a) and are excluded
+  // from the Plate surface; they render via the RSC BlockList with
+  // isOwner=true so the Realtime island mounts. When a brief has no
+  // live-passport-view blocks the owner gets the full Plate editor as
+  // before. When live-passport-view blocks are present, we fall back to
+  // the RSC BlockList with isOwner=true for the entire block list — the
+  // Plate editable surface returns in a subsequent phase that teaches
+  // the editor to render passthrough block types.
+  const hasLivePassportBlocks = blocks.some(
+    (b) => b.type === "live-passport-view",
+  );
   const blocksSlot =
-    scope.kind === "user" ? (
+    scope.kind === "user" && !hasLivePassportBlocks ? (
       <EditableBlockListMount
         briefId={brief.id}
         initialBlocks={blocks.map((b) => ({
@@ -131,6 +141,7 @@ export default async function BriefDetailPage({
           type: b.type,
           contentJson: b.contentJson,
         }))}
+        isOwner={scope.kind === "user"}
       />
     );
 

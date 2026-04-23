@@ -103,7 +103,10 @@ export type ActionEventName =
   | "brief_first_edited"
   // Phase 2a.1 — agent tool dispatcher events.
   | "brief_block_tool_call"
-  | "brief_block_tool_rejected";
+  | "brief_block_tool_rejected"
+  // KB-1 — surfaceKnowledgeBase tool invocation events.
+  | "kb_surface_called"
+  | "kb_surface_rejected";
 
 export const NAV_EVENT_NAMES = [
   "brief_list_opened",
@@ -125,4 +128,27 @@ export const ACTION_EVENT_NAMES = [
   "brief_first_edited",
   "brief_block_tool_call",
   "brief_block_tool_rejected",
+  "kb_surface_called",
+  "kb_surface_rejected",
 ] as const satisfies readonly ActionEventName[];
+
+// ---------------------------------------------------------------------------
+// KB-1 telemetry payload shapes (Performance & Telemetry Spec §7.4)
+// ---------------------------------------------------------------------------
+
+export interface KbSurfaceCalledPayload {
+  query_tokens: number;
+  top_k: number;
+  tier_counts: Record<string, number>;
+  confidence: number;
+  coverage_note: "thin" | "adequate" | "strong";
+  modes_filter: string[];
+  themes_filter: string[];
+}
+
+export interface KbSurfaceRejectedPayload {
+  query_tokens: number;
+  top_k: number;
+  top_similarity: number;
+  reason: "below_confidence_threshold";
+}

@@ -16,6 +16,8 @@ import {
   index,
   check,
   vector,
+  integer,
+  date,
 } from "drizzle-orm/pg-core";
 import { isNotNull } from "drizzle-orm";
 import { DBWorkflow, DBEdge, DBNode } from "app-types/workflow";
@@ -589,6 +591,107 @@ export const AtlasTelemetryEventsTable = atlasSchema.table(
     ),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// atlas.knowledge_documents + atlas.knowledge_chunks (KB-1, Phase 2b)
+//
+// Curated Knowledge Base — storage + retrieval layer for the `kb-document`
+// citation source type named in #16 Evidence Source Model §5.2.
+// See docs/knowledge-base-plan.md for full design rationale.
+//
+// Access control: reads are universal (any AccessScope); writes require
+// admin role — enforced at the repository boundary (no RLS).
+//
+// Taxonomy:
+//   modes[]  ∈ { rail, aviation, maritime, hit }
+//   themes[] ∈ { autonomy, decarbonisation, people_experience,
+//                hubs_clusters, planning_operation, industry }
+// These are enforced by CHECK constraints in the migration SQL.
+// The Drizzle schema reflects the column shapes without re-declaring the
+// CHECK logic (Drizzle does not generate array-membership CHECKs natively).
+// ---------------------------------------------------------------------------
+
+export const AtlasKnowledgeDocumentsTable = atlasSchema.table(
+  "knowledge_documents",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    title: text("title").notNull(),
+    sourceType: text("source_type").notNull(),
+    sourceUrl: text("source_url"),
+    storageKey: text("storage_key"),
+    publisher: text("publisher"),
+    author: text("author"),
+    publishedOn: date("published_on"),
+    modes: text("modes").array().notNull().default(sql`'{}'::text[]`),
+    themes: text("themes").array().notNull().default(sql`'{}'::text[]`),
+    lensCategoryIds: uuid("lens_category_ids")
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    tier: text("tier").notNull().default("secondary"),
+    summary: text("summary"),
+    status: text("status").notNull().default("proposed"),
+    addedBy: uuid("added_by").references(() => UserTable.id, {
+      onDelete: "set null",
+    }),
+    addedAt: timestamp("added_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    approvedBy: uuid("approved_by").references(() => UserTable.id, {
+      onDelete: "set null",
+    }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    retiredAt: timestamp("retired_at", { withTimezone: true }),
+    retiredReason: text("retired_reason"),
+    chunksRefreshedAt: timestamp("chunks_refreshed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    index("knowledge_documents_status_idx").on(t.status),
+    index("knowledge_documents_modes_idx").on(t.modes),
+    index("knowledge_documents_themes_idx").on(t.themes),
+  ],
+);
+
+export const AtlasKnowledgeChunksTable = atlasSchema.table(
+  "knowledge_chunks",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => AtlasKnowledgeDocumentsTable.id, {
+        onDelete: "cascade",
+      }),
+    chunkIndex: integer("chunk_index").notNull(),
+    body: text("body").notNull(),
+    tokenCount: integer("token_count").notNull().default(0),
+    embedding: vector("embedding", { dimensions: 1536 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    index("knowledge_chunks_document_id_idx").on(t.documentId),
+    unique("knowledge_chunks_document_chunk_unique").on(
+      t.documentId,
+      t.chunkIndex,
+    ),
+  ],
+);
+
+export type AtlasKnowledgeDocumentEntity =
+  typeof AtlasKnowledgeDocumentsTable.$inferSelect;
+export type AtlasKnowledgeDocumentInsert =
+  typeof AtlasKnowledgeDocumentsTable.$inferInsert;
+export type AtlasKnowledgeChunkEntity =
+  typeof AtlasKnowledgeChunksTable.$inferSelect;
+export type AtlasKnowledgeChunkInsert =
+  typeof AtlasKnowledgeChunksTable.$inferInsert;
 
 export type AtlasBriefEntity = typeof AtlasBriefsTable.$inferSelect;
 export type AtlasBriefInsert = typeof AtlasBriefsTable.$inferInsert;

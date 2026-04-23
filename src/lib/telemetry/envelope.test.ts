@@ -113,7 +113,7 @@ describe("telemetry envelope", () => {
     );
   });
 
-  it("ACTION_EVENT_NAMES covers the Phase 1 + 2a.1 action events (recon default #15)", () => {
+  it("ACTION_EVENT_NAMES covers Phase 1, 2a.1, and KB-1 action events", () => {
     expect([...ACTION_EVENT_NAMES].sort()).toEqual(
       [
         "brief_created",
@@ -129,6 +129,9 @@ describe("telemetry envelope", () => {
         "brief_first_edited",
         "brief_block_tool_call",
         "brief_block_tool_rejected",
+        // KB-1 — surfaceKnowledgeBase telemetry events.
+        "kb_surface_called",
+        "kb_surface_rejected",
       ].sort(),
     );
   });

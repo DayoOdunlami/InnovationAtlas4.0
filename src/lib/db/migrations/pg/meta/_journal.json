@@ -134,6 +134,13 @@
       "when": 1776893915986,
       "tag": "0018_atlas_blocks_phase2a0",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1777900000000,
+      "tag": "0021_atlas_knowledge_base_kb1",
+      "breakpoints": true
     }
   ]
 }

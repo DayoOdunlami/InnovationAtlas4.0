@@ -10,6 +10,15 @@ export type ChatMetadata = {
   toolChoice?: "auto" | "none" | "manual";
   toolCount?: number;
   agentId?: string;
+  /**
+   * Phase 2b — UUID of `atlas.briefs` the chat is editing. When present,
+   * the chat route binds the Briefing toolkit (`src/lib/ai/tools/blocks/`)
+   * with the session user's scope so the model can append / update /
+   * remove blocks in this brief — and ONLY this brief. Client surfaces
+   * that don't yet expose a brief (canvas, plain chat) leave this unset
+   * and the kit stays empty.
+   */
+  activeBriefId?: string;
 };
 
 export type ChatModel = {
@@ -134,6 +143,13 @@ export const chatApiSchemaRequestBodySchema = z.object({
   allowedAppDefaultToolkit: z.array(z.string()).optional(),
   attachments: z.array(ChatAttachmentSchema).optional(),
   canvasContext: chatCanvasContextSchema.optional(),
+  /**
+   * Phase 2b — brief the client is currently focused on. Must be a
+   * valid UUID; the chat route then verifies ownership against the
+   * authenticated session before binding the Briefing toolkit. Absent
+   * outside the brief surface (plain `/chat` and canvas send nothing).
+   */
+  activeBriefId: z.string().uuid().optional(),
 });
 
 export type ChatApiSchemaRequestBody = z.infer<

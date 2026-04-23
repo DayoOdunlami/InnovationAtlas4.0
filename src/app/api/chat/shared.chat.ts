@@ -428,9 +428,30 @@ export const loadWorkFlowTools = (opt: {
 export const loadAppDefaultTools = (opt?: {
   mentions?: ChatMention[];
   allowedAppDefaultToolkit?: string[];
+  /**
+   * Phase 2b — per-request Briefing kit built by
+   * `buildBriefingToolKit()` in `src/lib/ai/tools/blocks/briefing-tool-kit.ts`.
+   * `APP_DEFAULT_TOOL_KIT[Briefing]` is intentionally empty because its
+   * tools need to close over an authenticated user scope and the
+   * verified `activeBriefId`. This override is merged in after the
+   * standard toolkit lookup so the briefing tools respect both toolkit
+   * allow-lists and `defaultTool` mentions.
+   */
+  briefingToolKit?: Record<string, Tool>;
 }) =>
   safe(APP_DEFAULT_TOOL_KIT)
-    .map((tools) => {
+    .map((baseTools) => {
+      // Clone the briefing slot in so downstream filters see the
+      // per-request kit. The base record is frozen in module scope and
+      // must not be mutated.
+      const tools: Record<AppDefaultToolkit, Record<string, Tool>> = {
+        ...baseTools,
+        [AppDefaultToolkit.Briefing]: {
+          ...baseTools[AppDefaultToolkit.Briefing],
+          ...(opt?.briefingToolKit ?? {}),
+        },
+      };
+
       const defaultToolMentions = (opt?.mentions ?? []).filter(
         (m) => m.type == "defaultTool",
       );
@@ -448,7 +469,7 @@ export const loadAppDefaultTools = (opt?: {
       return (
         allowedAppDefaultToolkit.reduce(
           (acc, key) => {
-            return { ...acc, ...tools[key] };
+            return { ...acc, ...tools[key as AppDefaultToolkit] };
           },
           {} as Record<string, Tool>,
         ) || {}

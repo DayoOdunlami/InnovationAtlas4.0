@@ -30,6 +30,9 @@ import { buildCsvIngestionPreviewParts } from "@/lib/ai/ingest/csv-ingest";
 import { getSession } from "auth/server";
 import { colorize } from "consola/utils";
 import { ImageToolName } from "lib/ai/tools";
+import { buildBriefingToolKit } from "@/lib/ai/tools/blocks/briefing-tool-kit";
+import { pgBriefRepository } from "@/lib/db/pg/repositories/brief-repository.pg";
+import { AccessDeniedError } from "@/lib/db/pg/repositories/access-scope";
 import { nanoBananaTool, openaiImageTool } from "lib/ai/tools/image";
 import { serverFileStorage } from "lib/file-storage";
 import { generateUUID } from "lib/utils";
@@ -76,6 +79,7 @@ export async function POST(request: Request) {
       mentions = [],
       attachments = [],
       canvasContext,
+      activeBriefId,
     } = chatApiSchemaRequestBodySchema.parse(json);
 
     const model = customModelProvider.getModel(chatModel);
@@ -196,11 +200,39 @@ export async function POST(request: Request) {
       (toolChoice != "none" || mentions.length > 0) &&
       !useImageTool;
 
+    // Phase 2b — verify ownership of the active brief BEFORE binding
+    // the briefing toolkit. Never trust the client's `activeBriefId`
+    // past this gate: a stale / forged id just drops back to an empty
+    // briefing kit rather than surfacing an error (the rest of the
+    // chat still works and the user can simply refresh the brief
+    // page). A DB outage is handled the same way.
+    let verifiedActiveBriefId: string | null = null;
+    if (activeBriefId) {
+      try {
+        const brief = await pgBriefRepository.getBriefById(activeBriefId, {
+          kind: "user",
+          userId: session.user.id,
+        });
+        if (brief && brief.ownerId === session.user.id) {
+          verifiedActiveBriefId = brief.id;
+        }
+      } catch (err) {
+        if (!(err instanceof AccessDeniedError)) {
+          logger.warn(
+            `activeBriefId ownership check failed: ${(err as Error).message}`,
+          );
+        }
+      }
+    }
+
     const metadata: ChatMetadata = {
       agentId: agent?.id,
       toolChoice: toolChoice,
       toolCount: 0,
       chatModel: chatModel,
+      ...(verifiedActiveBriefId
+        ? { activeBriefId: verifiedActiveBriefId }
+        : {}),
     };
 
     const stream = createUIMessageStream({
@@ -225,12 +257,21 @@ export async function POST(request: Request) {
           )
           .orElse({});
 
+        const briefingToolKit = verifiedActiveBriefId
+          ? buildBriefingToolKit({
+              scope: { kind: "user", userId: session.user.id },
+              briefId: verifiedActiveBriefId,
+              sessionId: session.session.id,
+            })
+          : {};
+
         const APP_DEFAULT_TOOLS = await safe()
           .map(errorIf(() => !isToolCallAllowed && "Not allowed"))
           .map(() =>
             loadAppDefaultTools({
               mentions,
               allowedAppDefaultToolkit,
+              briefingToolKit,
             }),
           )
           .orElse({});

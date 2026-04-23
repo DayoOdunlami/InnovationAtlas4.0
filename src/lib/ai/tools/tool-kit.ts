@@ -96,11 +96,13 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     [DefaultToolName.MountTableInStage]: mountTableInStageTool,
   },
   [AppDefaultToolkit.Briefing]: {
-    // Phase 2a.1 — block tools bind at the chat route call site (see
-    // `src/lib/ai/tools/blocks/index.ts`). Descriptors live in
-    // `BLOCK_TOOL_SCHEMAS`; the dispatcher there performs the actual
-    // write under the owner scope the chat route resolves from the
-    // session. This kit stays empty until that binding lands so the
-    // model sees zero un-scoped briefing tools.
+    // Phase 2b — the briefing kit is deliberately EMPTY at module
+    // scope. Each request that targets a brief builds a per-request
+    // kit in `src/lib/ai/tools/blocks/briefing-tool-kit.ts` that
+    // closes over the authenticated owner scope + the verified
+    // `activeBriefId`. That kit is merged in by `loadAppDefaultTools`
+    // (see `src/app/api/chat/shared.chat.ts`). Keeping this slot
+    // empty guarantees the model never sees an un-scoped or cross-
+    // brief tool.
   },
 };

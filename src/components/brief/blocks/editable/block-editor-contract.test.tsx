@@ -14,7 +14,13 @@
 //      shaped object (no real editor runtime needed; the same
 //      assertion holds inside Plate because Plate `Path`s index
 //      top-level children identically).
-//   3. `EditableBlockList` is exported as a React component function.
+//
+// The prior sibling-path suite also dynamically imported
+// `./editable-block-list.client` to assert it exported a React
+// function. That added no contract coverage beyond what TypeScript
+// already guarantees and took ~35s under jsdom because it pulled in
+// Plate + dnd-kit at runtime — dropped in favour of the path-math
+// contract above.
 // ---------------------------------------------------------------------------
 
 import { describe, expect, it } from "vitest";
@@ -72,10 +78,5 @@ describe("programmatic insert between two blocks", () => {
       children: [{ text: "middle" }],
     });
     expect(editor.children.map((c) => c.id)).toEqual(["A", "B", "C"]);
-  });
-
-  it("exposes EditableBlockList as a React component", async () => {
-    const mod = await import("./editable-block-list.client");
-    expect(typeof mod.EditableBlockList).toBe("function");
   });
 });

@@ -15,6 +15,7 @@
 // ---------------------------------------------------------------------------
 
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { pgBlockRepository } from "@/lib/db/pg/repositories/block-repository.pg";
 import { AtlasBlocksTable } from "@/lib/db/pg/schema.pg";
 import { pgDb as db } from "@/lib/db/pg/db.pg";
@@ -22,6 +23,26 @@ import { and, asc, eq, gt } from "drizzle-orm";
 import { generateKeyBetween } from "fractional-indexing";
 import { DefaultToolName } from "@/lib/ai/tools";
 import type { AccessScope } from "@/lib/db/pg/repositories/access-scope";
+
+// 3e-a — Live sync for AI-generated blocks.
+//
+// `revalidatePath` must only run inside a real Next.js request context
+// (an App Router request or server action). Background jobs, scripts,
+// and unit tests that import the dispatcher would otherwise crash with
+// "Invariant: static generation store missing in revalidatePath". We
+// silently swallow that specific invariant so the tool call never fails
+// just because the cache couldn't be invalidated — the worst case is a
+// stale UI that recovers on the next navigation.
+function revalidateBriefPage(briefId: string) {
+  try {
+    revalidatePath(`/brief/${briefId}`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!message.includes("static generation store")) {
+      throw err;
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Zod input schemas — shared by the tool declarations AND the dispatcher
@@ -219,6 +240,7 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
         },
         scope,
       );
+      revalidateBriefPage(parsed.briefId);
       return { blockId: row.id };
     }
     case DefaultToolName.AppendParagraph: {
@@ -238,6 +260,7 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
         },
         scope,
       );
+      revalidateBriefPage(parsed.briefId);
       return { blockId: row.id };
     }
     case DefaultToolName.AppendBullets: {
@@ -257,6 +280,7 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
         },
         scope,
       );
+      revalidateBriefPage(parsed.briefId);
       return { blockId: row.id };
     }
     case DefaultToolName.AppendLandscapeEmbed: {
@@ -279,6 +303,7 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
         },
         scope,
       );
+      revalidateBriefPage(parsed.briefId);
       return { blockId: row.id };
     }
     case DefaultToolName.UpdateBlock: {
@@ -288,11 +313,15 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
         { contentJson: parsed.content },
         scope,
       );
+      revalidateBriefPage(row.briefId);
       return { blockId: row.id };
     }
     case DefaultToolName.RemoveBlock: {
       const parsed = RemoveBlockInput.parse(args);
+      const existing = await pgBlockRepository.getById(parsed.blockId, scope);
+      if (!existing) throw new Error("remove: block not found");
       await pgBlockRepository.delete(parsed.blockId, scope);
+      revalidateBriefPage(existing.briefId);
       return { blockId: parsed.blockId, removed: true as const };
     }
     case DefaultToolName.DuplicateBlock: {
@@ -311,6 +340,7 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
         },
         scope,
       );
+      revalidateBriefPage(src.briefId);
       return { blockId: row.id };
     }
     case DefaultToolName.MoveBlock: {
@@ -328,6 +358,7 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
         newPosition,
         scope,
       );
+      revalidateBriefPage(src.briefId);
       return { blockId: row.id, newIndex: idx };
     }
     case DefaultToolName.GetBrief: {
@@ -356,6 +387,7 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
         { contentJson: { level: parsed.newLevel, text: prev.text ?? "" } },
         scope,
       );
+      revalidateBriefPage(src.briefId);
       return { blockId: row.id };
     }
     case DefaultToolName.ConvertBulletsStyle: {
@@ -375,6 +407,7 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
         { contentJson: { ...prev, style: nextStyle } },
         scope,
       );
+      revalidateBriefPage(src.briefId);
       return { blockId: row.id };
     }
     case DefaultToolName.AppendLivePassportView: {
@@ -397,6 +430,7 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
         },
         scope,
       );
+      revalidateBriefPage(parsed.briefId);
       return { blockId: row.id };
     }
     default:

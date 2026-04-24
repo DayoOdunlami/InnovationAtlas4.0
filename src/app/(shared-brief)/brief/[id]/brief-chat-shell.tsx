@@ -33,8 +33,28 @@ import {
   PanelRightOpen,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+
+// Set of block-mutation tool names that change the server-rendered
+// blocks slot (3e-a — live sync for AI-generated blocks). When any of
+// these land as `output-available` in the chat transcript we invalidate
+// the route so the server component re-renders with the new blocks
+// without the user having to refresh.
+const BRIEF_BLOCK_MUTATION_TOOLS = new Set<string>([
+  "appendHeading",
+  "appendParagraph",
+  "appendBullets",
+  "appendLandscapeEmbed",
+  "appendLivePassportView",
+  "updateBlock",
+  "removeBlock",
+  "duplicateBlock",
+  "moveBlock",
+  "changeHeadingLevel",
+  "convertBulletsStyle",
+]);
 
 export interface BriefChatShellInitialMessage {
   id: string;
@@ -192,6 +212,8 @@ export function BriefChatShell({
     new Set(initialMessages.map((m) => m.id)),
   );
   const persistUserInflightRef = useRef<Set<string>>(new Set());
+  const refreshedToolCallIdsRef = useRef<Set<string>>(new Set());
+  const router = useRouter();
 
   const readOnly = scopeKind === "share";
   const { layout, setLayout, chatCollapsed, toggleChatCollapse } =
@@ -243,6 +265,37 @@ export function BriefChatShell({
       });
     }
   }, [messages, status, briefId, readOnly]);
+
+  // 3e-a: whenever a brief-block mutation tool finishes streaming, ask
+  // Next.js to re-run the server component that renders `blocksSlot` so
+  // the new block shows up without the user having to refresh. Paired
+  // with `revalidatePath` inside `dispatchBlockTool` (which invalidates
+  // the RSC cache). Each tool-call id is only acted on once.
+  useEffect(() => {
+    if (readOnly) return;
+    let shouldRefresh = false;
+    for (const m of messages) {
+      if (m.role !== "assistant") continue;
+      for (const part of m.parts) {
+        if (!part || typeof part !== "object") continue;
+        const partType = (part as { type?: string }).type;
+        if (typeof partType !== "string") continue;
+        if (!partType.startsWith("tool-")) continue;
+        const toolName = partType.slice("tool-".length);
+        if (!BRIEF_BLOCK_MUTATION_TOOLS.has(toolName)) continue;
+        const state = (part as { state?: string }).state;
+        if (state !== "output-available") continue;
+        const toolCallId = (part as { toolCallId?: string }).toolCallId;
+        if (!toolCallId) continue;
+        if (refreshedToolCallIdsRef.current.has(toolCallId)) continue;
+        refreshedToolCallIdsRef.current.add(toolCallId);
+        shouldRefresh = true;
+      }
+    }
+    if (shouldRefresh) {
+      router.refresh();
+    }
+  }, [messages, readOnly, router]);
 
   const [input, setInput] = useState("");
   const isLoading = status === "streaming" || status === "submitted";

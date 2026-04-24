@@ -9,6 +9,10 @@ export enum AppDefaultToolkit {
   // Commits 5–6 (Canvas) and Commit 12 (Briefing).
   Canvas = "canvas",
   Briefing = "briefing",
+  // Tier 1b — Curated Knowledge Base retrieval (KB-1). Lives in its
+  // own toolkit so it can be used in any chat (not just brief mode)
+  // and toggled independently of the block-writing Briefing kit.
+  KnowledgeBase = "knowledgeBase",
 }
 
 export enum DefaultToolName {

@@ -6,6 +6,7 @@ import { cn, objectFlow } from "lib/utils";
 import {
   ArrowUpRightIcon,
   AtSign,
+  BookOpen,
   ChartColumn,
   ChevronRight,
   CodeIcon,
@@ -890,6 +891,9 @@ function AppDefaultToolKitSelector() {
           break;
         case AppDefaultToolkit.Code:
           icon = CodeIcon;
+          break;
+        case AppDefaultToolkit.KnowledgeBase:
+          icon = BookOpen;
           break;
       }
       return {

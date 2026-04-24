@@ -29,6 +29,7 @@ import { showMatchListTool } from "./passport/match-list-tool";
 import { rejectClaimByDescriptionTool } from "./passport/reject-claim-by-description-tool";
 import { runMatchingTool } from "./passport/run-matching-tool";
 import { saveClaimsToPassportTool } from "./passport/save-claims-to-passport-tool";
+import { surfaceKnowledgeBaseTool } from "./kb/surface-knowledge-base";
 import { surfaceResearchTool } from "./research-surface";
 import { createBarChartTool } from "./visualization/create-bar-chart";
 import { createLineChartTool } from "./visualization/create-line-chart";
@@ -104,5 +105,14 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     // (see `src/app/api/chat/shared.chat.ts`). Keeping this slot
     // empty guarantees the model never sees an un-scoped or cross-
     // brief tool.
+  },
+  // KB-1 — Tier-1b Curated Knowledge Base retrieval. Split out from
+  // the Briefing kit so users can toggle grounding on/off independently
+  // of the block-writing tools and so KB is available in any chat,
+  // not only when a brief is pinned. The tool itself is read-only and
+  // has no briefId/blockId surface — scoping is enforced inside the
+  // tool.
+  [AppDefaultToolkit.KnowledgeBase]: {
+    [DefaultToolName.SurfaceKnowledgeBase]: surfaceKnowledgeBaseTool,
   },
 };

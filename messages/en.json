@@ -249,7 +249,8 @@
         "research": "Academic research (OpenAlex)",
         "http": "HTTP Request",
         "code": "Code Execution",
-        "passport": "Innovation Passport"
+        "passport": "Innovation Passport",
+        "knowledgeBase": "Knowledge Base (policy & strategy)"
       },
       "agent": "Agent",
       "mention": "Mention",

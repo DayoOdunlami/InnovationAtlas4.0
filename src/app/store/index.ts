@@ -228,6 +228,7 @@ const initialState: AppState = {
     AppDefaultToolkit.Passport,
     AppDefaultToolkit.Research,
     AppDefaultToolkit.Canvas,
+    AppDefaultToolkit.KnowledgeBase,
   ],
   toolPresets: [],
   chatModel: undefined,

@@ -27,6 +27,8 @@ export type LensPocMode = "explore" | "gravity" | "compare";
 
 export type LensNodeType = "project" | "live_call" | "query" | "organisation";
 
+export type LensZAxis = "score" | "time" | "funding" | "flat";
+
 export type LensNode = {
   id: string;
   type: LensNodeType;
@@ -43,6 +45,10 @@ export type LensNode = {
   deadline?: string | null;
   funding_amount?: number | null;
   start_year?: number | null;
+  /** Target positions set by async layout transitions (POC `_tx`/`_ty`/`_tz`). */
+  _tx?: number;
+  _ty?: number;
+  _tz?: number;
   /** Cluster the node belongs to (assigned by
    *  `assign-clusters.ts` in deterministic k-means over viz_x/viz_y). */
   cluster_id?: number;

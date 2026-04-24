@@ -238,6 +238,59 @@ describe("dispatchBlockTool", () => {
     ).rejects.toThrow();
   });
 
+  it("appendLandscapeEmbed accepts a v2 gravity payload with queryA + caption", async () => {
+    const out = await dispatchBlockTool({
+      name: DefaultToolName.AppendLandscapeEmbed,
+      args: {
+        briefId,
+        content: {
+          schema_version: 2,
+          queryA: "rail hydrogen decarbonisation",
+          mode: "gravity",
+          display: "graph",
+          theme: "light",
+          cameraPreset: "topdown",
+          caption: "Where hydrogen rail sits inside the wider map.",
+        },
+      },
+      scope,
+    });
+    expect(out).toHaveProperty("blockId");
+  });
+
+  it("appendLandscapeEmbed rejects a v2 compare payload missing queryB", async () => {
+    await expect(
+      dispatchBlockTool({
+        name: DefaultToolName.AppendLandscapeEmbed,
+        args: {
+          briefId,
+          content: {
+            schema_version: 2,
+            queryA: "hydrogen rail",
+            mode: "compare",
+          },
+        },
+        scope,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("appendLandscapeEmbed rejects a v2 focus-card without focusedNodeId", async () => {
+    await expect(
+      dispatchBlockTool({
+        name: DefaultToolName.AppendLandscapeEmbed,
+        args: {
+          briefId,
+          content: {
+            schema_version: 2,
+            display: "focus-card",
+          },
+        },
+        scope,
+      }),
+    ).rejects.toThrow();
+  });
+
   it("changeHeadingLevel rejects a blockId that does not map to a heading", async () => {
     // The stubbed store is empty — the getById returns null and the
     // handler throws a descriptive error (not UnknownBlockToolError).

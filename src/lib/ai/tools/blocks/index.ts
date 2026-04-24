@@ -102,9 +102,9 @@ export const AppendBulletsInput = z.object({
   afterBlockId: z.string().length(26).nullable().optional(),
 });
 
-// Phase 3b — landscape-embed block (Brief-First Rebuild §5.3 /
-// `docs/phase-3b-execution-prompt.md` line 39).
-const LandscapeEmbedContent = z
+// Phase 3b — landscape-embed block v1 schema.
+// Legacy layout field maps into v2 mode via `migrateLandscapeEmbedV1ToV2`.
+export const LandscapeEmbedContentV1 = z
   .object({
     query: z.string().max(400).optional(),
     layout: z.enum(["web", "umap", "rings"]),
@@ -118,6 +118,88 @@ const LandscapeEmbedContent = z
     (c) => c.layout !== "rings" || (c.query && c.query.trim().length > 0),
     { message: "rings layout requires a non-empty query" },
   );
+
+// Phase 3d — v2 schema adds narrative presentation fields + optional
+// fly-through. Backward compatible: saved v1 rows stay valid under the
+// discriminated union; new authoring emits v2.
+export const FlythroughStopSchema = z.object({
+  kind: z.enum(["node", "cluster", "compare", "camera"]),
+  nodeId: z.string().max(64).optional(),
+  clusterId: z.number().int().nonnegative().optional(),
+  query: z.string().max(400).optional(),
+  queryB: z.string().max(400).optional(),
+  caption: z.string().max(400),
+  narration: z.string().max(1500).optional(),
+  duration: z.number().int().min(500).max(20_000),
+  transition: z.number().int().min(200).max(5_000).default(1_000),
+  cameraTarget: z
+    .object({ x: z.number(), y: z.number(), z: z.number() })
+    .optional(),
+  cameraTheta: z.number().optional(),
+  cameraPhi: z.number().optional(),
+  cameraDistance: z.number().optional(),
+});
+
+export const FlythroughSchema = z.object({
+  autoplay: z.boolean().default(false),
+  loop: z.boolean().default(false),
+  stops: z.array(FlythroughStopSchema).min(1).max(12),
+});
+
+export const LandscapeEmbedContentV2 = z
+  .object({
+    schema_version: z.literal(2),
+    queryA: z.string().max(400).optional(),
+    queryB: z.string().max(400).optional(),
+    mode: z.enum(["gravity", "compare", "explore"]).default("gravity"),
+    zAxis: z.enum(["score", "time", "funding", "flat"]).default("score"),
+    display: z
+      .enum(["graph", "focus-card", "graph-with-focus"])
+      .default("graph"),
+    focusedNodeId: z.string().max(64).optional(),
+    cameraPreset: z.enum(["topdown", "fit", "explore"]).default("topdown"),
+    theme: z.enum(["dark", "light", "print"]).default("light"),
+    caption: z.string().max(500).optional(),
+    flythrough: FlythroughSchema.optional(),
+  })
+  .refine((c) => c.mode !== "compare" || (c.queryA && c.queryB), {
+    message: "compare mode requires queryA and queryB",
+  })
+  .refine((c) => c.display !== "focus-card" || !!c.focusedNodeId, {
+    message: "focus-card display requires focusedNodeId",
+  });
+
+export const LandscapeEmbedContent = z.union([
+  LandscapeEmbedContentV1,
+  LandscapeEmbedContentV2,
+]);
+
+export type LandscapeEmbedContentV1Type = z.infer<
+  typeof LandscapeEmbedContentV1
+>;
+export type LandscapeEmbedContentV2Type = z.infer<
+  typeof LandscapeEmbedContentV2
+>;
+
+// Legacy → v2 mapping (Phase 3d §"Backward compatibility").
+// `web` is physics gravity, `rings` is a visual variant of gravity that
+// auto-fits the camera, `umap` is explore.
+export function migrateLandscapeEmbedV1ToV2(
+  v1: LandscapeEmbedContentV1Type,
+): LandscapeEmbedContentV2Type {
+  const mode = v1.layout === "umap" ? "explore" : "gravity";
+  const cameraPreset: "topdown" | "fit" | "explore" =
+    v1.layout === "rings" ? "fit" : "topdown";
+  return {
+    schema_version: 2 as const,
+    queryA: v1.query,
+    mode,
+    zAxis: "score" as const,
+    display: "graph" as const,
+    cameraPreset,
+    theme: "light" as const,
+  };
+}
 
 export const AppendLandscapeEmbedInput = z.object({
   briefId: z.string().uuid(),
@@ -290,14 +372,17 @@ export async function dispatchBlockTool({ name, args, scope }: DispatchArgs) {
         parsed.afterBlockId,
         scope,
       );
+      // Persist v2. Legacy v1 payloads from older tool invocations are
+      // migrated server-side so `content_json` normalises on write.
+      const content: LandscapeEmbedContentV2Type =
+        parsed.content.schema_version === 1
+          ? migrateLandscapeEmbedV1ToV2(parsed.content)
+          : parsed.content;
       const row = await pgBlockRepository.create(
         {
           briefId: parsed.briefId,
           type: "landscape-embed",
-          contentJson: {
-            ...parsed.content,
-            schema_version: 1,
-          },
+          contentJson: content,
           source: "agent",
           ...(position !== undefined ? { position } : {}),
         },
@@ -465,8 +550,19 @@ export const BLOCK_TOOL_SCHEMAS = {
     inputSchema: AppendBulletsInput,
   },
   [DefaultToolName.AppendLandscapeEmbed]: {
-    description:
-      "Append a landscape-embed block to a brief. Embeds the Atlas force-graph lens as a live artefact. `content.query` is an optional gravity query (required if layout is 'web' or 'rings'); `content.layout` selects the POC layout (web = physics, umap = explore, rings = top-K concentric).",
+    description: [
+      "Append a landscape-embed block to a brief. Embeds the Atlas force-graph lens as a live, theme-aware artefact.",
+      "",
+      "Authoring guidance — emit schema_version: 2 whenever possible:",
+      "1. Derive `queryA` from the surrounding paragraph's topic; NEVER leave it empty when the prose has a clear anchor (e.g. hydrogen rail → `queryA: 'hydrogen fuel cell rail decarbonisation'`).",
+      "2. Default `mode: 'gravity'` for topical sections. Use `mode: 'compare'` only when the paragraph explicitly contrasts TWO themes (set both queryA and queryB). Use `mode: 'explore'` only for overviews.",
+      "3. Default `cameraPreset: 'topdown'` and `theme: 'light'` for brief-embedded blocks so they read on white paper.",
+      "4. Prefer `display: 'focus-card'` when the prose is about ONE project (requires `focusedNodeId`). Use `display: 'graph'` for landscape context, and `display: 'graph-with-focus'` when both matter.",
+      "5. Always include a `caption` (1–2 sentences) explaining what the view reveals.",
+      "6. Only include `flythrough` when the section names multiple specific projects or clusters that benefit from a guided tour; each stop's `duration` is milliseconds it holds with its caption visible.",
+      "",
+      "Legacy v1 payloads (`layout: 'web'|'umap'|'rings'` with `query`) remain accepted and are auto-migrated.",
+    ].join(" "),
     inputSchema: AppendLandscapeEmbedInput,
   },
   [DefaultToolName.UpdateBlock]: {

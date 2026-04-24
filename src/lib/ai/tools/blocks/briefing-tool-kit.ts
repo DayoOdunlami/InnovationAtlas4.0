@@ -216,7 +216,43 @@ export function buildBriefingToolKit(
   // pinned, since grounded authoring is the whole point of brief mode.
   // The tool itself is read-only and has no briefId/blockId surface —
   // scoping + citation discipline are handled inside the tool.
-  tools[DefaultToolName.SurfaceKnowledgeBase] = surfaceKnowledgeBaseTool;
+  //
+  // Wrapped with the same try/catch safety net as the block tools so an
+  // uncaught error in the KB pipeline (embeddings API, pgvector query,
+  // etc.) can never abort the stream before a tool_output is written.
+  // Without this wrapper a single KB failure permanently bricks the
+  // chat thread on OpenAI's Responses API (`No tool output found for
+  // function call …`).
+  const kbDescriptor = surfaceKnowledgeBaseTool;
+  tools[DefaultToolName.SurfaceKnowledgeBase] = createTool({
+    description: kbDescriptor.description ?? "",
+    inputSchema: kbDescriptor.inputSchema as z.ZodTypeAny,
+    async execute(input: unknown) {
+      try {
+        const result = await (
+          kbDescriptor.execute as (
+            i: unknown,
+            opts?: unknown,
+          ) => Promise<unknown>
+        )(input, undefined);
+        await emitCall(options, {
+          tool: DefaultToolName.SurfaceKnowledgeBase,
+          briefId,
+        });
+        return result;
+      } catch (err) {
+        await emitRejected(options, {
+          tool: DefaultToolName.SurfaceKnowledgeBase,
+          briefId,
+          reason: errorReason(err),
+        });
+        return {
+          error: "tool_error",
+          message: err instanceof Error ? err.message : String(err ?? "error"),
+        };
+      }
+    },
+  });
 
   return tools;
 }

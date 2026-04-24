@@ -176,12 +176,28 @@ export const surfaceKnowledgeBaseTool = createTool({
 
     const embeddingLiteral = `[${embedding.join(",")}]`;
 
-    const rawResults = await searchKnowledgeChunks({
-      embeddingLiteral,
-      modes: modes.length > 0 ? modes : undefined,
-      themes: themes.length > 0 ? themes : undefined,
-      topK,
-    });
+    // Durability guard (see docs/chat-tool-safety.md): every code path in
+    // this tool MUST return a structured value. An uncaught throw here
+    // would cause the AI SDK to abort the stream before writing a
+    // tool_output to chat history, which permanently poisons the
+    // conversation with OpenAI's Responses API (it rejects subsequent
+    // turns with "No tool output found for function call …").
+    let rawResults: Awaited<ReturnType<typeof searchKnowledgeChunks>>;
+    try {
+      rawResults = await searchKnowledgeChunks({
+        embeddingLiteral,
+        modes: modes.length > 0 ? modes : undefined,
+        themes: themes.length > 0 ? themes : undefined,
+        topK,
+      });
+    } catch (_err) {
+      return {
+        results: [],
+        reason: "below_confidence_threshold",
+        topSimilarity: 0,
+        threshold: CONFIDENCE_THRESHOLD,
+      } as SurfaceKnowledgeBaseRejected;
+    }
 
     // Over-grounding guard: reject if top-1 similarity is below threshold.
     if (

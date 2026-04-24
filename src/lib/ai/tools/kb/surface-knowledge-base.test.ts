@@ -218,6 +218,24 @@ describe("surfaceKnowledgeBase: embedding failure", () => {
   });
 });
 
+describe("surfaceKnowledgeBase: search failure", () => {
+  it("returns rejection-like error when searchKnowledgeChunks throws (durability guard)", async () => {
+    await mockEmbed();
+    vi.mocked(searchKnowledgeChunks).mockRejectedValueOnce(
+      new Error("pgvector extension missing"),
+    );
+
+    const result = await runTool({ query: "any query" });
+    // Must NOT throw — uncaught throws here poison the chat thread on
+    // OpenAI's Responses API ("No tool output found for function call …").
+    expect(result).toBeDefined();
+    expect((result as SurfaceKnowledgeBaseRejected).results).toEqual([]);
+    expect((result as SurfaceKnowledgeBaseRejected).reason).toBe(
+      "below_confidence_threshold",
+    );
+  });
+});
+
 describe("surfaceKnowledgeBase: tool metadata", () => {
   it("tool has a description", () => {
     const desc = surfaceKnowledgeBaseTool.description ?? "";

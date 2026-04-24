@@ -42,18 +42,98 @@ export type BulletsContent = {
   indent?: number[];
 };
 
-// Phase 3b — landscape-embed block.
-// `content_json` shape: { query?, layout, lens?, schema_version: 1 }
-// (see `docs/phase-3b-execution-prompt.md` line 39). `query` is the
-// saved gravity anchor; `layout` is one of the three POC layouts;
-// `lens` is reserved for future "alt" force-graph variants (scatter,
-// timeline etc). `schema_version` lets later phases migrate embedded
-// state without breaking older saved briefs.
+// Phase 3b/3d — landscape-embed block.
+//
+// v1 (Phase 3b): `{ query?, layout: 'web'|'umap'|'rings', lens?,
+// schema_version: 1 }`. Still accepted on read for backward
+// compatibility with existing briefs.
+//
+// v2 (Phase 3d): JSON-only extension (no DB migration) that adds
+// narrative-driven fields: `queryA`/`queryB` for gravity + compare,
+// `display` (graph | focus-card | graph-with-focus), `focusedNodeId`,
+// `cameraPreset` (topdown default), `theme` (dark | light | print),
+// `caption`, and optional `flythrough` descriptor for AI-authored
+// guided tours. New writes via `AppendLandscapeEmbed` emit v2; v1
+// rows are migrated server-side on write and client-side on render.
 export type LandscapeEmbedLayout = "web" | "umap" | "rings";
 
-export type LandscapeEmbedContent = {
+export type LandscapeEmbedContentV1 = {
   query?: string;
   layout: LandscapeEmbedLayout;
   lens?: string;
   schema_version: 1;
 };
+
+export type FlythroughStopV2 = {
+  kind: "node" | "cluster" | "compare" | "camera";
+  nodeId?: string;
+  clusterId?: number;
+  query?: string;
+  queryB?: string;
+  caption: string;
+  narration?: string;
+  duration: number;
+  transition: number;
+  cameraTarget?: { x: number; y: number; z: number };
+  cameraTheta?: number;
+  cameraPhi?: number;
+  cameraDistance?: number;
+};
+
+export type LandscapeEmbedContentV2 = {
+  schema_version: 2;
+  queryA?: string;
+  queryB?: string;
+  mode: "gravity" | "compare" | "explore";
+  zAxis: "score" | "time" | "funding" | "flat";
+  display: "graph" | "focus-card" | "graph-with-focus";
+  focusedNodeId?: string;
+  cameraPreset: "topdown" | "fit" | "explore";
+  theme: "dark" | "light" | "print";
+  caption?: string;
+  flythrough?: {
+    autoplay: boolean;
+    loop: boolean;
+    stops: FlythroughStopV2[];
+  };
+};
+
+export type LandscapeEmbedContent =
+  | LandscapeEmbedContentV1
+  | LandscapeEmbedContentV2;
+
+// Render-time view: both v1 and v2 normalised to v2-shaped fields so
+// renderers only code against one shape.
+export type LandscapeEmbedViewModel = LandscapeEmbedContentV2;
+
+export function normaliseLandscapeEmbedContent(
+  content: unknown,
+): LandscapeEmbedViewModel {
+  const c = (content ?? {}) as Partial<LandscapeEmbedContentV1> &
+    Partial<LandscapeEmbedContentV2>;
+  if (c.schema_version === 2) {
+    return {
+      schema_version: 2,
+      queryA: c.queryA,
+      queryB: c.queryB,
+      mode: c.mode ?? "gravity",
+      zAxis: c.zAxis ?? "score",
+      display: c.display ?? "graph",
+      focusedNodeId: c.focusedNodeId,
+      cameraPreset: c.cameraPreset ?? "topdown",
+      theme: c.theme ?? "light",
+      caption: c.caption,
+      flythrough: c.flythrough,
+    };
+  }
+  const layout = c.layout === "web" || c.layout === "rings" ? c.layout : "umap";
+  return {
+    schema_version: 2,
+    queryA: c.query,
+    mode: layout === "umap" ? "explore" : "gravity",
+    zAxis: "score",
+    display: "graph",
+    cameraPreset: layout === "rings" ? "fit" : "topdown",
+    theme: "light",
+  };
+}

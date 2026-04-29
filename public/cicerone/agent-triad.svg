@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 480" role="img"
+     aria-labelledby="title desc">
+  <title id="title">Agent Triad  ATLAS / JARVIS / CICERONE</title>
+  <desc id="desc">Three agents arranged around the data layer. ATLAS reads the
+    production corpus for landscape exploration. JARVIS authors and persists
+    real passports. CICERONE narrates the platform and authors demo passports
+    in atlas_demo. The persistence boundary is the line between agents.</desc>
+
+  <style>
+    .panel-bg { fill: #fafafa; stroke: #d4d4d8; stroke-width: 1; rx: 8; ry: 8; }
+    .heading  { font-family: system-ui, sans-serif; font-size: 18px; font-weight: 600; fill: #18181b; }
+    .sub      { font-family: system-ui, sans-serif; font-size: 12px; fill: #52525b; }
+    .agent-card { stroke: #52525b; stroke-width: 1.5; rx: 10; ry: 10; }
+    .atlas-card    { fill: var(--chart-2, hsl(212 95% 68%));   fill-opacity: 0.7; }
+    .jarvis-card   { fill: var(--lens-3, hsl(271 81% 46%));    fill-opacity: 0.55; }
+    .cicerone-card { fill: var(--lens-2, hsl(217 91% 60%));    fill-opacity: 0.55; }
+    .agent-name { font-family: system-ui, sans-serif; font-size: 22px; font-weight: 700; fill: #18181b; }
+    .agent-role { font-family: system-ui, sans-serif; font-size: 12px; fill: #18181b; }
+    .data-card  { fill: #fff; stroke: #71717a; stroke-width: 1; rx: 8; ry: 8; }
+    .data-text  { font-family: monospace; font-size: 12px; fill: #18181b; }
+    .data-sub   { font-family: monospace; font-size: 10px; fill: #52525b; }
+    .arrow      { stroke: #52525b; stroke-width: 1.4; fill: none; marker-end: url(#a); }
+    .arrow-rw   { stroke: var(--chart-1, hsl(12 76% 61%)); stroke-width: 1.4; fill: none; marker-end: url(#a); }
+    .arrow-ro   { stroke: #52525b; stroke-width: 1.4; fill: none; stroke-dasharray: 4 3; marker-end: url(#a); }
+    .legend-text { font-family: system-ui, sans-serif; font-size: 11px; fill: #18181b; }
+  </style>
+
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#52525b"/>
+    </marker>
+  </defs>
+
+  <rect class="panel-bg" x="20" y="20" width="760" height="440"/>
+  <text class="heading" x="40" y="50">Agent Triad  three roles, two persistence surfaces</text>
+  <text class="sub" x="40" y="70">Solid arrow = read+write. Dashed arrow = read only.</text>
+
+  <!-- ATLAS (left) -->
+  <rect class="agent-card atlas-card" x="60" y="120" width="180" height="100"/>
+  <text class="agent-name" x="100" y="155">ATLAS</text>
+  <text class="agent-role" x="80" y="180">Strategic intelligence</text>
+  <text class="agent-role" x="80" y="196">Landscape exploration</text>
+  <text class="agent-role" x="80" y="212">Briefings, synthesis</text>
+
+  <!-- JARVIS (centre) -->
+  <rect class="agent-card jarvis-card" x="310" y="120" width="180" height="100"/>
+  <text class="agent-name" x="350" y="155">JARVIS</text>
+  <text class="agent-role" x="330" y="180">Passport authoring</text>
+  <text class="agent-role" x="330" y="196">Claim extraction</text>
+  <text class="agent-role" x="330" y="212">Real persistence</text>
+
+  <!-- CICERONE (right) -->
+  <rect class="agent-card cicerone-card" x="560" y="120" width="180" height="100"/>
+  <text class="agent-name" x="585" y="155">CICERONE</text>
+  <text class="agent-role" x="580" y="180">Demo-time narrator</text>
+  <text class="agent-role" x="580" y="196">Explains the platform</text>
+  <text class="agent-role" x="580" y="212">Authors demo passports</text>
+
+  <!-- Production corpus -->
+  <rect class="data-card" x="80" y="290" width="320" height="120"/>
+  <text class="agent-name" x="100" y="320" style="font-size:14px;">atlas.*  production corpus</text>
+  <text class="data-text" x="100" y="345">atlas.passports / passport_claims / matches</text>
+  <text class="data-text" x="100" y="362">atlas.projects (~644) / live_calls (~2,186)</text>
+  <text class="data-text" x="100" y="379">atlas.organisations (~319)</text>
+  <text class="data-sub"  x="100" y="396">authoritative; persists across sessions</text>
+
+  <!-- Demo schema -->
+  <rect class="data-card" x="430" y="290" width="310" height="120"/>
+  <text class="agent-name" x="450" y="320" style="font-size:14px;">atlas_demo.*  demo schema</text>
+  <text class="data-text" x="450" y="345">atlas_demo.passports (is_demo=true)</text>
+  <text class="data-text" x="450" y="362">passport_claims / passport_gaps / matches</text>
+  <text class="data-text" x="450" y="379">cicerone_kb.tier_briefs / source_chunks</text>
+  <text class="data-sub"  x="450" y="396">explicitly performative; never enters atlas.*</text>
+
+  <!-- Arrows -->
+  <!-- ATLAS reads atlas (RO) -->
+  <path class="arrow-ro" d="M 150 220 L 200 290"/>
+  <!-- JARVIS R+W atlas -->
+  <path class="arrow-rw" d="M 360 220 L 320 290"/>
+  <!-- CICERONE reads atlas (RO for matching), R+W atlas_demo -->
+  <path class="arrow-ro" d="M 620 220 Q 480 250, 380 290"/>
+  <path class="arrow-rw" d="M 660 220 L 600 290"/>
+
+  <!-- Legend -->
+  <g transform="translate(560, 425)">
+    <line class="arrow-rw" x1="0" y1="0" x2="40" y2="0"/>
+    <text class="legend-text" x="46" y="4">read+write</text>
+    <line class="arrow-ro" x1="120" y1="0" x2="160" y2="0"/>
+    <text class="legend-text" x="166" y="4">read only</text>
+  </g>
+</svg>

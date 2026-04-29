@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img"
+     aria-labelledby="title desc">
+  <title id="title">Evidence ’ Claims ’ Matching ’ Gaps</title>
+  <desc id="desc">Four-stage flow showing how raw evidence becomes structured
+    claims, then is matched against atlas.live_calls and atlas.projects via
+    cosine similarity, then is paired with a requirements profile to produce
+    structured gaps.</desc>
+
+  <style>
+    .panel-bg { fill: #fafafa; stroke: #d4d4d8; stroke-width: 1; rx: 8; ry: 8; }
+    .heading { font-family: system-ui, sans-serif; font-size: 18px; font-weight: 600; fill: #18181b; }
+    .sub     { font-family: system-ui, sans-serif; font-size: 12px; fill: #52525b; }
+    .stage   { rx: 10; ry: 10; stroke: #52525b; stroke-width: 1.2; fill: var(--chart-2, hsl(212 95% 68%)); fill-opacity: 0.55; }
+    .stage-out { rx: 10; ry: 10; stroke: #52525b; stroke-width: 1.2; fill: var(--chart-1, hsl(12 76% 61%)); fill-opacity: 0.5; }
+    .stage-text { font-family: system-ui, sans-serif; font-size: 14px; fill: #18181b; font-weight: 600; }
+    .stage-sub  { font-family: monospace; font-size: 11px; fill: #18181b; }
+    .arrow      { stroke: #52525b; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+    .label-text { font-family: system-ui, sans-serif; font-size: 11px; fill: #52525b; }
+  </style>
+
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#52525b"/>
+    </marker>
+  </defs>
+
+  <rect class="panel-bg" x="20" y="20" width="920" height="280"/>
+  <text class="heading" x="40" y="50">Evidence ’ Claims ’ Matching ’ Gaps</text>
+  <text class="sub" x="40" y="70">The Atlas pipeline  raw upload to structured insight, with the demo + production split.</text>
+
+  <!-- Stage 1 -->
+  <rect class="stage" x="40" y="110" width="180" height="140"/>
+  <text class="stage-text" x="60" y="140">1. Source evidence</text>
+  <text class="stage-sub"  x="60" y="170">PDF report</text>
+  <text class="stage-sub"  x="60" y="186">Trial dataset</text>
+  <text class="stage-sub"  x="60" y="202">Certification cert</text>
+  <text class="stage-sub"  x="60" y="218">Verbal description</text>
+  <text class="stage-sub"  x="60" y="240">’ source_documents</text>
+
+  <!-- Stage 2 -->
+  <rect class="stage" x="260" y="110" width="180" height="140"/>
+  <text class="stage-text" x="280" y="140">2. Claim extraction</text>
+  <text class="stage-sub"  x="280" y="170">JARVIS / CICERONE</text>
+  <text class="stage-sub"  x="280" y="186">role × domain</text>
+  <text class="stage-sub"  x="280" y="202">conditions</text>
+  <text class="stage-sub"  x="280" y="218">confidence_tier</text>
+  <text class="stage-sub"  x="280" y="240">’ passport_claims</text>
+
+  <!-- Stage 3 -->
+  <rect class="stage" x="480" y="110" width="180" height="140"/>
+  <text class="stage-text" x="500" y="140">3. Matching</text>
+  <text class="stage-sub"  x="500" y="170">cosine similarity</text>
+  <text class="stage-sub"  x="500" y="186">vs atlas.live_calls</text>
+  <text class="stage-sub"  x="500" y="202">vs atlas.projects</text>
+  <text class="stage-sub"  x="500" y="218">scores 0.30.5 honest</text>
+  <text class="stage-sub"  x="500" y="240">’ matches</text>
+
+  <!-- Stage 4 -->
+  <rect class="stage-out" x="700" y="110" width="220" height="140"/>
+  <text class="stage-text" x="720" y="140">4. Gap analysis</text>
+  <text class="stage-sub"  x="720" y="170">pair w/ requirements</text>
+  <text class="stage-sub"  x="720" y="186">5 gap types</text>
+  <text class="stage-sub"  x="720" y="202">3 severity levels</text>
+  <text class="stage-sub"  x="720" y="218">"what closes it"</text>
+  <text class="stage-sub"  x="720" y="240">’ passport_gaps</text>
+
+  <!-- Arrows -->
+  <path class="arrow" d="M 220 180 L 260 180"/>
+  <path class="arrow" d="M 440 180 L 480 180"/>
+  <path class="arrow" d="M 660 180 L 700 180"/>
+
+  <!-- Annotations -->
+  <text class="label-text" x="222" y="172">embed</text>
+  <text class="label-text" x="442" y="172">embed</text>
+  <text class="label-text" x="662" y="172">pair</text>
+</svg>

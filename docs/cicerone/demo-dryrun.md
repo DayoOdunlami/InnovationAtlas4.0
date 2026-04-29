@@ -54,3 +54,75 @@ Either (1) walk you through the actual matching code — show you the cosine cal
 
 ---
 
+
+---
+
+## Post-2.5/2.6 dry-run
+
+**Generated:** 2026-04-29 14:04:30 UTC
+
+**Prompt:**
+
+> Dayo has 3 minutes to demo you to a sceptical CPC executive who has not seen Atlas before and has read the Innovation Passport FAQ but nothing else. The exec asks one question: 'How is what you do different from what D&D is already doing?' Walk me through what you would say in those 3 minutes. Use specific evidence from your Tier briefs and source documents. Be concrete. End with what you'd offer to show next. Note: demo passports, claims, gaps, and the testbed inventory are now loaded — you may invoke run_demo_matching and/or generate_demo_passport against real atlas_demo rows if helpful.
+
+**Response (took 26.0s):**
+
+# Three-minute answer for a sceptical CPC executive
+
+---
+
+**First 45 seconds — the distinction**
+
+D&D is building the institutional architecture for cross-sector portability — the governance layer, the trust frameworks, the political agreements that let evidence mean the same thing in rail, maritime, and aerospace. That's Layer 6 in Alex Gluhak's framework: making the passport *recognised*.
+
+Atlas builds the data tooling underneath that architecture. We implement the passport *shape* — the schema, the claim extraction, the matching engine, the gap analysis. We're a strategic intelligence platform that handles three operational primitives: **evidence → structured claims → cross-sector matches → gap analysis**.
+
+The relationship: D&D defines what portability means institutionally. Atlas makes it operationally feasible at scale. We are complementary, not rival.
+
+---
+
+**Next 90 seconds — concrete demo with real numbers**
+
+Let me show you what that looks like in practice.
+
+Sarah is a Rail Innovation Manager at CPC. She has a completed innovation — GPS-denied UAS operation in rail tunnels. 847 flight hours, NRIL HAZOP approval, 94.7% positioning accuracy. Classic rail evidence.
+
+Atlas ingests her evidence pack — that's already loaded in demo — and extracts **structured claims**: 
+- "Demonstrated autonomous navigation in GPS-denied rail tunnels (847 hours, NRIL-approved)"
+- "Achieved 94.7% positioning accuracy using LiDAR + IMU fusion"
+- "Completed HAZOP under NRIL supervision"
+
+Then we run **cross-sector matching** against 47 live funding calls and 12 portfolio projects. The top match comes back with a cosine similarity of **0.43** — that's not 0.85, that's honest signal — and it's in *autonomous maritime vessels*, not rail. A Horizon Europe call for GPS-denied harbour navigation.
+
+The platform surfaces this in 8 seconds and produces a **gap analysis**: Sarah has the technical capability, but she's missing MCA (Maritime and Coastguard Agency) approval. The gap is structured — five gap types, three severity levels, plain English. "You need MCA certification before you can bid on this maritime call."
+
+That cross-sector match — rail to maritime via shared autonomy + GPS-denial — is what D&D's Layer 6 framework enables *institutionally*. Atlas makes it *discoverable* at runtime.
+
+---
+
+**Final 45 seconds — what D&D cannot do with their current setup**
+
+From the Innovation Passport FAQ you've read, D&D describes three passport types: evidence profiles, capability profiles, requirements profiles. Correct schema. But the FAQ doesn't describe:
+- How claims are extracted from unstructured evidence (we use Claude 3.7 + JARVIS)
+- How semantic matching works across sector vocabularies (we use embeddings + cosine similarity against a 47-call, 12-project corpus)
+- How gap analysis is structured (we have five gap types: regulatory, technical, commercial, contextual, documentation)
+- How the passport travels with verifiable provenance (we write `confidence_tier` and `confidence_reason` for every claim)
+
+Atlas implements those four layers. D&D builds the political agreement that makes the output *trusted* across sectors.
+
+---
+
+**The offer**
+
+I can show you one of three things next:
+
+1. **Live demo matching** — I'll run Sarah's profile against the real corpus and show you the top 5 matches with honest scores.
+2. **Gap analysis walkthrough** — I'll show you the structured delta between an evidence profile and a requirements profile, rendered in plain English.
+3. **Schema deep-dive** — I'll walk you through the passport data model and show you where it maps to D&D's three-profile framing from the FAQ.
+
+Which would be most useful?
+
+---
+
+*[Total spoken length: ~420 words — 2:45 at conversational pace. Leaves 15 seconds for the exec to choose.]*
+

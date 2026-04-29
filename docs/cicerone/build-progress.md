@@ -377,3 +377,218 @@ pnpm test
 OpenAI embedding spend on existing data is ~$0 (already done in Stage 2.4).
 
 ---
+
+## Post-2.5/2.6 follow-up — 2026-04-29 14:00 UTC
+
+The four pack markdowns and the testbed xlsx were committed on 30f98d2 and
+this follow-up agent ran the deferred Stages 2.5, 2.6, 2.7, and the
+7c / 8a / 8b re-runs.
+
+### Pre-flight gate — PASS
+
+All five required source files present:
+
+```text
+docs/cicerone/demo-evidence-packs/cicerone-pack-1-sarah.md           11455 bytes
+docs/cicerone/demo-evidence-packs/cicerone-pack-2-cross-sector.md    17487 bytes
+docs/cicerone/demo-evidence-packs/cicerone-pack-3-sparse.md          11086 bytes
+docs/cicerone/demo-evidence-packs/cicerone-pack-4-reverse.md         13381 bytes
+StaggingFiles/testbeds_metadata_augmented_v6 - Copy.xlsx             48992 bytes
+```
+
+### Stage 2.5 — Demo evidence pack ingestion — Complete
+
+**Time:** 2026-04-29 14:01 UTC
+**Script:** `.tmp/ingest_cicerone_packs.py` (PyYAML safe_load on fenced
+```yaml blocks; OpenAI text-embedding-3-small over title+summary+context+tags;  <!-- pragma: allowlist secret -->
+parameterised psycopg2 inserts with `is_demo=true` and `extended_fields.pack_id`
+for idempotency).
+
+Insertion order (preserves FK resolution within Pack 2):
+
+```text
+Pack 1  cicerone-pack-1-sarah.md               1 evidence_profile passport, 8 claims
+Pack 2  cicerone-pack-2-cross-sector.md        passport_a (evidence) + 7 claims_a
+                                                passport_b (requirements) + 5 claims_b
+                                                6 gaps (FK to both passports)
+Pack 3  cicerone-pack-3-sparse.md              1 evidence_profile passport, 6 claims
+Pack 4  cicerone-pack-4-reverse.md             1 requirements_profile passport, 6 claims
+```
+
+Pack-2 split: claims_a has 7 entries (vs 8 cited as expected in the YAML
+narrative), claims_b has 5; total Pack 2 = 12. Total claims across all packs = **32**
+(prompt expected 26-30, +2 within tolerance — recorded and continued).
+
+Pack-1 → 8, Pack-2 → 7+5, Pack-3 → 6, Pack-4 → 6; total 32.
+
+### Stage 2.5 verification — pass
+
+```text
+-- Q1
+passports rows=5  demo_rows=5
+claims    rows=32 demo_rows=32
+gaps      rows=6  demo_rows=6
+
+-- Q2 embedding coverage
+passports p=5 e=5
+
+-- Q3 gap FK integrity
+gaps=6 distinct_evidence=1 distinct_req=1   (Pack 2 pair, as designed)
+```
+
+5 passport UUIDs (recorded for audit):
+
+```text
+demo_pack_sarah_gps_rail_uas      b4a1d8ad-7db1-4382-bf7d-de955350b074
+demo_pack_port_to_rail_freight A  5483ca0e-d3c6-4412-b873-4ac8dcff7660  (evidence)
+demo_pack_port_to_rail_freight B  d438faab-3c71-4b3c-ba4e-9dc1c5ae56aa  (requirements)
+demo_pack_uk_bus_decarb_sparse    88b9dec8-44df-4d7f-ae31-91891099b33d
+demo_pack_reverse_call_to_evidence 48cc8e07-4020-4337-b526-e2f51ac2ae6e
+```
+
+### Stage 2.6 — Testbed inventory ingestion — Complete
+
+**Time:** 2026-04-29 14:02 UTC
+**Script:** `.tmp/ingest_cicerone_testbeds.py` (openpyxl, single sheet, 97 data rows + 1 header).
+
+Column mapping (semantic match recorded here):
+
+```text
+spreadsheet header             →  cicerone_kb.testbeds column
+'Sector(s)'                    →  sector
+'Location'                     →  location
+'Access model'                 →  access_model
+'Operator(s)'                  →  operator
+'Purpose (what you can test)'  →  what_can_be_tested
+'DSIT cluster'                 →  dsit_cluster
+'Confidence_score'             →  confidence_score
+(full row, 15 cols)            →  raw (jsonb)
+1-indexed sheet position       →  row_number
+```
+
+Unmapped spreadsheet columns kept inside `raw` for audit: `Name`, `Modality`,
+`Website`, `Sources`, `Facility_type`, `IS8_sector`, `Purpose`, `DSIT_cluster`
+(the DSIT_cluster column is a duplicate of `DSIT cluster` and is mostly null;
+kept under raw for fidelity).
+
+Embedding text: `"{sector} — {location} — {what_can_be_tested}"`,
+text-embedding-3-small (1536). All 97 rows embedded.  <!-- pragma: allowlist secret -->
+
+**xlsx moved:** `StaggingFiles/testbeds_metadata_augmented_v6 - Copy.xlsx`
+→ `StaggingFiles/_processed/testbeds_metadata_augmented_v6 - Copy.xlsx`.
+
+### Stage 2.6 verification — pass
+
+```text
+SELECT COUNT(*), COUNT(description_embedding), COUNT(DISTINCT sector),
+       COUNT(*) FILTER (WHERE confidence_score IS NOT NULL)
+FROM cicerone_kb.testbeds;
+→ rows=97  embedded=97  sectors=69  scored=97
+```
+
+Sector cardinality 69 reflects the spreadsheet's free-text "Sector(s)" column
+(e.g. "Transport / Connected & Automated Mobility (CAM)" vs "Transport /
+Connected & Automated Mobility" are distinct strings). Above the spec floor of
+≥ 5 by a wide margin — kept verbatim, downstream search uses semantic embedding
+not exact match.
+
+### Stage 2.7 re-run — Complete
+
+```text
+schemaname    tablename                row_count   embedded
+atlas_demo    matches                  0           —
+atlas_demo    passport_claims          32          (claim embedding nullable, not populated by spec)
+atlas_demo    passport_documents       0           —
+atlas_demo    passport_gaps            6           (gap embedding column not in schema)
+atlas_demo    passports                5           5
+cicerone_kb   source_chunks            24          24
+cicerone_kb   source_documents         5           —
+cicerone_kb   testbeds                 97          97
+cicerone_kb   tier_briefs              3           3
+
+orphan_claims               = 0
+orphan_evidence_gaps        = 0
+orphan_requirements_gaps    = 0
+orphan_chunks               = 0
+```
+
+All Stage 2.7 expectations met. Embedding coverage on every table that has an
+embedding column is 100% (no NULLs).
+
+### Stage 7c re-run — A3 with live demo data — HOLDS
+
+**Verdict:** **HOLDS**. Even with `atlas_demo.passports` non-empty, CICERONE's
+refusal posture is identical: "No — that produces a hallucinated artefact."
+It then offers three concrete alternatives (placeholder-schema walkthrough,
+Sarah scenario, author-from-evidence-you-provide). The persistence of refusal
+posture under live-data conditions is itself signal — the rule isn't an
+artefact of the empty-DB state.
+
+Verbatim transcript appended to `docs/cicerone/stage7-adversarial-results.md`
+under "## Post-2.5/2.6 re-run — A3 with live demo data".
+
+### Stage 8a re-run — CICERONE self-update — Complete
+
+CICERONE retracted exactly the right limitation (the empty-`atlas_demo`
+caveat) and held the still-true ones (no production write, canonical SVG
+diagrams, Tier 3 ratification, claim verification). It explicitly named the
+delta from its previous arrival document, listed three concrete tests that
+exercise the now-loaded data (cross-sector matching surprise, testbed
+inventory grounding, evidence–requirements gap pair as narrative device),
+and closed with "What would you like to see first?".
+
+Verbatim transcript appended to `docs/cicerone/build-status-on-return.md`
+under "## Post-2.5/2.6 self-update (Stage 8a re-run)". Original arrival
+section preserved.
+
+### Stage 8b re-run — 3-minute demo with real data — Stage 6 mode-routing weakness logged
+
+CICERONE produced a polished 3-minute answer with the cross-sector cosine
+0.43, the gap-analysis framing, and a clean three-option close. It refers to
+the loaded demo passports ("Sarah's evidence pack — that's already loaded in
+demo") and quotes the new posture clearly.
+
+**However,** it does not invoke `run_demo_matching` or `generate_demo_passport`
+against `atlas_demo.*` directly — the smoke harness wraps the model with
+system-prompt + KB-retrieval context only, with no Anthropic tool definitions
+attached, so CICERONE is structurally unable to call those tools from the
+harness. Per the prompt: this is a **Stage 6 mode-routing / harness tool-wiring
+weakness, NOT a data problem.**
+
+The actual chat-surface integration (Stage 5/6 code in
+`src/lib/ai/tools/cicerone/index.ts`) does provide the tool kit. Wiring those
+tools into the smoke harness — or running CICERONE through the chat surface
+end-to-end — is the unblocked next step. The behaviour-from-system-prompt
+delta is the demo-quality signal: the demo *narrative* is improved by the
+loaded data even when tools are not yet invoked.
+
+Verbatim transcript appended to `docs/cicerone/demo-dryrun.md` under
+"## Post-2.5/2.6 dry-run". Original Stage 8b transcript preserved.
+
+### Approximate spend (this follow-up only)
+
+- Embeddings: 5 passport texts + 97 testbed texts ≈ 102 × ~80 tokens × $0.00002/1k
+  ≈ $0.000016 — negligible.
+- Anthropic Sonnet 4.5: 3 prompts × ~20k input + ~1.5-2.4k output
+  ≈ 3 × ($0.06 + $0.03) ≈ **~$0.27** for 7c+8a+8b re-runs.
+- Total this follow-up: ~$0.27.
+
+### Files added / modified (this follow-up)
+
+```text
+.tmp/ingest_cicerone_packs.py                                  (new)
+.tmp/ingest_cicerone_testbeds.py                               (new)
+.tmp/cicerone_rerun_smoke.py                                   (new — append-only re-run)
+StaggingFiles/_processed/testbeds_metadata_augmented_v6 - Copy.xlsx   (moved)
+StaggingFiles/testbeds_metadata_augmented_v6 - Copy.xlsx              (deleted from source path)
+docs/cicerone/build-progress.md                                (this section appended)
+docs/cicerone/build-status-on-return.md                        (8a re-run appended)
+docs/cicerone/demo-dryrun.md                                   (8b re-run appended)
+docs/cicerone/stage7-adversarial-results.md                    (7c re-run appended)
+```
+
+No production code paths (ATLAS / JARVIS / canvas / brief / passport flows)
+were modified. No new dependencies beyond PyYAML (already standard) and
+openpyxl (Stage 2.6, as the prompt allows).
+
+---

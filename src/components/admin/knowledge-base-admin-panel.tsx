@@ -20,7 +20,7 @@ import {
   retireKnowledgeDocumentAction,
 } from "@/app/(chat)/(admin)/admin/knowledge-base/actions";
 
-const MODES = ["rail", "aviation", "maritime", "hit"] as const;
+const MODES = ["rail", "aviation", "maritime", "hit", "data_digital"] as const;
 const THEMES = [
   "autonomy",
   "decarbonisation",
@@ -28,6 +28,11 @@ const THEMES = [
   "hubs_clusters",
   "planning_operation",
   "industry",
+  "data_infrastructure",
+  "assurance_trust",
+  "interoperability",
+  "testbeds_innovation",
+  "governance_stewardship",
 ] as const;
 const SOURCE_TYPES = [
   "white_paper",
@@ -37,8 +42,21 @@ const SOURCE_TYPES = [
   "guidance_doc",
   "web_article",
   "internal",
+  "doctrine",
 ] as const;
 const TIERS = ["primary", "secondary", "tertiary"] as const;
+
+const MODE_LABELS: Record<string, string> = {
+  rail: "rail",
+  aviation: "aviation",
+  maritime: "maritime",
+  hit: "hit",
+  data_digital: "Data & Digital",
+};
+
+function labelFor(value: string): string {
+  return MODE_LABELS[value] ?? value.replace(/_/g, " ");
+}
 
 type CoverageCell = { mode: string; theme: string; count: number };
 
@@ -71,7 +89,7 @@ function CoverageMatrix({ matrix }: { matrix: CoverageCell[] }) {
                 key={t}
                 className="p-2 font-medium border-b bg-muted/40 text-center min-w-[90px]"
               >
-                {t.replace(/_/g, " ")}
+                {labelFor(t)}
               </th>
             ))}
           </tr>
@@ -79,7 +97,7 @@ function CoverageMatrix({ matrix }: { matrix: CoverageCell[] }) {
         <tbody>
           {modes.map((mode) => (
             <tr key={mode} className="border-b">
-              <td className="p-2 font-medium capitalize">{mode}</td>
+              <td className="p-2 font-medium">{labelFor(mode)}</td>
               {themes.map((theme) => {
                 const cell = matrix.find(
                   (c) => c.mode === mode && c.theme === theme,
@@ -176,7 +194,7 @@ function AddDocumentForm({ onClose }: { onClose: () => void }) {
               >
                 {SOURCE_TYPES.map((st) => (
                   <option key={st} value={st}>
-                    {st.replace(/_/g, " ")}
+                    {labelFor(st)}
                   </option>
                 ))}
               </select>
@@ -232,7 +250,7 @@ function AddDocumentForm({ onClose }: { onClose: () => void }) {
                       : "bg-muted/40 border-border"
                   }`}
                 >
-                  {m}
+                  {labelFor(m)}
                 </button>
               ))}
             </div>
@@ -252,7 +270,7 @@ function AddDocumentForm({ onClose }: { onClose: () => void }) {
                       : "bg-muted/40 border-border"
                   }`}
                 >
-                  {t.replace(/_/g, " ")}
+                  {labelFor(t)}
                 </button>
               ))}
             </div>
@@ -327,9 +345,7 @@ function DocumentRow({
             {doc.publishedOn && (
               <span>{String(doc.publishedOn).slice(0, 4)} · </span>
             )}
-            <span className="capitalize">
-              {doc.sourceType?.replace(/_/g, " ")}
-            </span>
+            <span className="capitalize">{labelFor(doc.sourceType ?? "")}</span>
             {" · "}
             <span className="capitalize">{doc.tier}</span>
           </p>
@@ -346,7 +362,7 @@ function DocumentRow({
               key={m}
               className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200"
             >
-              {m}
+              {labelFor(m)}
             </span>
           ))}
           {themes.map((t) => (
@@ -354,7 +370,7 @@ function DocumentRow({
               key={t}
               className="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200"
             >
-              {t.replace(/_/g, " ")}
+              {labelFor(t)}
             </span>
           ))}
         </div>

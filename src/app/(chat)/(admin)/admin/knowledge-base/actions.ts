@@ -22,12 +22,15 @@ const CreateDocumentSchema = z.object({
     "guidance_doc",
     "web_article",
     "internal",
+    "doctrine",
   ]),
   sourceUrl: z.string().url().optional().or(z.literal("")),
   publisher: z.string().max(200).optional().or(z.literal("")),
   author: z.string().max(200).optional().or(z.literal("")),
   publishedOn: z.string().optional().or(z.literal("")),
-  modes: z.array(z.enum(["rail", "aviation", "maritime", "hit"])),
+  modes: z.array(
+    z.enum(["rail", "aviation", "maritime", "hit", "data_digital"]),
+  ),
   themes: z.array(
     z.enum([
       "autonomy",
@@ -36,6 +39,11 @@ const CreateDocumentSchema = z.object({
       "hubs_clusters",
       "planning_operation",
       "industry",
+      "data_infrastructure",
+      "assurance_trust",
+      "interoperability",
+      "testbeds_innovation",
+      "governance_stewardship",
     ]),
   ),
   tier: z.enum(["primary", "secondary", "tertiary"]).default("secondary"),

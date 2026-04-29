@@ -141,6 +141,13 @@
       "when": 1777900000000,
       "tag": "0021_atlas_knowledge_base_kb1",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1777956480000,
+      "tag": "0022_seed_knowledge_documents",
+      "breakpoints": true
     }
   ]
 }

@@ -311,7 +311,13 @@ export async function getKnowledgeCoverageMatrix(): Promise<
     .from(AtlasKnowledgeDocumentsTable)
     .where(eq(AtlasKnowledgeDocumentsTable.status, "approved"));
 
-  const MODES = ["rail", "aviation", "maritime", "hit"] as const;
+  const MODES = [
+    "rail",
+    "aviation",
+    "maritime",
+    "hit",
+    "data_digital",
+  ] as const;
   const THEMES = [
     "autonomy",
     "decarbonisation",
@@ -319,6 +325,11 @@ export async function getKnowledgeCoverageMatrix(): Promise<
     "hubs_clusters",
     "planning_operation",
     "industry",
+    "data_infrastructure",
+    "assurance_trust",
+    "interoperability",
+    "testbeds_innovation",
+    "governance_stewardship",
   ] as const;
 
   const matrix: Array<{ mode: string; theme: string; count: number }> = [];
@@ -359,7 +370,9 @@ export async function searchKnowledgeChunks(params: {
   themes?: string[];
   topK?: number;
 }): Promise<KnowledgeSearchResult[]> {
-  const limit = Math.min(10, Math.max(1, params.topK ?? 6));
+  // Phase 6 retrieval harness uses a wider candidate pool (top-20) before
+  // diversity capping; keep a reasonable hard ceiling for safety.
+  const limit = Math.min(50, Math.max(1, params.topK ?? 6));
 
   // Build raw SQL fragments for array-overlap filters.
   // Using sql.raw for the array literals is safe here because the values

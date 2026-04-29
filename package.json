@@ -19,6 +19,7 @@
     "test:e2e:ui": "playwright test --ui",
     "backfill:embeddings": "tsx scripts/backfill-claim-embeddings.ts",
     "seed:jarvis": "tsx scripts/seed-jarvis.ts",
+    "seed:cicerone": "tsx scripts/seed-cicerone.ts",
     "seed:demo": "dotenv -- tsx scripts/seed-demo-users.ts",
     "setup:storage": "tsx scripts/setup-atlas-storage.ts",
     "generate:landscape-snapshot": "tsx scripts/generate-landscape-snapshot.ts",

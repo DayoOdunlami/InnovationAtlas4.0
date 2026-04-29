@@ -40,7 +40,8 @@ import { createWorkflowExecutor } from "lib/ai/workflow/executor/workflow-execut
 import { NodeKind } from "lib/ai/workflow/workflow.interface";
 import { mcpClientsManager } from "lib/ai/mcp/mcp-manager";
 import { APP_DEFAULT_TOOL_KIT } from "lib/ai/tools/tool-kit";
-import { AppDefaultToolkit } from "lib/ai/tools";
+import { AppDefaultToolkit, DefaultToolName } from "lib/ai/tools";
+import { createSurfaceKnowledgeBaseTool } from "lib/ai/tools/kb/surface-knowledge-base";
 
 export function filterMCPToolsByMentions(
   tools: Record<string, VercelAIMcpTool>,
@@ -438,6 +439,11 @@ export const loadAppDefaultTools = (opt?: {
    * allow-lists and `defaultTool` mentions.
    */
   briefingToolKit?: Record<string, Tool>;
+  /**
+   * KB-1 — bind `surfaceKnowledgeBase` to chat agent (Phase 7: ATLAS Strategy 2
+   * vs JARVIS Strategy 5). Omit to use the module-default tool definition.
+   */
+  bindingAgent?: { id: string; name: string | null };
 }) =>
   safe(APP_DEFAULT_TOOL_KIT)
     .map((baseTools) => {
@@ -452,11 +458,28 @@ export const loadAppDefaultTools = (opt?: {
         },
       };
 
+      const knowledgeBaseKit: Record<string, Tool> =
+        opt?.bindingAgent != null
+          ? {
+              ...tools[AppDefaultToolkit.KnowledgeBase],
+              [DefaultToolName.SurfaceKnowledgeBase]:
+                createSurfaceKnowledgeBaseTool(opt.bindingAgent),
+            }
+          : tools[AppDefaultToolkit.KnowledgeBase];
+
+      const toolsWithAgentKb: Record<
+        AppDefaultToolkit,
+        Record<string, Tool>
+      > = {
+        ...tools,
+        [AppDefaultToolkit.KnowledgeBase]: knowledgeBaseKit,
+      };
+
       const defaultToolMentions = (opt?.mentions ?? []).filter(
         (m) => m.type == "defaultTool",
       );
       if (defaultToolMentions.length) {
-        return Array.from(Object.values(tools)).reduce((acc, t) => {
+        return Array.from(Object.values(toolsWithAgentKb)).reduce((acc, t) => {
           const allowed = objectFlow(t).filter((_, k) => {
             return defaultToolMentions.some((m) => m.name == k);
           });
@@ -469,7 +492,7 @@ export const loadAppDefaultTools = (opt?: {
       return (
         allowedAppDefaultToolkit.reduce(
           (acc, key) => {
-            return { ...acc, ...tools[key as AppDefaultToolkit] };
+            return { ...acc, ...toolsWithAgentKb[key as AppDefaultToolkit] };
           },
           {} as Record<string, Tool>,
         ) || {}

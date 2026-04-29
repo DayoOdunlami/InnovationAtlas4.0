@@ -1,30 +1,26 @@
-import "server-only";
+/**
+ * Plain-text extraction for KB ingestion (PDF, DOCX, TXT, XLSX, CSV).
+ * Same behaviour as `passport/text-extractor` but without `server-only` so
+ * CLI scripts (tsx) and API routes can import it.
+ */
 
-export type ExtractedText = {
+export type ExtractedKbText = {
   text: string;
-  /** Approximate character count of extracted content */
   charCount: number;
-  /** Detected format */
   format: "pdf" | "docx" | "txt" | "xlsx" | "csv" | "unknown";
 };
 
-/**
- * Extract plain text from any supported document format.
- * Supports: PDF, DOCX, TXT, XLSX, CSV.
- */
-export async function extractText(
+export async function extractKbDocumentText(
   buffer: Buffer,
   mimeType: string,
   filename: string,
-): Promise<ExtractedText> {
+): Promise<ExtractedKbText> {
   const ext = filename.split(".").pop()?.toLowerCase() ?? "";
 
-  // PDF
   if (mimeType === "application/pdf" || ext === "pdf") {
     return extractPdf(buffer);
   }
 
-  // DOCX
   if (
     mimeType ===
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
@@ -33,7 +29,6 @@ export async function extractText(
     return extractDocx(buffer);
   }
 
-  // XLSX
   if (
     mimeType ===
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
@@ -44,7 +39,6 @@ export async function extractText(
     return extractXlsx(buffer);
   }
 
-  // CSV
   if (
     mimeType === "text/csv" ||
     mimeType === "application/csv" ||
@@ -53,7 +47,6 @@ export async function extractText(
     return extractCsv(buffer);
   }
 
-  // TXT / plain text
   if (mimeType.startsWith("text/") || ext === "txt" || ext === "md") {
     const text = buffer.toString("utf-8");
     return { text, charCount: text.length, format: "txt" };
@@ -65,7 +58,7 @@ export async function extractText(
   );
 }
 
-async function extractPdf(buffer: Buffer): Promise<ExtractedText> {
+async function extractPdf(buffer: Buffer): Promise<ExtractedKbText> {
   // pdf-parse v2.x exports `PDFParse` class (not a default function).
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: buffer });
@@ -82,7 +75,7 @@ async function extractPdf(buffer: Buffer): Promise<ExtractedText> {
   }
 }
 
-async function extractDocx(buffer: Buffer): Promise<ExtractedText> {
+async function extractDocx(buffer: Buffer): Promise<ExtractedKbText> {
   const mammoth = await import("mammoth");
   const result = await mammoth.extractRawText({ buffer });
   return {
@@ -92,7 +85,7 @@ async function extractDocx(buffer: Buffer): Promise<ExtractedText> {
   };
 }
 
-async function extractXlsx(buffer: Buffer): Promise<ExtractedText> {
+async function extractXlsx(buffer: Buffer): Promise<ExtractedKbText> {
   const XLSX = await import("xlsx");
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const lines: string[] = [];
@@ -108,7 +101,7 @@ async function extractXlsx(buffer: Buffer): Promise<ExtractedText> {
   return { text, charCount: text.length, format: "xlsx" };
 }
 
-async function extractCsv(buffer: Buffer): Promise<ExtractedText> {
+async function extractCsv(buffer: Buffer): Promise<ExtractedKbText> {
   const text = buffer.toString("utf-8");
   return { text, charCount: text.length, format: "csv" };
 }

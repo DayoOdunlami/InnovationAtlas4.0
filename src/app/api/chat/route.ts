@@ -273,6 +273,9 @@ export async function POST(request: Request) {
               mentions,
               allowedAppDefaultToolkit,
               briefingToolKit,
+              bindingAgent: agent
+                ? { id: agent.id, name: agent.name ?? null }
+                : undefined,
             }),
           )
           .orElse({});

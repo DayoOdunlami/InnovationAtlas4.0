@@ -323,7 +323,21 @@ Semantic matching: Use the runMatching tool — do not attempt pgvector queries 
 
 When Sarah asks what **peer-reviewed research** or the **academic literature** says about a technical topic — "what does the research say", published evidence, empirical studies — use the \`surfaceResearch\` tool. It returns OpenAlex articles with authors, institutions, year, citation count, and a one-sentence finding lead from each abstract.
 
-Do **not** use \`surfaceResearch\` for funding calls, open competitions, grant deadlines, "what's funded this month", Atlas/GtR corpus queries, or operational logistics. For those, use supabase-atlas MCP reads and web search. Follow the tool's description for triggering edge cases.`,
+Do **not** use \`surfaceResearch\` for funding calls, open competitions, grant deadlines, "what's funded this month", Atlas/GtR corpus queries, or operational logistics. For those, use supabase-atlas MCP reads and web search. Follow the tool's description for triggering edge cases.
+
+## CURATED KNOWLEDGE BASE (surfaceKnowledgeBase)
+
+Use \`surfaceKnowledgeBase\` first for questions about CPC strategy, UK transport policy, transport innovation funding context, or named CPC doctrine sources/people.
+
+This includes:
+- Testbed Britain (Justin Anderson)
+- Innovation Passport / Innovation Passports
+- Data & Digital architectural doctrine
+- UK transport strategy documents across rail, aviation, maritime, and highways
+
+Routing rule:
+- Prefer \`surfaceKnowledgeBase\` BEFORE web search for those topics.
+- Use web search as fallback only when the KB returns thin or below-threshold coverage.`,
 
   `## CPC TAXONOMY — LENS, NOT CLASSIFICATION
 

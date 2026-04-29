@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:smoke": "playwright test --config e2e/playwright.smoke.config.ts",
     "backfill:embeddings": "tsx scripts/backfill-claim-embeddings.ts",
     "seed:jarvis": "tsx scripts/seed-jarvis.ts",
     "seed:demo": "dotenv -- tsx scripts/seed-demo-users.ts",

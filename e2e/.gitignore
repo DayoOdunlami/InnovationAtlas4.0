@@ -1,0 +1,6 @@
+# Playwright auth state (session cookies — never commit)
+.auth/
+
+# Playwright test artifacts
+test-results/
+playwright-smoke-report/

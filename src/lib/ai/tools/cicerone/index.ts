@@ -108,7 +108,12 @@ export const ciceroneKbSearchTool = createTool({
         similarity: Number(c.similarity.toFixed(3)),
         citation: `${c.documentTitle} — chunk ${c.chunkIndex} (${c.sourceType})`,
       })),
-      coverageNote: chunks.length >= 6 ? "strong" : chunks.length >= 3 ? "adequate" : "thin",
+      coverageNote:
+        chunks.length >= 6
+          ? "strong"
+          : chunks.length >= 3
+            ? "adequate"
+            : "thin",
     };
   },
 });
@@ -144,7 +149,8 @@ export const ciceroneTestbedSearchTool = createTool({
     return {
       results: rows,
       deferred: rows.length === 0,
-      reason: rows.length === 0 ? ("stage_2_6_deferred" as const) : ("ok" as const),
+      reason:
+        rows.length === 0 ? ("stage_2_6_deferred" as const) : ("ok" as const),
       message:
         rows.length === 0
           ? "Testbed inventory not ingested in this build (Stage 2.6 deferred). When the source xlsx is committed and ingested, this tool will return semantic matches across the ~97-row inventory."
@@ -170,7 +176,10 @@ export const citeSourceTool = createTool({
   execute: async (params) => {
     if (params.citationType === "tier_brief") {
       if (!params.tierNumber) {
-        return { ok: false, error: "tier_brief citation requires tierNumber" } as const;
+        return {
+          ok: false,
+          error: "tier_brief citation requires tierNumber",
+        } as const;
       }
       return {
         ok: true,
@@ -272,7 +281,7 @@ export const generateDemoPassportTool = createTool({
     try {
       const e = await embedQuery(embeddingText);
       eLit = embeddingLiteral(e);
-    } catch (err) {
+    } catch {
       eLit = null;
     }
 
@@ -352,8 +361,7 @@ export const runDemoMatchingTool = createTool({
         similarity: Number(m.similarity.toFixed(3)),
       })),
       topSimilarity: Number(matches[0].similarity.toFixed(3)),
-      note:
-        "Cosine similarity over the configured embeddings model. Cross-sector matches typically score 0.3–0.5. Treat as retrieval signal, not absolute truth.",
+      note: "Cosine similarity over the configured embeddings model. Cross-sector matches typically score 0.3–0.5. Treat as retrieval signal, not absolute truth.",
     };
   },
 });
@@ -416,8 +424,7 @@ export const suggestHandoffTool = createTool({
       context: params.context ?? null,
       playbook,
       transitionAttempted: false,
-      note:
-        "Demo build: this tool emits the handoff structure for the user to follow manually. The chat surface does not auto-switch agents.",
+      note: "Demo build: this tool emits the handoff structure for the user to follow manually. The chat surface does not auto-switch agents.",
     };
   },
 });

@@ -1,10 +1,46 @@
-# CICERONE Stage 8a — Arrival document (CICERONE-authored) — Smoke Test Results
+# CICERONE Build Status — On Return
 
-**Generated:** 2026-04-29 11:42:54 UTC
-**Model:** claude-sonnet-4-5 (Anthropic)
-**Embed model:** $EMBEDDINGS_MODEL (OpenAI) <!-- pragma: allowlist secret -->
-**System prompt source:** `src/lib/ai/prompts/cicerone.ts`
-**System prompt length:** 16496 chars
+**Operator preamble (human-readable, do not edit CICERONE's section below).**
+
+The body of this document is what CICERONE wrote when asked to introduce
+itself, describe what it can do, name the four demo packs, identify
+limitations, and propose three things for Dayo to test. It is the
+primary arrival document. Its honesty is the point.
+
+| Stage  | Status                | Timestamp (UTC)         |
+|--------|-----------------------|-------------------------|
+| 2.5    | **Deferred**          | 2026-04-29 11:13        |
+| 2.6    | **Deferred**          | 2026-04-29 11:13        |
+| 2.7    | Complete              | 2026-04-29 11:14        |
+| 3      | Complete + 5/5 smokes | 2026-04-29 11:35        |
+| 4      | Complete (4 of 4)     | 2026-04-29 11:39        |
+| 5      | Complete + Demo handoff | 2026-04-29 11:25      |
+| 6      | Minimal (in-prompt)   | 2026-04-29 11:25        |
+| 7      | 5 HOLDS / 0 SOFT / 0 FOLDS | 2026-04-29 11:39   |
+| 8a     | Complete (this doc)   | 2026-04-29 11:42        |
+| 8b     | Complete              | 2026-04-29 11:42        |
+
+**Companion documents:**
+- `docs/cicerone/demo-dryrun.md` — CICERONE's own 3-minute demo for a sceptical CPC executive
+- `docs/cicerone/build-supplement.md` — operator-side build summary, paths, commands, recommended first action
+- `docs/cicerone/stage3-smoke-test-results.md` — five Stage 3 prompts, verbatim
+- `docs/cicerone/stage7-adversarial-results.md` — five adversarial probes, verbatim
+- `docs/cicerone/build-progress.md` — full per-stage log
+- `docs/cicerone/cicerone-decisions-log.md` — two semantic decisions made autonomously
+
+**Generation metadata** (CICERONE-authored body below):
+
+- **Generated:** 2026-04-29 11:42:54 UTC
+- **Model:** claude-sonnet-4-5 (Anthropic)
+- **System prompt source:** `src/lib/ai/prompts/cicerone.ts` (~16.5 kB)
+- **Retrieval:** real-time embedding search over `cicerone_kb.tier_briefs` + `cicerone_kb.source_chunks`
+
+---
+
+## CICERONE-authored body — do not polish
+
+> The text below is verbatim CICERONE output to the Stage 8a prompt
+> ("write your own arrival document"). It is not edited or trimmed.
 
 ---
 

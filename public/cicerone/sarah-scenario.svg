@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" role="img"
+     aria-labelledby="title desc">
+  <title id="title">The Sarah Scenario</title>
+  <desc id="desc">CPC Rail Innovation Manager Sarah's GPS-Denied Rail UAS evidence
+    is ingested, extracted into claims, matched cross-sector against a
+    Horizon Europe maritime call at cosine 0.43 (real, not fabricated 0.85),
+    and produces a structured gap analysis. Demonstrates the platform's
+    cross-sector surprise pattern with honest scoring.</desc>
+
+  <style>
+    .panel-bg { fill: #fafafa; stroke: #d4d4d8; stroke-width: 1; rx: 8; ry: 8; }
+    .heading { font-family: system-ui, sans-serif; font-size: 18px; font-weight: 600; fill: #18181b; }
+    .sub     { font-family: system-ui, sans-serif; font-size: 12px; fill: #52525b; }
+    .person { fill: var(--lens-2, hsl(217 91% 60%)); fill-opacity: 0.6; stroke: #52525b; rx: 8; ry: 8; }
+    .evidence { fill: var(--chart-2, hsl(212 95% 68%)); fill-opacity: 0.55; stroke: #52525b; rx: 8; ry: 8; }
+    .claims   { fill: var(--chart-3, hsl(216 92% 60%)); fill-opacity: 0.55; stroke: #52525b; rx: 8; ry: 8; }
+    .match    { fill: var(--chart-4, hsl(43 74% 66%)); fill-opacity: 0.7; stroke: #52525b; rx: 8; ry: 8; }
+    .gap      { fill: var(--chart-1, hsl(12 76% 61%)); fill-opacity: 0.55; stroke: #52525b; rx: 8; ry: 8; }
+    .pitch    { fill: var(--lens-3, hsl(271 81% 46%)); fill-opacity: 0.55; stroke: #52525b; rx: 8; ry: 8; }
+    .stage-text { font-family: system-ui, sans-serif; font-size: 13px; font-weight: 600; fill: #18181b; }
+    .stage-sub  { font-family: system-ui, sans-serif; font-size: 11px; fill: #18181b; }
+    .stage-meta { font-family: monospace; font-size: 10px; fill: #52525b; }
+    .arrow      { stroke: #52525b; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+    .label      { font-family: system-ui, sans-serif; font-size: 11px; fill: #52525b; }
+    .score      { font-family: monospace; font-size: 22px; font-weight: 700; fill: var(--chart-1, hsl(12 76% 61%)); }
+    .score-note { font-family: system-ui, sans-serif; font-size: 10px; fill: #52525b; font-style: italic; }
+  </style>
+
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#52525b"/>
+    </marker>
+  </defs>
+
+  <rect class="panel-bg" x="20" y="20" width="920" height="560"/>
+  <text class="heading" x="40" y="50">The Sarah Scenario  GPS-Denied Rail UAS, cross-sector surprise</text>
+  <text class="sub" x="40" y="70">847 flight hours, NRIL HAZOP, 94.7% accuracy. Looking for deployment outside rail.</text>
+
+  <!-- Sarah -->
+  <rect class="person" x="40" y="100" width="180" height="80"/>
+  <text class="stage-text" x="60" y="125">Sarah (CPC Rail)</text>
+  <text class="stage-sub"  x="60" y="145">Has: trial report PDF</text>
+  <text class="stage-sub"  x="60" y="161">Wants: cross-sector match</text>
+
+  <!-- Evidence -->
+  <rect class="evidence" x="280" y="100" width="200" height="100"/>
+  <text class="stage-text" x="300" y="125">Source evidence</text>
+  <text class="stage-sub"  x="300" y="145">"847 flight hours"</text>
+  <text class="stage-sub"  x="300" y="161">"NRIL HAZOP  rail only"</text>
+  <text class="stage-sub"  x="300" y="177">"94.7% accuracy in tunnels"</text>
+
+  <!-- Claims -->
+  <rect class="claims" x="540" y="100" width="200" height="120"/>
+  <text class="stage-text" x="560" y="125">Structured claims</text>
+  <text class="stage-meta" x="560" y="143">asserts | performance</text>
+  <text class="stage-sub"  x="560" y="159">"94.7% loc accuracy GPS-denied"</text>
+  <text class="stage-meta" x="560" y="177">asserts | certification</text>
+  <text class="stage-sub"  x="560" y="193">"NRIL HAZOP rail-only"</text>
+  <text class="stage-meta" x="560" y="211">constrains | regulatory</text>
+
+  <!-- Match -->
+  <rect class="match" x="40" y="280" width="280" height="140"/>
+  <text class="stage-text" x="60" y="305">Cross-sector match</text>
+  <text class="stage-sub"  x="60" y="325">Horizon Europe maritime call </text>
+  <text class="stage-sub"  x="60" y="341">GPS-denied autonomous vessels</text>
+  <text class="score"      x="60" y="375">cos = 0.43</text>
+  <text class="score-note" x="60" y="395">real cosine  not 0.85</text>
+  <text class="score-note" x="60" y="409">cross-sector adjacency, not duplicate</text>
+
+  <!-- Gap analysis -->
+  <rect class="gap" x="370" y="280" width="280" height="140"/>
+  <text class="stage-text" x="390" y="305">Gap analysis</text>
+  <text class="stage-sub"  x="390" y="325">" Regulatory (blocking)</text>
+  <text class="stage-meta" x="390" y="339">  No MCA approval  NRIL HAZOP doesn't transfer</text>
+  <text class="stage-sub"  x="390" y="357">" Operational context (significant)</text>
+  <text class="stage-meta" x="390" y="371">  Maritime obstacle density &gt; rail</text>
+  <text class="stage-sub"  x="390" y="389">" Evidence (minor)</text>
+  <text class="stage-meta" x="390" y="403">  No flight hours in maritime / coastal</text>
+
+  <!-- Pitch -->
+  <rect class="pitch" x="700" y="280" width="220" height="140"/>
+  <text class="stage-text" x="720" y="305">Draft pitch</text>
+  <text class="stage-sub"  x="720" y="325">200 words to consortium lead.</text>
+  <text class="stage-sub"  x="720" y="341">Names the call. Names the</text>
+  <text class="stage-sub"  x="720" y="357">three gaps. Cites evidence.</text>
+  <text class="stage-sub"  x="720" y="373">Sarah sends it without</text>
+  <text class="stage-sub"  x="720" y="389">edit-fatigue.</text>
+
+  <!-- Honesty box -->
+  <rect class="evidence" x="40" y="450" width="880" height="120" style="fill:#fff"/>
+  <text class="stage-text" x="60" y="475">Why this scenario is the right demo</text>
+  <text class="stage-sub"  x="60" y="497">" 0.43 is real. Showing cross-sector cosine honestly is more persuasive than a fabricated 0.85.</text>
+  <text class="stage-sub"  x="60" y="515">" The gap is load-bearing. Sarah does not get a free pass. The platform names what's missing.</text>
+  <text class="stage-sub"  x="60" y="533">" The AtlasD&amp;D handshake. The structured gap is operationally adjacent to Layer 6 in Alex Gluhak's Testbed Britain Landscape Survey  Atlas computes the diff; D&amp;D defines what to do with it.</text>
+  <text class="stage-sub"  x="60" y="555">" Demo-mode safety. Sarah's demo passport lives in atlas_demo.*  it does not enter production. Real authoring is JARVIS's surface.</text>
+
+  <!-- Arrows -->
+  <path class="arrow" d="M 220 140 L 280 140"/>
+  <path class="arrow" d="M 480 150 L 540 150"/>
+  <path class="arrow" d="M 640 220 L 200 280"/>
+  <path class="arrow" d="M 320 350 L 370 350"/>
+  <path class="arrow" d="M 650 350 L 700 350"/>
+  <text class="label" x="220" y="135">upload</text>
+  <text class="label" x="486" y="142">extract</text>
+  <text class="label" x="540" y="245">match</text>
+  <text class="label" x="324" y="346">pair</text>
+  <text class="label" x="652" y="346">draft</text>
+</svg>

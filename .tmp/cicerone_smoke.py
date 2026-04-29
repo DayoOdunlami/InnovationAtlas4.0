@@ -65,7 +65,7 @@ except ImportError:
 SYSTEM_PROMPT_PATH = _REPO_ROOT / "src" / "lib" / "ai" / "prompts" / "cicerone.ts"
 ANTHROPIC_MODEL = os.environ.get("CICERONE_SMOKE_MODEL", "claude-sonnet-4-5")
 EMBED_MODEL = os.environ.get("EMBEDDINGS_MODEL", "text-embedding-3-small")  # pragma: allowlist secret
-MAX_TOKENS = 1500
+MAX_TOKENS = 2400
 
 
 def load_system_prompt() -> str:
@@ -266,7 +266,7 @@ def run_suite(label: str, prompts: list[tuple[str, str]], output_path: Path):
         out.write(f"# CICERONE {label} — Smoke Test Results\n\n")
         out.write(f"**Generated:** {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}\n")
         out.write(f"**Model:** {ANTHROPIC_MODEL} (Anthropic)\n")
-        out.write(f"**Embed model:** {EMBED_MODEL} (OpenAI)\n")
+        out.write(f"**Embed model:** {EMBED_MODEL!r} (OpenAI)  <!-- pragma: allowlist secret -->\n")
         out.write(f"**System prompt source:** `{SYSTEM_PROMPT_PATH.relative_to(_REPO_ROOT)}`\n")
         out.write(f"**System prompt length:** {len(system_prompt)} chars\n\n")
         out.write("---\n\n")
